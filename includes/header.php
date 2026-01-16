@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS DEWAAN</title>
+    <?php $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : ''; ?>
+    <script src="<?= $base ?>assets/js/tailwind.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f766e', // Teal 700
+                        secondary: '#134e4a', // Teal 900
+                        accent: '#f59e0b', // Amber 500
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= $base ?>assets/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .sidebar-link-active {
+            background: #0f766e;
+            border-left: 4px solid #f59e0b;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+<?php if (isset($_SESSION['user_id'])): ?>
+    <div class="flex flex-1 h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="bg-secondary text-white shadow-2xl flex flex-col transition-all duration-300 transform w-64 border-r border-teal-800/50" id="sidebar">
+            <div class="p-6 flex items-center justify-between border-b border-teal-800 h-24 bg-teal-900/20">
+                <div class="sidebar-text truncate">
+                    <h1 class="text-2xl font-bold tracking-tight text-accent logo-text">DEWAAN</h1>
+                    <p class="text-[10px] text-teal-400 font-medium uppercase tracking-[0.2em]">Management System</p>
+                </div>
+                <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-teal-800 transition-all text-teal-400 hover:text-white outline-none ring-1 ring-teal-800 hover:ring-teal-600">
+                    <i class="fas fa-bars text-lg" id="sidebarToggleIcon"></i>
+                </button>
+            </div>
+            
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/POS-DEWAAN/index.php" class="flex items-center px-6 py-4 hover:bg-teal-800/50 transition-all group <?= basename($_SERVER['PHP_SELF']) == 'index.php' ? 'sidebar-link-active shadow-lg' : '' ?>" title="Dashboard">
+                            <i class="fas fa-th-large w-6 text-xl group-hover:scale-110 transition-transform"></i>
+                            <span class="font-bold ml-4 sidebar-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/inventory.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Inventory">
+                            <i class="fas fa-boxes w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Inventory</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/pos.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="POS / Sale">
+                            <i class="fas fa-cash-register w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">POS / Sale</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/customers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Customers">
+                            <i class="fas fa-users w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Customers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/dealers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'dealers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Dealers">
+                            <i class="fas fa-truck w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Dealers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/reports.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Reports">
+                            <i class="fas fa-chart-line w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Reports</span>
+                        </a>
+                    </li>
+                    <!-- Dropdown for Product Setup -->
+                    <li class="relative">
+                        <button onclick="toggleDropdown('setupDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Product Setup">
+                            <div class="flex items-center">
+                                <i class="fas fa-tools w-6 text-xl"></i>
+                                <span class="font-medium ml-4 sidebar-text">Product Setup</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="setupDropdownIcon"></i>
+                        </button>
+                        <ul id="setupDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
+                            <li>
+                                <a href="/POS-DEWAAN/pages/categories.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Categories">
+                                    <i class="fas fa-tags mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Categories</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/POS-DEWAAN/pages/units.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'units.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Units">
+                                    <i class="fas fa-balance-scale mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Units</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/settings.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Settings">
+                            <i class="fas fa-cog w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Settings</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="p-6">
+                <a href="/POS-DEWAAN/logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
+                    <i class="fas fa-power-off"></i> 
+                    <span class="ml-3 sidebar-text">Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-8">
+            <div class="mb-8 flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
+               <div>
+                   <h2 class="text-2xl font-bold text-gray-800 tracking-tight"><?= isset($pageTitle) ? $pageTitle : 'Dashboard' ?></h2>
+                   <div class="flex items-center mt-1">
+                        <span class="h-1.5 w-1.5 rounded-full bg-teal-500 mr-2"></span>
+                        <p class="text-gray-400 text-[10px] font-semibold uppercase tracking-[0.15em]"><?= date('M Y') ?> Overview</p>
+                   </div>
+               </div>
+               <div class="text-right">
+                   <div class="text-sm font-semibold text-teal-700 bg-teal-50 px-4 py-2 rounded-xl border border-teal-100 inline-block">
+                       <i class="far fa-calendar-alt mr-2 text-teal-400"></i><?= date('l, d M Y') ?>
+                   </div>
+               </div>
+            </div>
+            
+    <style>
+        #sidebar.collapsed { width: 80px; }
+        #sidebar.collapsed .sidebar-text { display: none; }
+        #sidebar.collapsed .logo-text { font-size: 1.25rem; }
+        #sidebar.collapsed .logo-text::after { content: 'D'; }
+        #sidebar.collapsed .logo-text { display: none; }
+        #sidebar.collapsed .logo-min { display: block !important; }
+        .logo-min { display: none; }
+    </style>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('w-64');
+            sidebar.classList.toggle('w-20');
+            
+            const texts = document.querySelectorAll('.sidebar-text');
+            texts.forEach(t => t.classList.toggle('hidden'));
+            
+            // Save state
+            const isCollapsed = sidebar.classList.contains('w-20');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        function toggleDropdown(id) {
+            const dropdown = document.getElementById(id);
+            const icon = document.getElementById(id + 'Icon');
+            dropdown.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+
+        // Initialize state from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-20');
+                const texts = document.querySelectorAll('.sidebar-text');
+                texts.forEach(t => t.classList.add('hidden'));
+            }
+
+            const currentFile = "<?= basename($_SERVER['PHP_SELF']) ?>";
+            if (['categories.php', 'units.php'].includes(currentFile)) {
+                document.getElementById('setupDropdown').classList.remove('hidden');
+            }
+        });
+
+        let alertCallback = null;
+
+        function showAlert(message, title = 'Attention') {
+            const modal = document.getElementById('globalAlertModal');
+            const titleEl = document.getElementById('globalAlertTitle');
+            const messageEl = document.getElementById('globalAlertMessage');
+            const confirmBtn = document.getElementById('globalAlertConfirmBtn');
+            const closeBtn = document.getElementById('globalAlertCloseBtn');
+            
+            titleEl.innerText = title;
+            messageEl.innerText = message;
+            
+            confirmBtn.classList.add('hidden');
+            closeBtn.classList.remove('hidden');
+            closeBtn.innerText = "Got it, Thanks";
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            alertCallback = null;
+        }
+
+        function showConfirm(message, callback, title = 'Are you sure?') {
+            const modal = document.getElementById('globalAlertModal');
+            const titleEl = document.getElementById('globalAlertTitle');
+            const messageEl = document.getElementById('globalAlertMessage');
+            const confirmBtn = document.getElementById('globalAlertConfirmBtn');
+            const closeBtn = document.getElementById('globalAlertCloseBtn');
+            
+            titleEl.innerText = title;
+            messageEl.innerText = message;
+            
+            confirmBtn.classList.remove('hidden');
+            closeBtn.classList.remove('hidden');
+            closeBtn.innerText = "Cancel";
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            alertCallback = callback;
+        }
+
+        function handleAlertConfirm() {
+            if (alertCallback) alertCallback();
+            closeAlert();
+        }
+
+        function closeAlert() {
+            const modal = document.getElementById('globalAlertModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            alertCallback = null;
+        }
+    </script>
+
+    <!-- Global Alert Modal -->
+    <div id="globalAlertModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full transform transition-all animate-in fade-in zoom-in duration-200">
+            <div class="p-6 text-center">
+                <div id="alertIconBox" class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl" id="globalAlertIcon"></i>
+                </div>
+                <h3 id="globalAlertTitle" class="text-xl font-bold text-gray-900 mb-2">Attention</h3>
+                <p id="globalAlertMessage" class="text-gray-500 text-sm leading-relaxed mb-6"></p>
+                <div class="flex gap-3">
+                    <button id="globalAlertCloseBtn" onclick="closeAlert()" class="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors active:scale-95">
+                        Cancel
+                    </button>
+                    <button id="globalAlertConfirmBtn" onclick="handleAlertConfirm()" class="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20 active:scale-95 hidden">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
