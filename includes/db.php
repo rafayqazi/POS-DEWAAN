@@ -32,21 +32,29 @@ function initCSV($table, $headers) {
  * Read all data from a CSV file
  * Returns an array of associative arrays
  */
+/**
+ * Read all data from a CSV file with shared lock
+ * Returns an array of associative arrays
+ */
 function readCSV($table) {
+    // START TRANSACTION (READ)
     $path = getCSVPath($table);
     if (!file_exists($path)) return [];
 
     $data = [];
-    if (($handle = fopen($path, "r")) !== FALSE) {
-        $headers = fgetcsv($handle); // Read header row
-        if (!$headers) return []; // Empty file
-
-        while (($row = fgetcsv($handle)) !== FALSE) {
-            // Combine header with row data to create associative array
-            // Handle cases where row length might mismatch header (though unlikely if managed by app)
-            if (count($headers) == count($row)) {
-                $data[] = array_combine($headers, $row);
+    $handle = fopen($path, "r");
+    if ($handle !== FALSE) {
+        // Acquire Shared Lock
+        if (flock($handle, LOCK_SH)) {
+            $headers = fgetcsv($handle);
+            if ($headers) {
+                while (($row = fgetcsv($handle)) !== FALSE) {
+                    if (count($headers) == count($row)) {
+                        $data[] = array_combine($headers, $row);
+                    }
+                }
             }
+            flock($handle, LOCK_UN);
         }
         fclose($handle);
     }
@@ -54,110 +62,150 @@ function readCSV($table) {
 }
 
 /**
- * Insert a new row into the CSV
- * Auto-increments ID if 'id' is in headers but not in data
+ * Insert a new row into the CSV with exclusive lock
  */
 function insertCSV($table, $row_data) {
+    // START TRANSACTION (WRITE)
     $path = getCSVPath($table);
-    $all_data = readCSV($table);
     
-    // Get headers
-    $headers = [];
-    if (file_exists($path)) {
-        $f = fopen($path, 'r');
-        $headers = fgetcsv($f);
-        fclose($f);
+    // Ensure file exists and has headers (safely)
+    if (!file_exists($path)) {
+        $headers = array_keys($row_data);
+        if (!in_array('id', $headers)) array_unshift($headers, 'id');
+        if (!in_array('created_at', $headers)) $headers[] = 'created_at';
+        writeCSV($table, [], $headers); // Initialize
     }
 
-    if (!$headers) return false;
-
-    // Generate ID?
-    if (in_array('id', $headers) && !isset($row_data['id'])) {
+    $retId = false;
+    
+    $fp = fopen($path, 'r+'); // Open for reading and writing
+    if ($fp && flock($fp, LOCK_EX)) {
+        // Read headers
+        $headers = fgetcsv($fp);
+        
+        // Read all existing data to find max ID
+        $entries = [];
         $last_id = 0;
-        foreach ($all_data as $row) {
-            if (isset($row['id']) && $row['id'] > $last_id) {
-                $last_id = (int)$row['id'];
-            }
-        }
-        $row_data['id'] = $last_id + 1;
-    }
-
-    // Prepare row in correct order of headers
-    $csv_row = [];
-    foreach ($headers as $col) {
-        $csv_row[] = isset($row_data[$col]) ? $row_data[$col] : ''; // Default to empty string
-    }
-
-    // Append to file
-    $fp = fopen($path, 'a');
-    fputcsv($fp, $csv_row);
-    fclose($fp);
-
-    return isset($row_data['id']) ? $row_data['id'] : true;
-}
-
-/**
- * Update a row by ID
- */
-function updateCSV($table, $id, $new_data) {
-    $rows = readCSV($table);
-    $headers = array_keys(reset($rows) ?: []);
-    if (!$headers) {
-        // Try to get headers from file if rows are empty but file exists
-        if (($h = fopen(getCSVPath($table), 'r')) !== FALSE) {
-            $headers = fgetcsv($h);
-            fclose($h);
-        }
-    }
-
-    $fp = fopen(getCSVPath($table), 'w');
-    fputcsv($fp, $headers); // Write headers
-
-    foreach ($rows as $row) {
-        if ($row['id'] == $id) {
-            // Merge existing row with new data
-            foreach ($new_data as $k => $v) {
-                if (array_key_exists($k, $row)) {
-                    $row[$k] = $v;
+        while (($row = fgetcsv($fp)) !== FALSE) {
+            $entries[] = $row;
+            if ($headers && count($row) == count($headers)) {
+                $item = array_combine($headers, $row);
+                if (isset($item['id']) && $item['id'] > $last_id) {
+                    $last_id = (int)$item['id'];
                 }
             }
         }
-        fputcsv($fp, $row); // Write row
+
+        // Generate ID / Defaults
+        if (in_array('id', $headers) && !isset($row_data['id'])) {
+            $row_data['id'] = $last_id + 1;
+        }
+        $retId = $row_data['id'];
+
+        // Prepare new row
+        $csv_row = [];
+        foreach ($headers as $col) {
+            $csv_row[] = isset($row_data[$col]) ? $row_data[$col] : ''; 
+        }
+
+        // Move pointer to end to append
+        fseek($fp, 0, SEEK_END);
+        fputcsv($fp, $csv_row);
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    } elseif ($fp) {
+        fclose($fp);
     }
-    fclose($fp);
+
+    return $retId;
 }
 
 /**
- * Delete a row by ID
+ * Update a row by ID with exclusive lock
+ */
+function updateCSV($table, $id, $new_data) {
+    $path = getCSVPath($table);
+    if (!file_exists($path)) return false;
+
+    $fp = fopen($path, 'r+');
+    if ($fp && flock($fp, LOCK_EX)) {
+        $headers = fgetcsv($fp);
+        $rows = [];
+        
+        while (($r = fgetcsv($fp)) !== FALSE) {
+             if (count($r) == count($headers)) {
+                 $rows[] = array_combine($headers, $r);
+             }
+        }
+
+        // Rewrite file from scratch (truncate)
+        ftruncate($fp, 0);
+        rewind($fp);
+        fputcsv($fp, $headers);
+
+        foreach ($rows as $row) {
+            if ($row['id'] == $id) {
+                // Merge data
+                foreach ($new_data as $k => $v) {
+                    if (array_key_exists($k, $row)) {
+                        $row[$k] = $v;
+                    }
+                }
+            }
+            // Write row ensuring order
+            $csv_row = [];
+            foreach ($headers as $h) {
+                $csv_row[] = $row[$h];
+            }
+            fputcsv($fp, $csv_row);
+        }
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    } elseif ($fp) {
+        fclose($fp);
+    }
+}
+
+/**
+ * Delete a row by ID with exclusive lock
  */
 function deleteCSV($table, $id) {
-    $rows = readCSV($table);
     $path = getCSVPath($table);
-    
-    // Get headers from file before clearing
-    $headers = [];
-    if (file_exists($path)) {
-        $f = fopen($path, 'r');
-        $headers = fgetcsv($f);
-        fclose($f);
-    }
-    
-    if (!$headers) return false;
+    if (!file_exists($path)) return false;
 
-    // Re-open and overwrite
-    $fp = fopen($path, 'w');
-    fputcsv($fp, $headers); // Write headers
-
-    foreach ($rows as $row) {
-        if ($row['id'] != $id) {
-            fputcsv($fp, $row);
+    $fp = fopen($path, 'r+');
+    if ($fp && flock($fp, LOCK_EX)) {
+        $headers = fgetcsv($fp);
+        $rows = [];
+        while (($r = fgetcsv($fp)) !== FALSE) {
+             $rows[] = $r;
         }
+
+        ftruncate($fp, 0);
+        rewind($fp);
+        fputcsv($fp, $headers);
+
+        foreach ($rows as $r) {
+            if (count($r) == count($headers)) {
+                $row = array_combine($headers, $r);
+                if ($row['id'] != $id) {
+                    fputcsv($fp, $r);
+                }
+            }
+        }
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    } elseif ($fp) {
+        fclose($fp);
     }
-    fclose($fp);
 }
 
 /**
  * Write a full array of data to CSV (replaces entire file)
+ * USE WITH CAUTION: Overwrites everything.
  */
 function writeCSV($table, $data, $custom_headers = null) {
     $path = getCSVPath($table);
@@ -168,7 +216,7 @@ function writeCSV($table, $data, $custom_headers = null) {
         $headers = array_keys(reset($data));
     }
     
-    // If we still don't have headers and file exists, try to preserve them
+    // Preserve existing headers if not provided
     if (!$headers && file_exists($path)) {
         $f = fopen($path, 'r');
         $headers = fgetcsv($f);
@@ -177,17 +225,21 @@ function writeCSV($table, $data, $custom_headers = null) {
 
     if (!$headers) return false;
     
-    $fp = fopen($path, 'w');
-    fputcsv($fp, $headers);
-    foreach ($data as $row) {
-        // Ensure values follow header order
-        $csv_row = [];
-        foreach ($headers as $h) {
-            $csv_row[] = isset($row[$h]) ? $row[$h] : '';
+    $fp = fopen($path, 'w'); // 'w' truncates, but we lock immediately
+    if ($fp && flock($fp, LOCK_EX)) {
+        fputcsv($fp, $headers);
+        foreach ($data as $row) {
+            $csv_row = [];
+            foreach ($headers as $h) {
+                $csv_row[] = isset($row[$h]) ? $row[$h] : '';
+            }
+            fputcsv($fp, $csv_row);
         }
-        fputcsv($fp, $csv_row);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    } elseif ($fp) {
+        fclose($fp);
     }
-    fclose($fp);
     return true;
 }
 
@@ -195,6 +247,7 @@ function writeCSV($table, $data, $custom_headers = null) {
  * Find a single row by ID
  */
 function findCSV($table, $id) {
+    // readCSV already handles locking
     $rows = readCSV($table);
     foreach ($rows as $row) {
         if ($row['id'] == $id) return $row;
@@ -202,9 +255,63 @@ function findCSV($table, $id) {
     return null;
 }
 
+/**
+ * Transaction Helper
+ * Reads a table securely, allows modification via callback, and writes back.
+ * Ensures no other process changes the file in between read and write.
+ */
+function processCSVTransaction($table, $callback) {
+    $path = getCSVPath($table);
+    if (!file_exists($path)) return false;
+
+    $fp = fopen($path, 'r+');
+    if (!$fp) return false;
+
+    if (flock($fp, LOCK_EX)) { // Exclusive Lock
+        // 1. Read Data
+        $headers = fgetcsv($fp);
+        $data = [];
+        if ($headers) {
+            while (($row = fgetcsv($fp)) !== FALSE) {
+                if (count($row) == count($headers)) {
+                    $data[] = array_combine($headers, $row);
+                }
+            }
+        }
+
+        // 2. Execute Callback (Modify Data)
+        // Callback signature: function($data) { return $modified_data; }
+        // Pass $data by reference is also possible, but return is safer for logic
+        $newData = $callback($data);
+
+        if ($newData !== false) { // distinct from empty array
+            // 3. Write Back
+            ftruncate($fp, 0);
+            rewind($fp);
+            fputcsv($fp, $headers);
+            foreach ($newData as $row) {
+                 $csv_row = [];
+                 foreach ($headers as $h) {
+                     $csv_row[] = isset($row[$h]) ? $row[$h] : '';
+                 }
+                 fputcsv($fp, $csv_row);
+            }
+        }
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return true;
+    } 
+    
+    fclose($fp);
+    return false;
+}
+
 // Initialize tables if they don't exist
 initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
+initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'amount', 'description', 'date', 'created_at', 'restock_id']);
+initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'created_at']);
 
 // Seed defaults if empty
 if (count(readCSV('units')) == 0) {

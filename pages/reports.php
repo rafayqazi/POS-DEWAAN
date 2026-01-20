@@ -39,7 +39,21 @@ foreach($sales as $s) {
     });
     
     foreach($current_sale_items as $item) {
-        $unit_cost = (isset($item['buy_price']) && $item['buy_price'] !== '') ? (float)$item['buy_price'] : (isset($products_map[$item['product_id']]) ? (float)$products_map[$item['product_id']]['buy_price'] : 0);
+        // PRIORITY: 
+        // 1. avg_buy_price (The accurate AVCO cost at time of sale)
+        // 2. buy_price (The cost recorded at sale - fallback)
+        // 3. Current Product AVCO (If historic data missing)
+        
+        $unit_cost = 0;
+        if (isset($item['avg_buy_price']) && $item['avg_buy_price'] !== '') {
+            $unit_cost = (float)$item['avg_buy_price'];
+        } elseif (isset($item['buy_price']) && $item['buy_price'] !== '') {
+            $unit_cost = (float)$item['buy_price'];
+        } elseif (isset($products_map[$item['product_id']])) {
+            // Fallback for very old data
+            $p = $products_map[$item['product_id']];
+            $unit_cost = isset($p['avg_buy_price']) ? (float)$p['avg_buy_price'] : (float)$p['buy_price'];
+        }
         $cost = $unit_cost * (float)$item['quantity'];
         $profit = (float)$item['total_price'] - $cost;
         if ($is_today) $profit_today += $profit;
@@ -78,18 +92,26 @@ $total_recovered = $total_paid_at_sale + $total_customer_payments;
          <h3 class="text-gray-500 text-sm uppercase">Sales (Today)</h3>
          <p class="text-3xl font-bold text-gray-800"><?= formatCurrency($sales_today) ?></p>
     </a>
-    <div class="bg-white p-6 rounded-xl shadow border-t-4 border-blue-500">
+    <a href="sales_history.php" class="bg-white p-6 rounded-xl shadow border-t-4 border-blue-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
         <h3 class="text-gray-500 text-sm uppercase">Total Recovered</h3>
         <p class="text-3xl font-bold text-green-600"><?= formatCurrency($total_recovered) ?></p>
-    </div>
-    <div class="bg-white p-6 rounded-xl shadow border-t-4 border-red-500">
+    </a>
+    <a href="sales_history.php?date=<?= date('Y-m-d') ?>" class="bg-white p-6 rounded-xl shadow border-t-4 border-emerald-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
+        <h3 class="text-gray-500 text-sm uppercase font-bold text-emerald-600">Profit (Today)</h3>
+        <p class="text-3xl font-bold text-gray-800"><?= formatCurrency($profit_today) ?></p>
+    </a>
+    <a href="sales_history.php?month=<?= date('Y-m') ?>" class="bg-white p-6 rounded-xl shadow border-t-4 border-emerald-600 hover:shadow-lg transition transform hover:-translate-y-1 block">
+        <h3 class="text-gray-500 text-sm uppercase font-bold text-emerald-700">Profit (This Month)</h3>
+        <p class="text-3xl font-bold text-gray-800"><?= formatCurrency($profit_month) ?></p>
+    </a>
+    <a href="customers.php" class="bg-white p-6 rounded-xl shadow border-t-4 border-red-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
         <h3 class="text-gray-500 text-sm uppercase">Customer Debt</h3>
         <p class="text-3xl font-bold text-red-600"><?= formatCurrency($total_debt_customers) ?></p>
-    </div>
-    <div class="bg-white p-6 rounded-xl shadow border-t-4 border-amber-500">
+    </a>
+    <a href="dealers.php" class="bg-white p-6 rounded-xl shadow border-t-4 border-amber-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
         <h3 class="text-gray-500 text-sm uppercase">Dealer Payable</h3>
         <p class="text-3xl font-bold text-amber-600"><?= formatCurrency($total_debt_dealers) ?></p>
-    </div>
+    </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -13,21 +13,107 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] == 'add') {
-        $data = [
-            'name' => cleanInput($_POST['name']),
-            'category' => cleanInput($_POST['category']),
-            'description' => '',
-            'buy_price' => cleanInput($_POST['buy_price']),
-            'sell_price' => cleanInput($_POST['sell_price']),
-            'stock_quantity' => cleanInput($_POST['stock_quantity']),
-            'unit' => cleanInput($_POST['unit']),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
+        $price_buy = (float)cleanInput($_POST['buy_price']);
+        $price_sell = (float)cleanInput($_POST['sell_price']);
+        $qty = (float)cleanInput($_POST['stock_quantity']);
+        
+        // Validation: Prevent Loss
+        if ($price_buy > $price_sell) {
+            $error = "Error: Buy Price ($price_buy) cannot be greater than Sell Price ($price_sell).";
+        } else {
+            $dealer_id = cleanInput($_POST['dealer_id'] ?? '');
+            
+            // Handle Inline New Dealer Creation
+            if ($dealer_id === 'ADD_NEW') {
+                $new_dealer_name = cleanInput($_POST['new_dealer_name']);
+                if (!empty($new_dealer_name)) {
+                    $dealer_data = [
+                        'name' => $new_dealer_name,
+                        'contact' => '', // Optional info can be skipped for quick add
+                        'created_at' => date('Y-m-d H:i:s')
+                    ];
+                    $dealer_id = insertCSV('dealers', $dealer_data);
+                } else {
+                    $dealer_id = ''; // Fallback if name empty
+                }
+            }
 
-        if (insertCSV('products', $data)) {
-            $message = "Product added successfully!";
+            $amount_paid = (float)cleanInput($_POST['amount_paid'] ?? 0);
+            $purchase_date = cleanInput($_POST['purchase_date'] ?? date('Y-m-d'));
+
+            $data = [
+                'name' => cleanInput($_POST['name']),
+                'category' => cleanInput($_POST['category']),
+                'description' => '',
+                'buy_price' => $price_buy,
+                'avg_buy_price' => $price_buy, // Initial AVCO matches buy price
+                'sell_price' => $price_sell,
+                'stock_quantity' => $qty,
+                'unit' => cleanInput($_POST['unit']),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+
+            // Capture the returned New ID from insertCSV
+            $new_product_id = insertCSV('products', $data);
+
+            if ($new_product_id) {
+                // LOG INITIAL RESTOCK logic (same as before)...
+            if ($qty > 0) {
+                // Determine Dealer Name
+                $dealer_name = "N/A";
+                $is_open_market = ($dealer_id === 'OPEN_MARKET');
+
+                if ($is_open_market) {
+                    $dealer_name = "Open Market";
+                } elseif (!empty($dealer_id)) {
+                    $dealers = readCSV('dealers');
+                    foreach ($dealers as $d) {
+                        if ($d['id'] == $dealer_id) {
+                            $dealer_name = $d['name'];
+                            break;
+                        }
+                    }
+                }
+
+                $restock_data = [
+                    'product_id' => $new_product_id,
+                    'product_name' => $data['name'],
+                    'quantity' => $qty,
+                    'new_buy_price' => $price_buy,
+                    'old_buy_price' => 0, // No previous price
+                    'new_sell_price' => $data['sell_price'],
+                    'old_sell_price' => 0,
+                    'dealer_id' => $dealer_id,
+                    'dealer_name' => $dealer_name,
+                    'amount_paid' => $amount_paid,
+                    'date' => $purchase_date,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                insertCSV('restocks', $restock_data);
+
+                // LOG DEALER TRANSACTION (Only if specific dealer selected)
+                if (!empty($dealer_id) && !$is_open_market) {
+                    $total_bill = $qty * $price_buy;
+                    $balance = $total_bill - $amount_paid;
+                    
+                    $transaction_data = [
+                        'dealer_id' => $dealer_id,
+                        'date' => $purchase_date,
+                        'type' => 'Purchase',
+                        'product_name' => $data['name'], 
+                        'description' => "Initial Stock: " . $data['name'] . " ($qty x $price_buy)",
+                        'bill_amount' => $total_bill,
+                        'paid_amount' => $amount_paid,
+                        'balance' => $balance
+                    ];
+                    insertCSV('dealer_transactions', $transaction_data);
+                }
+            }
+
+            $message = "Product added successfully with Initial Stock logged!";
         } else {
             $error = "Error adding product.";
+        }
         }
     } elseif ($_POST['action'] == 'edit') {
         $id = $_POST['id'];
@@ -66,14 +152,14 @@ usort($products, function($a, $b) {
 });
 ?>
 
-<div class="mb-6 flex justify-between items-center">
+<div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
     <div class="relative w-full max-w-md">
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
             <i class="fas fa-search"></i>
         </span>
         <input type="text" id="inventorySearch" autofocus placeholder="Search inventory..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-teal-500 focus:outline-none">
     </div>
-    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition flex items-center shadow-lg">
+    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition flex items-center shadow-lg w-full md:w-auto justify-center">
         <i class="fas fa-plus mr-2"></i> Add Product
     </button>
 </div>
@@ -99,6 +185,7 @@ usort($products, function($a, $b) {
                     <th class="p-4 text-right">Sell Price</th>
                     <th class="p-4 text-right bg-teal-800">Total Cost</th>
                     <th class="p-4 text-right bg-teal-900">Est. Profit</th>
+                    <th class="p-4 text-right bg-emerald-900 text-emerald-100">Profit (AVCO)</th>
                     <th class="p-4 text-center">Actions</th>
                 </tr>
             </thead>
@@ -112,11 +199,17 @@ usort($products, function($a, $b) {
                         $buy = (float)$product['buy_price'];
                         $sell = (float)$product['sell_price'];
                         $qty = (float)$product['stock_quantity'];
-                        $total_cost = $buy * $qty;
+                        $stock_val = $buy * $qty;
                         $total_profit = ($sell - $buy) * $qty;
                         
-                        $grand_total_cost += $total_cost;
+                        // Weighted Average Profit Logic
+                        $avco_cost = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : $buy;
+                        $avco_profit_unit = $sell - $avco_cost;
+                        $avco_profit_total = $avco_profit_unit * $qty;
+
+                        $grand_total_cost += $stock_val;
                         $grand_total_profit += $total_profit;
+                        $grand_total_profit_avco = ($grand_total_profit_avco ?? 0) + $avco_profit_total;
                 ?>
                         <tr class="hover:bg-gray-50 transition border-b">
                             <td class="p-4 text-gray-400 font-mono text-xs text-center"><?= $sn++ ?></td>
@@ -133,10 +226,17 @@ usort($products, function($a, $b) {
                             </td>
                             <td class="p-4 text-right text-gray-600 text-sm"><?= formatCurrency($buy) ?></td>
                             <td class="p-4 text-right font-bold text-teal-700 text-sm"><?= formatCurrency($sell) ?></td>
-                            <td class="p-4 text-right font-mono font-bold text-gray-700 bg-gray-50/50"><?= formatCurrency($total_cost) ?></td>
+                            <td class="p-4 text-right font-mono font-bold text-gray-700 bg-gray-50/50"><?= formatCurrency($stock_val) ?></td>
                             <td class="p-4 text-right font-mono font-bold text-green-600 bg-green-50/30"><?= formatCurrency($total_profit) ?></td>
+                            <td class="p-4 text-right font-mono font-bold text-emerald-600 bg-emerald-50/30 border-l border-emerald-100">
+                                <?= formatCurrency($avco_profit_total) ?>
+                                <div class="text-[9px] text-gray-400 font-normal">@ <?= number_format($avco_cost, 2) ?> avg</div>
+                            </td>
                             <td class="p-4 text-center">
                                 <div class="flex justify-center space-x-2">
+                                    <button onclick='openRestockModal(<?= json_encode($product) ?>)' class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Restock">
+                                        <i class="fas fa-plus-circle text-xs"></i>
+                                    </button>
                                     <button onclick='openEditModal(<?= json_encode($product) ?>)' class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Edit">
                                         <i class="fas fa-edit text-xs"></i>
                                     </button>
@@ -149,7 +249,7 @@ usort($products, function($a, $b) {
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="9" class="p-12 text-center text-gray-400">
+                        <td colspan="10" class="p-12 text-center text-gray-400">
                             <i class="fas fa-box-open text-5xl mb-4 text-gray-200"></i><br>
                             No products found. Start by adding one.
                         </td>
@@ -162,6 +262,7 @@ usort($products, function($a, $b) {
                     <td colspan="6" class="p-4 text-right uppercase tracking-wider text-xs">Grand Inventory Totals:</td>
                     <td class="p-4 text-right font-mono"><?= formatCurrency($grand_total_cost) ?></td>
                     <td class="p-4 text-right font-mono text-green-400"><?= formatCurrency($grand_total_profit) ?></td>
+                    <td class="p-4 text-right font-mono text-emerald-400 border-l border-gray-700"><?= formatCurrency($grand_total_profit_avco ?? 0) ?></td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -212,7 +313,7 @@ usort($products, function($a, $b) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Buy Price</label>
-                        <input type="number" step="0.01" name="buy_price" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                        <input type="number" step="0.01" name="buy_price" id="add_buy_price" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sell Price</label>
@@ -220,9 +321,48 @@ usort($products, function($a, $b) {
                     </div>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
-                    <input type="number" name="stock_quantity" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
+                        <input type="number" name="stock_quantity" id="add_stock_qty" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                        <input type="date" name="purchase_date" value="<?= date('Y-m-d') ?>" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                    </div>
+                </div>
+
+                <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Supplier & Payment (Optional)</h4>
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <div class="col-span-2">
+                             <select name="dealer_id" id="add_dealer_select" onchange="toggleNewDealerInput(this)" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm">
+                                <option value="OPEN_MARKET">Open Market (Default)</option>
+                                <?php 
+                                $dealers_list_add = readCSV('dealers');
+                                foreach($dealers_list_add as $dlr): 
+                                ?>
+                                <option value="<?= $dlr['id'] ?>"><?= htmlspecialchars($dlr['name']) ?></option>
+                                <?php endforeach; ?>
+                                <option value="ADD_NEW" class="font-bold text-teal-600">+ Add New Dealer</option>
+                            </select>
+                            
+                            <!-- Hidden Input for New Dealer -->
+                            <div id="new_dealer_input_container" class="mt-2 hidden">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">New Dealer Name</label>
+                                <input type="text" name="new_dealer_name" id="new_dealer_name" class="w-full rounded-lg border-teal-300 border-2 p-2 focus:ring-teal-500 text-sm" placeholder="Enter Dealer Name">
+                            </div>
+                        </div>
+                        <div>
+                             <label class="block text-xs font-medium text-gray-600 mb-1">Total Bill</label>
+                             <div id="add_total_bill" class="font-bold text-gray-800">Rs. 0</div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Amount Paid</label>
+                            <input type="number" step="0.01" name="amount_paid" id="add_amount_paid" placeholder="0" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -299,6 +439,89 @@ usort($products, function($a, $b) {
     </div>
 </div>
 
+<!-- Restock Product Modal -->
+<div id="restockProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
+        <div class="bg-orange-600 p-6 flex justify-between items-center text-white">
+            <div>
+                <h3 class="text-xl font-bold">Restock Product</h3>
+                <p class="text-xs opacity-80" id="restock_product_name_display"></p>
+            </div>
+            <button onclick="closeRestockModal()" class="hover:bg-orange-700 p-2 rounded-full transition">&times;</button>
+        </div>
+        
+        <form method="POST" action="../actions/restock_process.php" class="p-8">
+            <input type="hidden" name="product_id" id="restock_id">
+            <div class="space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Quantity to Add</label>
+                        <input type="number" step="0.01" name="quantity" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition font-bold text-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Purchase Date</label>
+                        <input type="date" name="date" value="<?= date('Y-m-d') ?>" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">New Buy Price</label>
+                        <input type="number" step="0.01" name="new_buy_price" id="restock_buy_price" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">New Sell Price</label>
+                        <input type="number" step="0.01" name="new_sell_price" id="restock_sell_price" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Supplier / Dealer</label>
+                    <select name="dealer_id" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                        <option value="OPEN_MARKET">Open Market (Default)</option>
+                        <?php 
+                        $dealers_list = readCSV('dealers');
+                        foreach($dealers_list as $dlr): 
+                        ?>
+                        <option value="<?= $dlr['id'] ?>"><?= htmlspecialchars($dlr['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex justify-between items-center">
+                    <span class="text-xs font-bold text-orange-800 uppercase">Total Bill Amount:</span>
+                    <span id="restock_total_amount" class="text-xl font-black text-orange-600">Rs. 0</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Paid to Dealer (Cash)</label>
+                    <input type="number" step="0.01" name="amount_paid" id="restock_amount_paid" value="0" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition text-green-600 font-bold">
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeRestockModal()" class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-200 transition">Cancel</button>
+                <button type="button" onclick="validateAndSubmitRestock()" class="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-900/20 transition active:scale-95">Complete Restock</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function validateAndSubmitRestock() {
+        const buyPrice = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+        const sellPrice = parseFloat(document.getElementById('restock_sell_price').value) || 0;
+        
+        if (buyPrice > sellPrice) {
+            showAlert(`Buy Price (${buyPrice}) cannot be greater than Sell Price (${sellPrice}). Please adjust the prices.`, 'Pricing Error');
+            return;
+        }
+        
+        // If valid, submit the form found inside the modal
+        document.querySelector('#restockProductModal form').submit();
+    }
+</script>
+
 <!-- Delete Form (Hidden) -->
 <form id="deleteForm" method="POST" action="" class="hidden">
     <input type="hidden" name="action" value="delete">
@@ -320,6 +543,80 @@ function openEditModal(product) {
 
 function closeEditModal() {
     document.getElementById('editProductModal').classList.add('hidden');
+}
+
+function openRestockModal(product) {
+    document.getElementById('restock_id').value = product.id;
+    document.getElementById('restock_product_name_display').innerText = product.name;
+    document.getElementById('restock_buy_price').value = product.buy_price;
+    document.getElementById('restock_sell_price').value = product.sell_price;
+    
+    // Clear quantity and amount paid for fresh entry
+    document.querySelector('input[name="quantity"]').value = '';
+    document.getElementById('restock_amount_paid').value = '0';
+    document.getElementById('restock_total_amount').innerText = 'Rs. 0';
+    
+    document.getElementById('restockProductModal').classList.remove('hidden');
+}
+
+function calculateRestockTotal() {
+    const qty = parseFloat(document.querySelector('input[name="quantity"]').value) || 0;
+    const price = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+    const total = qty * price;
+    
+    document.getElementById('restock_total_amount').innerText = 'Rs. ' + total.toLocaleString();
+    // Suggest the paid amount to be the total bill
+    document.getElementById('restock_amount_paid').value = total;
+}
+
+function updateAddProductTotal() {
+    const qty = parseFloat(document.getElementById('add_stock_qty').value) || 0;
+    const price = parseFloat(document.getElementById('add_buy_price').value) || 0;
+    
+    const total = qty * price;
+    const totalDisplay = document.getElementById('add_total_bill');
+    const paidInput = document.getElementById('add_amount_paid');
+    
+    if (totalDisplay) totalDisplay.innerText = 'Rs. ' + total.toLocaleString();
+    if (paidInput) paidInput.value = total;
+}
+
+function toggleNewDealerInput(select) {
+    const container = document.getElementById('new_dealer_input_container');
+    const input = document.getElementById('new_dealer_name');
+    
+    if (select.value === 'ADD_NEW') {
+        if(container) container.classList.remove('hidden');
+        if(input) {
+            input.required = true;
+            input.focus();
+        }
+    } else {
+        if(container) container.classList.add('hidden');
+        if(input) {
+            input.required = false;
+            input.value = '';
+        }
+    }
+}
+
+// Add event listeners for calculation
+document.addEventListener('DOMContentLoaded', function() {
+    // Restock Modal
+    const rQty = document.querySelector('#restockProductModal input[name="quantity"]');
+    const rPrice = document.getElementById('restock_buy_price');
+    if (rQty) rQty.addEventListener('input', calculateRestockTotal);
+    if (rPrice) rPrice.addEventListener('input', calculateRestockTotal);
+
+    // Add Product Modal
+    const aQty = document.getElementById('add_stock_qty');
+    const aPrice = document.getElementById('add_buy_price');
+    if (aQty) aQty.addEventListener('input', updateAddProductTotal);
+    if (aPrice) aPrice.addEventListener('input', updateAddProductTotal);
+});
+
+function closeRestockModal() {
+    document.getElementById('restockProductModal').classList.add('hidden');
 }
 
 function confirmDelete(id) {

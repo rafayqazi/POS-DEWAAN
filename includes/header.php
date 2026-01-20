@@ -44,7 +44,9 @@
 <?php if (isset($_SESSION['user_id'])): ?>
     <div class="flex flex-1 h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="bg-secondary text-white shadow-2xl flex flex-col transition-all duration-300 transform w-64 border-r border-teal-800/50" id="sidebar">
+        <!-- Sidebar -->
+        <!-- Added mobile responsive classes: fixed on mobile, translate-x-full to hide, md:relative to show -->
+        <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white shadow-2xl flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative border-r border-teal-800/50" id="sidebar">
             <div class="p-6 flex items-center justify-between border-b border-teal-800 h-24 bg-teal-900/20">
                 <div class="sidebar-text truncate">
                     <h1 class="text-2xl font-bold tracking-tight text-accent logo-text">DEWAAN</h1>
@@ -67,6 +69,18 @@
                         <a href="/POS-DEWAAN/pages/inventory.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Inventory">
                             <i class="fas fa-boxes w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Inventory</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/restock_history.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Restock History">
+                            <i class="fas fa-history w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Restock History</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/quick_restock.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Quick Restock">
+                            <i class="fas fa-plus-square w-6 text-xl text-orange-300"></i>
+                            <span class="font-medium ml-4 sidebar-text text-orange-200">Quick Restock</span>
                         </a>
                     </li>
                     <li>
@@ -123,6 +137,18 @@
                             <span class="font-medium ml-4 sidebar-text">Settings</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/about_developer.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'about_developer.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="About Developer">
+                            <i class="fas fa-user-tie w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">About Developer</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/POS-DEWAAN/pages/backup_restore.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'backup_restore.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Backup & Restore">
+                            <i class="fas fa-database w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Backup/Restore</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -135,9 +161,17 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-8">
-            <div class="mb-8 flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
-               <div>
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-8 relative">
+            <!-- Mobile Toggle Button -->
+            <button onclick="toggleSidebarMobile()" class="md:hidden fixed top-4 right-4 z-40 bg-teal-700 text-white p-2 rounded-lg shadow-lg">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <!-- Overlay for mobile -->
+            <div id="sidebarOverlay" onclick="toggleSidebarMobile()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden glass"></div>
+
+            <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass gap-4">
+               <div class="w-full">
                    <h2 class="text-2xl font-bold text-gray-800 tracking-tight"><?= isset($pageTitle) ? $pageTitle : 'Dashboard' ?></h2>
                    <div class="flex items-center mt-1">
                         <span class="h-1.5 w-1.5 rounded-full bg-teal-500 mr-2"></span>
@@ -162,40 +196,66 @@
     </style>
 
     <script>
-        function toggleSidebar() {
+        // Use a separate function for mobile toggle to avoid conflict with desktop collapse
+        function toggleSidebarMobile() {
             const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('w-64');
-            sidebar.classList.toggle('w-20');
+            const overlay = document.getElementById('sidebarOverlay');
             
-            const texts = document.querySelectorAll('.sidebar-text');
-            texts.forEach(t => t.classList.toggle('hidden'));
-            
-            // Save state
-            const isCollapsed = sidebar.classList.contains('w-20');
-            localStorage.setItem('sidebarCollapsed', isCollapsed);
+            // Toggle translate class for mobile
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        function toggleSidebar() {
+            // Desktop toggle (Collapse/Expand)
+            if (window.innerWidth >= 768) {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('w-64');
+                sidebar.classList.toggle('w-20');
+                
+                const texts = document.querySelectorAll('.sidebar-text');
+                texts.forEach(t => t.classList.toggle('hidden'));
+                
+                // Save state
+                const isCollapsed = sidebar.classList.contains('w-20');
+                localStorage.setItem('sidebarCollapsed', isCollapsed);
+            } else {
+                // Should not really be called on mobile via the internal button as it's hidden, 
+                // but just in case, redirect to mobile toggle
+                toggleSidebarMobile();
+            }
         }
 
         function toggleDropdown(id) {
-            const dropdown = document.getElementById(id);
+            const dropdown = document.getElementById('dropdown-' + id) || document.getElementById(id); // Handle both potential ID formats if needed, currently using id directly
             const icon = document.getElementById(id + 'Icon');
             dropdown.classList.toggle('hidden');
             icon.classList.toggle('rotate-180');
         }
 
-        // Initialize state from localStorage
+        // Initialize state from localStorage (Desktop only)
         window.addEventListener('DOMContentLoaded', () => {
-            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-            if (isCollapsed) {
-                const sidebar = document.getElementById('sidebar');
-                sidebar.classList.remove('w-64');
-                sidebar.classList.add('w-20');
-                const texts = document.querySelectorAll('.sidebar-text');
-                texts.forEach(t => t.classList.add('hidden'));
+            if (window.innerWidth >= 768) {
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    const sidebar = document.getElementById('sidebar');
+                    sidebar.classList.remove('w-64');
+                    sidebar.classList.add('w-20');
+                    const texts = document.querySelectorAll('.sidebar-text');
+                    texts.forEach(t => t.classList.add('hidden'));
+                }
             }
 
             const currentFile = "<?= basename($_SERVER['PHP_SELF']) ?>";
             if (['categories.php', 'units.php'].includes(currentFile)) {
-                document.getElementById('setupDropdown').classList.remove('hidden');
+                // Ensure dropdown is visible if we are on a child page
+                const dropdown = document.getElementById('setupDropdown');
+                if(dropdown) dropdown.classList.remove('hidden');
             }
         });
 

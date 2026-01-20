@@ -20,28 +20,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         ]);
     }
 
-    // 2. Validate Stock Server-Side (Crucial for preventing overselling)
+    // 2. Validate & Deduct Stock Atomically
     $items = json_decode($_POST['cart_data'], true);
-    $products = readCSV('products');
-    $stock_ok = true;
     $error_items = [];
-
-    if ($items) {
+    
+    // We use the simpler processCSVTransaction to lock, read, verify, deduct, and write in one go.
+    $final_products = [];
+    $transaction_success = processCSVTransaction('products', function($all_products) use ($items, &$error_items, &$final_products) {
+        $product_map = [];
+        foreach($all_products as $i => $p) $product_map[$p['id']] = $i;
+        
         foreach ($items as $item) {
-            foreach ($products as $p) {
-                if ($p['id'] == $item['id']) {
-                    if ((int)$p['stock_quantity'] < (int)$item['qty']) {
-                        $stock_ok = false;
-                        $error_items[] = $p['name'] . " (Available: " . $p['stock_quantity'] . ")";
-                    }
-                    break;
-                }
+            $pid = $item['id'];
+            if (!isset($product_map[$pid])) {
+                continue; 
+            }
+            $idx = $product_map[$pid];
+            $current_stock = (int)$all_products[$idx]['stock_quantity'];
+            $qty_needed = (int)$item['qty'];
+            
+            if ($current_stock < $qty_needed) {
+                $name = $all_products[$idx]['name'] ?? 'Unknown Item';
+                $error_items[] = "$name (Available: $current_stock)";
+            } else {
+                $all_products[$idx]['stock_quantity'] = $current_stock - $qty_needed;
             }
         }
-    }
+        
+        if (!empty($error_items)) {
+            return false;
+        }
+        
+        $final_products = $all_products; // Capture state
+        return $all_products;
+    });
 
-    if (!$stock_ok) {
-        $message = "ERROR: Stock limit exceeded for: " . implode(', ', $error_items);
+    if (!$transaction_success) {
+        if (!empty($error_items)) {
+            $message = "ERROR: Stock limit exceeded during checkout for: " . implode(', ', $error_items);
+        } else {
+            $message = "ERROR: Database transaction failed. Please try again.";
+        }
     } else if ($items) {
         // 3. Create Sale Header
         $sale_data = [
@@ -53,13 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         ];
         $sale_id = insertCSV('sales', $sale_data);
 
-        // 4. Create Sale Items & Update Stock
+        // 4. Create Sale Items using CAPTURED state
         foreach ($items as $item) {
-            // Find current product to get its buy_price
-            $cost_price = 0;
-            foreach ($products as $p) {
+            // Find product in our captured state
+            $cost_price = 0; 
+            $avco_price = 0; 
+            
+            foreach ($final_products as $p) {
                 if ($p['id'] == $item['id']) {
                     $cost_price = $p['buy_price'];
+                    $avco_price = isset($p['avg_buy_price']) ? $p['avg_buy_price'] : $p['buy_price'];
                     break;
                 }
             }
@@ -70,20 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 'product_id' => $item['id'],
                 'quantity' => $item['qty'],
                 'price_per_unit' => $item['price'],
-                'buy_price' => $cost_price,
+                'buy_price' => $cost_price,         // Standard/Latest Cost
+                'avg_buy_price' => $avco_price,     // Accurate AVCO Cost
                 'total_price' => $item['total']
             ]);
-
-            // Update Stock in memory
-            foreach ($products as &$p) {
-                if ($p['id'] == $item['id']) {
-                    $p['stock_quantity'] = (int)$p['stock_quantity'] - (int)$item['qty'];
-                    break;
-                }
-            }
         }
-        // Save updated products back to CSV
-        writeCSV('products', $products);
         $message = "Sale recorded successfully!";
     }
 }
@@ -112,7 +125,7 @@ $categories = readCSV('categories');
     }
 </style>
 
-<div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+<div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-140px)]">
     <!-- Left: Product Selection -->
     <div class="w-full lg:w-2/3 flex flex-col bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden glass">
         <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex space-x-4 items-center">
@@ -133,7 +146,7 @@ $categories = readCSV('categories');
                 if ($p['stock_quantity'] <= 0) continue; // Hide out of stock
             ?>
                 <div class="product-card bg-white border border-gray-100 shadow-sm p-4 hover:shadow-xl cursor-pointer transition select-none flex flex-col justify-between h-40 group"
-                     onclick="addToCart(<?= $p['id'] ?>, '<?= addslashes($p['name']) ?>', <?= $p['sell_price'] ?>, '<?= $p['unit'] ?>', <?= $p['stock_quantity'] ?>)"
+                     onclick="addToCart(<?= $p['id'] ?>, '<?= addslashes($p['name']) ?>', <?= $p['sell_price'] ?>, '<?= $p['unit'] ?>', <?= $p['stock_quantity'] ?>, <?= $p['buy_price'] ?>)"
                      data-name="<?= strtolower($p['name']) ?>"
                      data-category="<?= $p['category'] ?>">
                     
@@ -177,9 +190,19 @@ $categories = readCSV('categories');
             <div id="stockWarning" class="hidden bg-red-100 text-red-600 p-2 rounded text-xs font-bold border border-red-200">
                 <i class="fas fa-exclamation-triangle mr-1"></i> Stock limit reached for some items!
             </div>
-            <div class="flex justify-between items-center mb-6">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Payable</span>
-                <span id="grandTotal" class="text-2xl font-bold text-gray-800">Rs. 0</span>
+            <div class="mb-6">
+                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Total Payable (Editable)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-gray-400 text-sm font-bold">Rs.</span>
+                    <input type="number" id="grandTotal" 
+                           class="w-full pl-12 pr-4 py-3 text-2xl font-bold text-gray-800 border-2 rounded-xl focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" 
+                           placeholder="0" 
+                           oninput="handleTotalChange()" 
+                           min="0">
+                </div>
+                <div id="priceWarning" class="hidden mt-2 p-2 bg-red-50 text-red-600 text-xs font-bold rounded border border-red-200">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> <span id="priceWarningText">Price is below cost!</span>
+                </div>
             </div>
             
             <form method="POST" id="checkoutForm">
@@ -189,7 +212,7 @@ $categories = readCSV('categories');
 
                 <div class="mb-2">
                     <label class="text-sm font-semibold text-gray-600">Customer</label>
-                    <select name="customer_id" id="customerSelect" onchange="toggleNewCustomerFields(this.value)" class="w-full p-2 border rounded text-sm bg-white focus:ring-2 focus:ring-teal-500">
+                    <select name="customer_id" id="customerSelect" onchange="handleCustomerChange(this.value)" class="w-full p-2 border rounded text-sm bg-white focus:ring-2 focus:ring-teal-500">
                         <option value="">Walk-in Customer</option>
                         <option value="NEW" class="text-teal-600 font-bold">+ Add New Customer</option>
                         <?php foreach($customers as $c): ?>
@@ -237,7 +260,7 @@ $categories = readCSV('categories');
 <script>
 let cart = [];
 
-function addToCart(id, name, price, unit, stock) {
+function addToCart(id, name, price, unit, stock, buyPrice) {
     const sId = String(id);
     let existing = cart.find(i => String(i.id) === sId);
     if (existing) {
@@ -252,7 +275,7 @@ function addToCart(id, name, price, unit, stock) {
             showAlert("This item is out of stock!", 'Out Of Stock');
             return;
         }
-        cart.push({ id: sId, name, price, unit, qty: 1, total: price, max_stock: stock });
+        cart.push({ id: sId, name, price, unit, qty: 1, total: price, max_stock: stock, buy_price: parseFloat(buyPrice) || 0 });
     }
     updateStockLabels();
     renderCart();
@@ -366,15 +389,25 @@ function renderCart() {
 
 function updateTotals() {
     let total = cart.reduce((sum, item) => sum + item.total, 0);
-    document.getElementById('grandTotal').innerText = 'Rs. ' + total.toLocaleString();
-    document.getElementById('inputTotal').value = total;
+    const grandTotalInput = document.getElementById('grandTotal');
+    
+    // Only auto-fill if it's empty or not manually edited
+    if (!grandTotalInput.dataset.manualEdit || grandTotalInput.value == '') {
+        grandTotalInput.value = Math.round(total);
+        delete grandTotalInput.dataset.manualEdit;
+    }
+    
+    document.getElementById('inputTotal').value = grandTotalInput.value || total;
     document.getElementById('cartData').value = JSON.stringify(cart);
     
     const paidInput = document.getElementById('paidAmount');
+    const currentTotal = parseInt(grandTotalInput.value) || total;
     // Default to cash behavior if Cash is selected
     if (document.getElementById('paymentMethod').value === 'Cash') {
-        paidInput.value = total;
+        paidInput.value = currentTotal;
     }
+    
+    validateTotalPrice();
     calculateDebt();
 }
 
@@ -401,6 +434,15 @@ function handlePaymentChange(method) {
 function calculateDebt() {
     const total = parseInt(document.getElementById('inputTotal').value) || 0;
     const paid = parseInt(document.getElementById('paidAmount').value) || 0;
+    const customer = document.getElementById('customerSelect').value;
+    
+    // Prevent walk-in customer from overpaying
+    if ((!customer || customer === '') && paid > total) {
+        document.getElementById('paidAmount').value = total;
+        showAlert("Walk-in customers cannot overpay! Paid amount adjusted to match total.", "Payment Adjusted");
+        return;
+    }
+    
     const debt = total - paid;
     document.getElementById('debtAmount').innerText = 'Rs. ' + (debt > 0 ? debt.toLocaleString() : 0);
     
@@ -409,6 +451,17 @@ function calculateDebt() {
         document.getElementById('debtDisplay').classList.remove('hidden');
     } else if (method === 'Cash') {
         document.getElementById('debtDisplay').classList.add('hidden');
+    }
+}
+
+function handleCustomerChange(val) {
+    toggleNewCustomerFields(val);
+    
+    // Auto-adjust paid amount for walk-in customer
+    if (!val || val === '') {
+        const total = parseInt(document.getElementById('inputTotal').value) || 0;
+        document.getElementById('paidAmount').value = total;
+        calculateDebt();
     }
 }
 
@@ -423,6 +476,44 @@ function toggleNewCustomerFields(val) {
     }
 }
 
+function handleTotalChange() {
+    const grandTotalInput = document.getElementById('grandTotal');
+    grandTotalInput.dataset.manualEdit = 'true';
+    
+    const customTotal = parseInt(grandTotalInput.value) || 0;
+    document.getElementById('inputTotal').value = customTotal;
+    
+    validateTotalPrice();
+    calculateDebt();
+}
+
+function validateTotalPrice() {
+    const customTotal = parseInt(document.getElementById('grandTotal').value) || 0;
+    
+    // Calculate minimum allowed total (sum of buy_price * qty for all items)
+    let minTotal = 0;
+    cart.forEach(item => {
+        minTotal += (item.buy_price || 0) * item.qty;
+    });
+    
+    const warning = document.getElementById('priceWarning');
+    const warningText = document.getElementById('priceWarningText');
+    const grandTotalInput = document.getElementById('grandTotal');
+    
+    if (customTotal > 0 && customTotal < minTotal) {
+        warning.classList.remove('hidden');
+        warningText.innerText = `Price is below cost! Minimum: Rs. ${minTotal.toLocaleString()}`;
+        grandTotalInput.classList.add('border-red-500', 'bg-red-50');
+        grandTotalInput.classList.remove('border-gray-200');
+        return false;
+    } else {
+        warning.classList.add('hidden');
+        grandTotalInput.classList.remove('border-red-500', 'bg-red-50');
+        grandTotalInput.classList.add('border-gray-200');
+        return true;
+    }
+}
+
 // Form Validation
 document.getElementById('checkoutForm').onsubmit = function(e) {
     const method = document.getElementById('paymentMethod').value;
@@ -432,6 +523,12 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
 
     if (total === 0) {
         showAlert("Cannot checkout with empty cart!", "Empty Cart");
+        return false;
+    }
+
+    // Price Validation - Check if selling below cost
+    if (!validateTotalPrice()) {
+        showAlert("Cannot sell below cost price! Please adjust the total amount.", "Price Too Low");
         return false;
     }
 
@@ -448,8 +545,17 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
         return false;
     }
 
+    // Overpayment Validation - Require customer for credit to ledger
+    if (paid > total) {
+        if (!customer || customer === '') {
+            showAlert("Customer selection is mandatory when paid amount exceeds total! The excess will be credited to customer ledger.", "Customer Required");
+            return false;
+        }
+    }
+
+    // Debt Validation - Require customer for unpaid amounts
     if (method !== 'Cash' || paid < total) {
-        if (!customer) {
+        if (!customer || customer === '') {
             showAlert("Customer selection is mandatory for Debt/Credit sales!", "Customer Required");
             return false;
         }

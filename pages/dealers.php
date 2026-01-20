@@ -74,8 +74,9 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="dealerGrid">
     <?php if (count($dealers) > 0): ?>
         <?php foreach ($dealers as $dealer): ?>
-            <div class="dealer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1" 
-                 data-name="<?= strtolower(htmlspecialchars($dealer['name'])) ?>">
+            <div class="dealer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
+                 data-name="<?= strtolower(htmlspecialchars($dealer['name'])) ?>"
+                 onclick="window.location.href='dealer_ledger.php?id=<?= $dealer['id'] ?>'">
                 <div class="bg-amber-500 h-2 w-full"></div>
                 <div class="p-6">
                     <div class="flex items-center mb-4">
@@ -84,12 +85,14 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
                         </div>
                         <div class="flex-1">
                             <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($dealer['name']) ?></h3>
-                            <a href="tel:<?= $dealer['phone'] ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center mt-1">
-                                <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                <?= htmlspecialchars($dealer['phone']) ?>
-                            </a>
+                            <div class="flex items-center mt-1">
+                                <a href="tel:<?= $dealer['phone'] ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
+                                    <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                                    <?= htmlspecialchars($dealer['phone']) ?>
+                                </a>
+                            </div>
                         </div>
-                        <button onclick="editDealer(<?= htmlspecialchars(json_encode($dealer)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
+                        <button onclick="event.stopPropagation(); editDealer(<?= htmlspecialchars(json_encode($dealer)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
                             <i class="fas fa-edit"></i>
                         </button>
                     </div>
@@ -107,9 +110,9 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
                         </p>
                     </div>
 
-                    <a href="dealer_ledger.php?id=<?= $dealer['id'] ?>" class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white hover:bg-teal-700 rounded-xl text-sm font-bold transition shadow-md hover:shadow-lg">
-                        <i class="fas fa-file-invoice-dollar mr-2"></i> Open Account Ledger
-                    </a>
+                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
+                    </div>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -206,3 +209,25 @@ function editDealer(dealer) {
 }
 
 document.getElementById('dealerSearch').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    const cards = document.querySelectorAll('.dealer-card');
+    cards.forEach(card => {
+        const name = card.getAttribute('data-name');
+        if (name.includes(term)) {
+            card.classList.remove('hidden');
+        } else {
+            card.classList.add('hidden');
+        }
+    });
+});
+
+document.getElementById('dealerSearch').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        const visibleCards = Array.from(document.querySelectorAll('.dealer-card')).filter(c => !c.classList.contains('hidden'));
+        if (visibleCards.length > 0) {
+            const editBtn = visibleCards[0].querySelector('button[title="Edit Dealer"]');
+            if (editBtn) editBtn.click();
+        }
+    }
+});
+</script>

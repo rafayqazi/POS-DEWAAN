@@ -87,7 +87,10 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
             <tbody id="customerTableBody" class="divide-y divide-gray-100">
                 <?php if (count($customers) > 0): ?>
                     <?php foreach ($customers as $c): ?>
-                        <tr class="hover:bg-purple-50 transition customer-row" data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>" data-phone="<?= strtolower(htmlspecialchars($c['phone'])) ?>">
+                        <tr class="hover:bg-purple-50 transition customer-row cursor-pointer" 
+                            data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>" 
+                            data-phone="<?= strtolower(htmlspecialchars($c['phone'])) ?>"
+                            onclick="window.location.href='customer_ledger.php?id=<?= $c['id'] ?>'">
                             <td class="p-3 pl-6 text-gray-500 text-sm">#<?= $c['id'] ?></td>
                             <td class="p-3">
                                 <div class="flex items-center gap-2">
@@ -100,7 +103,7 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
                                 </div>
                             </td>
                             <td class="p-3">
-                                <a href="tel:<?= $c['phone'] ?>" class="text-gray-600 hover:text-purple-600 flex items-center text-sm">
+                                <a href="tel:<?= $c['phone'] ?>" class="text-gray-600 hover:text-purple-600 flex items-center text-sm" onclick="event.stopPropagation();">
                                     <i class="fas fa-phone-alt mr-2 text-xs opacity-50"></i>
                                     <?= htmlspecialchars($c['phone']) ?>
                                 </a>
@@ -117,13 +120,16 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
                                 </div>
                             </td>
                             <td class="p-3 text-center">
-                                <div class="flex justify-center space-x-2">
+                                <div class="flex justify-center space-x-2" onclick="event.stopPropagation();">
                                     <button onclick="editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition text-xs font-bold flex items-center">
                                         <i class="fas fa-edit mr-1"></i> Edit
                                     </button>
                                     <a href="customer_ledger.php?id=<?= $c['id'] ?>" class="bg-purple-100 text-purple-600 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition text-xs font-bold flex items-center">
                                         <i class="fas fa-history mr-1"></i> Ledger
                                     </a>
+                                    <button onclick="confirmDelete(<?= $c['id'] ?>)" class="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-200 transition text-xs font-bold flex items-center">
+                                        <i class="fas fa-trash mr-1"></i> Delete
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -217,6 +223,17 @@ function editCustomer(customer) {
     document.getElementById('editCustomerModal').classList.remove('hidden');
 }
 
+document.getElementById('customerSearch').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.customer-row');
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        const phone = row.getAttribute('data-phone');
+        if (name.includes(term) || phone.includes(term)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
     });
 });
 
@@ -224,14 +241,59 @@ document.getElementById('customerSearch').addEventListener('keydown', function(e
     if (e.key === 'Enter') {
         const visibleRows = Array.from(document.querySelectorAll('.customer-row')).filter(r => r.style.display !== 'none');
         if (visibleRows.length > 0) {
-            const editBtn = visibleRows[0].querySelector('button[title="Edit"]');
+            const editBtn = visibleRows[0].querySelector('button'); // First button in actions is usually Edit
             if (editBtn) editBtn.click();
         }
     }
 });
+
+
+
+function confirmDelete(id) {
+    document.getElementById('delete_customer_id').value = id;
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+</script>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-all">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform scale-100 text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Customer?</h3>
+        <p class="text-gray-500 text-sm mb-6">
+            Are you sure you want to delete this customer?<br>
+            <span class="text-xs text-red-500 font-bold mt-2 block bg-red-50 p-2 rounded">
+                <i class="fas fa-ban mr-1"></i> You cannot delete customers with existing sales or payments.
+            </span>
+        </p>
+        <div class="flex gap-3 justify-center">
+            <button onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-5 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-100 transition w-full">Cancel</button>
+            <button onclick="proceedDelete()" class="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition w-full">Delete</button>
+        </div>
+        <input type="hidden" id="delete_customer_id">
+    </div>
+</div>
+
+<script>
+function proceedDelete() {
+    const id = document.getElementById('delete_customer_id').value;
+    window.location.href = '../actions/delete_customer.php?id=' + id;
+}
 </script>
 
 <?php 
+// Show Session Messages
+if (isset($_SESSION['error'])) {
+    echo "<script>alert('" . addslashes($_SESSION['error']) . "');</script>";
+    unset($_SESSION['error']);
+}
+if (isset($_SESSION['success'])) {
+    echo "<script>alert('" . addslashes($_SESSION['success']) . "');</script>";
+    unset($_SESSION['success']);
+}
+
 include '../includes/footer.php'; 
 echo '</main></div></body></html>'; 
 ?>

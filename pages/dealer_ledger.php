@@ -20,7 +20,34 @@ $to_date = $_GET['to'] ?? '';
 
 // Handle Deletion
 if (isset($_GET['delete_txn'])) {
-    deleteCSV('dealer_transactions', $_GET['delete_txn']);
+    $txn_id = $_GET['delete_txn'];
+    $txn = findCSV('dealer_transactions', $txn_id);
+    
+    if ($txn) {
+        // If it's a Purchase linked to a restock, revert the stock
+        if ($txn['type'] == 'Purchase' && !empty($txn['restock_id'])) {
+            $restock = findCSV('restocks', $txn['restock_id']);
+            if ($restock) {
+                $product = findCSV('products', $restock['product_id']);
+                if ($product) {
+                    $new_stock = (float)$product['stock_quantity'] - (float)$restock['quantity'];
+                    updateCSV('products', $product['id'], ['stock_quantity' => $new_stock]);
+                }
+                // Delete the restock record too
+                deleteCSV('restocks', $restock['id']);
+                
+                // Also find and delete the associated 'Payment' transaction if it exists for this restock
+                $all_txns = readCSV('dealer_transactions');
+                foreach ($all_txns as $t) {
+                    if ($t['restock_id'] == $txn['restock_id'] && $t['type'] == 'Payment' && $t['id'] != $txn_id) {
+                        deleteCSV('dealer_transactions', $t['id']);
+                    }
+                }
+            }
+        }
+        deleteCSV('dealer_transactions', $txn_id);
+    }
+    
     redirect("dealer_ledger.php?id=$dealer_id");
 }
 
@@ -88,14 +115,53 @@ $current_balance = $total_debt - $total_paid;
 <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
     <form class="flex flex-wrap items-end gap-3">
         <input type="hidden" name="id" value="<?= $dealer_id ?>">
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
+            <select onchange="applyQuickDate(this.value)" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none w-32">
+                <option value="">Custom</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="last_90">Last 90 Days</option>
+                <option value="last_year">Last 1 Year</option>
+            </select>
+        </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
-            <input type="date" name="from" value="<?= $from_date ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+            <input type="date" name="from" id="dateFrom" value="<?= $from_date ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
         </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
-            <input type="date" name="to" value="<?= $to_date ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+            <input type="date" name="to" id="dateTo" value="<?= $to_date ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
         </div>
+        <script>
+        function applyQuickDate(type) {
+            const today = new Date();
+            let start, end;
+            
+            if (type === 'this_month') {
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (type === 'last_month') {
+                start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                end = new Date(today.getFullYear(), today.getMonth(), 0);
+            } else if (type === 'last_90') {
+                end = new Date();
+                start = new Date();
+                start.setDate(today.getDate() - 90);
+            } else if (type === 'last_year') {
+                end = new Date();
+                start = new Date();
+                start.setFullYear(today.getFullYear() - 1);
+            } else {
+                return;
+            }
+            
+            // Format YYYY-MM-DD
+            const fmt = d => d.toISOString().split('T')[0];
+            document.getElementById('dateFrom').value = fmt(start);
+            document.getElementById('dateTo').value = fmt(end);
+        }
+        </script>
         <button type="submit" class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition shadow-md font-bold text-sm h-[38px]">
             <i class="fas fa-filter mr-1"></i> Filter
         </button>
@@ -112,9 +178,7 @@ $current_balance = $total_debt - $total_paid;
             <i class="fas fa-print mr-2 text-lg"></i> Print
         </button>
         <div class="flex gap-2">
-            <button onclick="openModal('Purchase')" class="bg-red-600 text-white px-4 py-2 rounded-lg shadow font-bold text-sm h-[38px] hover:bg-red-700 transition">
-                <i class="fas fa-boxes mr-1"></i> Received
-            </button>
+
             <button onclick="openModal('Payment')" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow font-bold text-sm h-[38px] hover:bg-green-700 transition">
                 <i class="fas fa-money-bill-wave mr-1"></i> Payment
             </button>
