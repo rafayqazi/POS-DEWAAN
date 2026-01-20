@@ -14,25 +14,32 @@ $from_date = $_GET['from'] ?? '';
 $to_date = $_GET['to'] ?? '';
 
 // Handle Deletions
-if (isset($_GET['delete_payment'])) {
-    deleteCSV('customer_payments', $_GET['delete_payment']);
-    redirect("customer_ledger.php?id=$cid&msg=Payment deleted successfully");
+if (isset($_GET['delete_txn'])) {
+    deleteCSV('customer_transactions', $_GET['delete_txn']);
+    redirect("customer_ledger.php?id=$cid&msg=Entry deleted successfully");
 }
 
 // Handle Payment (Add/Edit)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
-    if (isset($_POST['payment_id']) && !empty($_POST['payment_id'])) {
-        updateCSV('customer_payments', $_POST['payment_id'], [
-            'amount' => $_POST['amount'],
-            'date' => $_POST['payment_date'],
-            'notes' => cleanInput($_POST['notes'])
+    $amount = (float)$_POST['amount'];
+    $date = $_POST['payment_date'];
+    $notes = cleanInput($_POST['notes']);
+
+    if (isset($_POST['txn_id']) && !empty($_POST['txn_id'])) {
+        updateCSV('customer_transactions', $_POST['txn_id'], [
+            'credit' => $amount,
+            'date' => $date,
+            'description' => "Payment Received: " . $notes
         ]);
     } else {
-        insertCSV('customer_payments', [
+        insertCSV('customer_transactions', [
             'customer_id' => $cid,
-            'amount' => $_POST['amount'],
-            'date' => $_POST['payment_date'],
-            'notes' => cleanInput($_POST['notes'])
+            'type' => 'Payment',
+            'debit' => 0,
+            'credit' => $amount,
+            'description' => "Payment Received: " . $notes,
+            'date' => $date,
+            'created_at' => date('Y-m-d H:i:s')
         ]);
     }
     redirect("customer_ledger.php?id=$cid" . ($from_date ? "&from=$from_date" : "") . ($to_date ? "&to=$to_date" : ""));
@@ -41,57 +48,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
 $pageTitle = "Ledger: " . $customer['name'];
 include '../includes/header.php';
 
-// Fetch all sales for this customer
-$all_sales = readCSV('sales');
-$customer_sales = [];
-foreach($all_sales as $s) {
-    if($s['customer_id'] == $cid) {
-        if ($from_date && $s['sale_date'] < $from_date . ' 00:00:00') continue;
-        if ($to_date && $s['sale_date'] > $to_date . ' 23:59:59') continue;
-        $customer_sales[] = $s;
-    }
-}
-
-// Fetch payments
-$all_payments = readCSV('customer_payments');
-$customer_payments = [];
-foreach($all_payments as $p) {
-    if($p['customer_id'] == $cid) {
-        if ($from_date && $p['date'] < $from_date) continue;
-        if ($to_date && $p['date'] > $to_date) continue;
-        $customer_payments[] = $p;
-    }
-}
-
-// Merge and Ledger Logic
+// Fetch all transactions for this customer
+$all_txns = readCSV('customer_transactions');
 $ledger = [];
 $total_due = 0;
 
-foreach ($customer_sales as $s) {
-    $ledger[] = [
-        'id' => $s['id'],
-        'date' => $s['sale_date'],
-        'desc' => "Sale Recorded",
-        'debit' => $s['total_amount'],
-        'credit' => $s['paid_amount'],
-        'type' => 'Sale'
-    ];
-    $total_due += ((float)$s['total_amount'] - (float)$s['paid_amount']);
+foreach($all_txns as $t) {
+    if($t['customer_id'] == $cid) {
+        if ($from_date && $t['date'] < $from_date) continue;
+        if ($to_date && $t['date'] > $to_date) continue;
+        
+        $ledger[] = $t;
+        $total_due += (float)$t['debit'] - (float)$t['credit'];
+    }
 }
 
-foreach ($customer_payments as $p) {
-     $ledger[] = [
-        'id' => $p['id'],
-        'date' => $p['date'],
-        'desc' => "Payment Received: " . $p['notes'],
-        'debit' => 0,
-        'credit' => $p['amount'],
-        'type' => 'Payment',
-        'notes' => $p['notes']
-    ];
-    $total_due -= (float)$p['amount'];
-}
-
+// Ensure sorting
 usort($ledger, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
@@ -241,9 +213,9 @@ usort($ledger, function($a, $b) {
                     <tr>
                         <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; text-align: center;"><?= $sn++ ?></td>
                         <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px;"><?= date('d M Y', strtotime($row['date'])) ?></td>
-                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; font-weight: bold;"><?= $row['desc'] ?></td>
-                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; text-align: right; color: #e11d48; font-weight: bold;"><?= $row['debit'] > 0 ? formatCurrency((float)$row['debit']) : '-' ?></td>
-                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; text-align: right; color: #059669; font-weight: bold;"><?= $row['credit'] > 0 ? formatCurrency((float)$row['credit']) : '-' ?></td>
+                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; font-weight: bold;"><?= htmlspecialchars($row['description']) ?></td>
+                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; text-align: right; color: #e11d48; font-weight: bold;"><?= (float)$row['debit'] > 0 ? formatCurrency((float)$row['debit']) : '-' ?></td>
+                        <td style="padding: 10px; border: 1px solid #ddd; font-size: 13px; text-align: right; color: #059669; font-weight: bold;"><?= (float)$row['credit'] > 0 ? formatCurrency((float)$row['credit']) : '-' ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -278,16 +250,16 @@ usort($ledger, function($a, $b) {
                 <tr class="hover:bg-purple-50 transition border-b border-gray-50 last:border-0">
                     <td class="p-4 text-gray-500 font-mono text-xs"><?= $sn++ ?></td>
                     <td class="p-4 text-gray-600 text-sm"><?= date('d M Y', strtotime($row['date'])) ?></td>
-                    <td class="p-4 font-medium text-gray-800"><?= $row['desc'] ?></td>
-                    <td class="p-4 text-right font-bold text-red-600"><?= $row['debit'] > 0 ? formatCurrency((float)$row['debit']) : '-' ?></td>
-                    <td class="p-4 text-right font-bold text-green-600"><?= $row['credit'] > 0 ? formatCurrency((float)$row['credit']) : '-' ?></td>
+                    <td class="p-4 font-medium text-gray-800"><?= htmlspecialchars($row['description']) ?></td>
+                    <td class="p-4 text-right font-bold text-red-600"><?= (float)$row['debit'] > 0 ? formatCurrency((float)$row['debit']) : '-' ?></td>
+                    <td class="p-4 text-right font-bold text-green-600"><?= (float)$row['credit'] > 0 ? formatCurrency((float)$row['credit']) : '-' ?></td>
                     <td class="p-4 text-center">
                         <div class="flex justify-center space-x-2">
                              <?php if ($row['type'] == 'Payment'): ?>
                                 <button onclick="editPayment(<?= htmlspecialchars(json_encode($row)) ?>)" class="text-blue-500 hover:text-blue-700 p-1" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_payment=<?= $row['id'] ?>')" class="text-red-500 hover:text-red-700 p-1" title="Delete">
+                                <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=<?= $row['id'] ?>')" class="text-red-500 hover:text-red-700 p-1" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                              <?php else: ?>
@@ -308,7 +280,7 @@ usort($ledger, function($a, $b) {
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
         <h3 class="text-xl font-bold mb-4" id="payModalTitle">Receive Payment</h3>
         <form method="POST">
-             <input type="hidden" name="payment_id" id="payment_id">
+             <input type="hidden" name="txn_id" id="txn_id">
              <div class="space-y-3 mb-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Current Total Debt</label>
@@ -340,16 +312,16 @@ usort($ledger, function($a, $b) {
 <script>
 function editPayment(data) {
     document.getElementById('payModalTitle').innerText = "Edit Payment Entry";
-    document.getElementById('payment_id').value = data.id;
+    document.getElementById('txn_id').value = data.id;
     document.getElementById('paymentDate').value = data.date;
     document.getElementById('paymentAmount').value = data.credit;
-    document.getElementById('paymentNotes').value = data.notes;
+    document.getElementById('paymentNotes').value = data.description.replace("Payment Received: ", "");
     document.getElementById('payModal').classList.remove('hidden');
 }
 
 function openPayModal() {
     document.getElementById('payModalTitle').innerText = "Receive Payment";
-    document.getElementById('payment_id').value = '';
+    document.getElementById('txn_id').value = '';
     document.getElementById('paymentDate').value = '<?= date('Y-m-d') ?>';
     document.getElementById('paymentAmount').value = '';
     document.getElementById('paymentNotes').value = 'Cash';

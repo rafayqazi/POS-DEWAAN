@@ -72,6 +72,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         ];
         $sale_id = insertCSV('sales', $sale_data);
 
+        // 3.1 Log to Customer Transactions (Connectivity)
+        if (!empty($customer_id)) {
+            insertCSV('customer_transactions', [
+                'customer_id' => $customer_id,
+                'type' => 'Sale',
+                'debit' => $_POST['total_amount'],
+                'credit' => $_POST['paid_amount'],
+                'description' => "Sale #$sale_id",
+                'date' => date('Y-m-d'),
+                'created_at' => date('Y-m-d H:i:s'),
+                'sale_id' => $sale_id
+            ]);
+        }
+
         // 4. Create Sale Items using CAPTURED state
         foreach ($items as $item) {
             // Find product in our captured state

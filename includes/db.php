@@ -310,8 +310,10 @@ function processCSVTransaction($table, $callback) {
 // Initialize tables if they don't exist
 initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
-initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'amount', 'description', 'date', 'created_at', 'restock_id']);
+initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id']);
+initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'created_at']);
+initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 
 // Seed defaults if empty
 if (count(readCSV('units')) == 0) {

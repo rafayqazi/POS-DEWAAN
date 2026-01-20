@@ -106,31 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($dealer_id) && !$is_open_market) {
         $total_cost = $new_buy_price * $add_quantity;
         
-        // Log transaction: Purchase
+        // Log Consolidated Transaction
         $transaction = [
             'dealer_id' => $dealer_id,
             'type' => 'Purchase',
-            'amount' => $total_cost,
+            'debit' => $total_cost,
+            'credit' => $amount_paid,
             'description' => "Restock: {$product_name} (Qty: $add_quantity)",
             'date' => $date,
             'created_at' => date('Y-m-d H:i:s'),
             'restock_id' => $restock_id
         ];
         insertCSV('dealer_transactions', $transaction);
-
-        // Log transaction: Payment (if made)
-        if ($amount_paid > 0) {
-            $payment = [
-                'dealer_id' => $dealer_id,
-                'type' => 'Payment',
-                'amount' => $amount_paid,
-                'description' => "Payment for Restock: {$product_name}",
-                'date' => $date,
-                'created_at' => date('Y-m-d H:i:s'),
-                'restock_id' => $restock_id
-            ];
-            insertCSV('dealer_transactions', $payment);
-        }
     }
 
     $_SESSION['success'] = "Inventory restocked successfully!";

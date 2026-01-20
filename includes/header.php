@@ -102,6 +102,12 @@
                         </a>
                     </li>
                     <li>
+                        <a href="/POS-DEWAAN/pages/expenses.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Expenses">
+                            <i class="fas fa-wallet w-6 text-xl text-red-300"></i>
+                            <span class="font-medium ml-4 sidebar-text text-red-200">Expenses</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="/POS-DEWAAN/pages/reports.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Reports">
                             <i class="fas fa-chart-line w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Reports</span>

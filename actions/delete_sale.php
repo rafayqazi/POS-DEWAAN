@@ -30,13 +30,28 @@ if (isset($_REQUEST['id'])) {
             if ($item['sale_id'] == $sale_id) {
                 foreach ($products as &$p) {
                     if ($p['id'] == $item['product_id']) {
-                        $p['stock_quantity'] = (int)$p['stock_quantity'] + (int)$item['quantity'];
+                        $p['stock_quantity'] = (float)$p['stock_quantity'] + (float)$item['quantity'];
                         break;
                     }
                 }
             }
         }
         
+        // 2.1 Remove from Customer Transactions (Connectivity)
+        $all_customer_txns = readCSV('customer_transactions');
+        $new_customer_txns = [];
+        $txns_changed = false;
+        foreach ($all_customer_txns as $t) {
+            if (isset($t['sale_id']) && $t['sale_id'] == $sale_id) {
+                $txns_changed = true;
+                continue; // Skip (Delete)
+            }
+            $new_customer_txns[] = $t;
+        }
+        if ($txns_changed) {
+            writeCSV('customer_transactions', $new_customer_txns);
+        }
+
         // 3. Remove from Sales and Sale Items arrays
         $all_sales = array_filter($all_sales, function($s) use ($sale_id) {
             return $s['id'] != $sale_id;
@@ -52,7 +67,7 @@ if (isset($_REQUEST['id'])) {
     // 4. Save all changes back to CSVs
     writeCSV('products', $products);
     writeCSV('sales', array_values($all_sales), ['id', 'customer_id', 'total_amount', 'paid_amount', 'payment_method', 'sale_date']);
-    writeCSV('sale_items', array_values($all_sale_items), ['id', 'sale_id', 'product_id', 'quantity', 'price_per_unit', 'total_price']);
+    writeCSV('sale_items', array_values($all_sale_items), ['id', 'sale_id', 'product_id', 'quantity', 'price_per_unit', 'total_price', 'buy_price', 'avg_buy_price']);
     
     $msg = $deleted_count > 1 ? "$deleted_count sales deleted and stock restored" : "Sale deleted and stock restored";
     $redirect = $_REQUEST['ref'] ?? '../pages/sales_history.php';

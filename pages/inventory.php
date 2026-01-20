@@ -89,22 +89,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                     'date' => $purchase_date,
                     'created_at' => date('Y-m-d H:i:s')
                 ];
-                insertCSV('restocks', $restock_data);
+                $restock_id = insertCSV('restocks', $restock_data);
 
                 // LOG DEALER TRANSACTION (Only if specific dealer selected)
                 if (!empty($dealer_id) && !$is_open_market) {
                     $total_bill = $qty * $price_buy;
-                    $balance = $total_bill - $amount_paid;
                     
+                    // Log Single Consolidated Transaction (Purchase & Payment together)
                     $transaction_data = [
                         'dealer_id' => $dealer_id,
                         'date' => $purchase_date,
                         'type' => 'Purchase',
-                        'product_name' => $data['name'], 
+                        'debit' => $total_bill,
+                        'credit' => $amount_paid,
                         'description' => "Initial Stock: " . $data['name'] . " ($qty x $price_buy)",
-                        'bill_amount' => $total_bill,
-                        'paid_amount' => $amount_paid,
-                        'balance' => $balance
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'restock_id' => $restock_id
                     ];
                     insertCSV('dealer_transactions', $transaction_data);
                 }

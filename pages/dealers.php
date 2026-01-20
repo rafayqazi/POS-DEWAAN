@@ -41,11 +41,7 @@ $balance_map = [];
 foreach($all_txns as $t) {
     if(!empty($t['dealer_id'])) {
         $did = $t['dealer_id'];
-        if($t['type'] == 'Purchase') {
-            $balance_map[$did] = ($balance_map[$did] ?? 0) + (float)$t['amount'];
-        } else {
-            $balance_map[$did] = ($balance_map[$did] ?? 0) - (float)$t['amount'];
-        }
+        $balance_map[$did] = ($balance_map[$did] ?? 0) + (float)($t['debit'] ?? 0) - (float)($t['credit'] ?? 0);
     }
 }
 
