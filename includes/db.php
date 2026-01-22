@@ -261,6 +261,36 @@ function findCSV($table, $id) {
  * Reads a table securely, allows modification via callback, and writes back.
  * Ensures no other process changes the file in between read and write.
  */
+/**
+ * Get a setting value by key
+ */
+function getSetting($key, $default = '') {
+    $settings = readCSV('settings');
+    foreach ($settings as $s) {
+        if ($s['key'] == $key) return $s['value'];
+    }
+    return $default;
+}
+
+/**
+ * Update or insert a setting
+ */
+function updateSetting($key, $value) {
+    if (findSettingId($key)) {
+        updateCSV('settings', findSettingId($key), ['value' => $value]);
+    } else {
+        insertCSV('settings', ['key' => $key, 'value' => $value]);
+    }
+}
+
+function findSettingId($key) {
+    $settings = readCSV('settings');
+    foreach ($settings as $s) {
+        if ($s['key'] == $key) return $s['id'];
+    }
+    return null;
+}
+
 function processCSVTransaction($table, $callback) {
     $path = getCSVPath($table);
     if (!file_exists($path)) return false;
@@ -311,12 +341,17 @@ function processCSVTransaction($table, $callback) {
 // Initialize tables if they don't exist
 initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
+initCSV('settings', ['id', 'key', 'value']);
 initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id']);
 initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 
 // Seed defaults if empty
+if (count(readCSV('settings')) == 0) {
+    updateSetting('expiry_notify_days', '7');
+}
+
 if (count(readCSV('units')) == 0) {
     insertCSV('units', ['name' => 'Katta']);
     insertCSV('units', ['name' => 'Ctn']);

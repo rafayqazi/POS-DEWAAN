@@ -154,6 +154,12 @@ if (isset($_GET['filter']) && $_GET['filter'] == 'low') {
     $products = array_filter($products, function($p) {
         return (int)$p['stock_quantity'] < 10;
     });
+} elseif (isset($_GET['filter']) && $_GET['filter'] == 'expiring') {
+    $notify_days = (int)getSetting('expiry_notify_days', '7');
+    $threshold = date('Y-m-d', strtotime("+$notify_days days"));
+    $products = array_filter($products, function($p) use ($threshold) {
+        return !empty($p['expiry_date']) && $p['expiry_date'] <= $threshold && $p['expiry_date'] >= date('Y-m-d');
+    });
 }
 
 // Reverse sort to show newest first

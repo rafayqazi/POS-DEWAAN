@@ -24,10 +24,28 @@ foreach($sales as $s) {
         $today_sales += $s['total_amount'];
     }
 }
+
+// 1. Automatic Update Check (once per session login)
+if (isset($_SESSION['check_updates']) && $_SESSION['check_updates']) {
+    $update_status = getUpdateStatus();
+    $_SESSION['update_available'] = $update_status['available'];
+    $_SESSION['check_updates'] = false;
+}
+
+// 2. Expiry Notifications Logic
+$notify_days = (int)getSetting('expiry_notify_days', '7');
+$expiry_threshold = date('Y-m-d', strtotime("+$notify_days days"));
+$expiring_products = [];
+foreach ($products as $p) {
+    if (!empty($p['expiry_date']) && $p['expiry_date'] <= $expiry_threshold && $p['expiry_date'] >= date('Y-m-d')) {
+        $expiring_products[] = $p;
+    }
+}
+$expiring_count = count($expiring_products);
 ?>
 
 <?php if ($low_stock > 0): ?>
-<div class="mb-8 p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group animate-pulse shadow-sm shadow-red-500/5 gap-4">
+<div class="mb-6 p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group animate-pulse shadow-sm shadow-red-500/5 gap-4">
     <div class="flex items-center gap-6">
         <div class="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform shrink-0">
             <i class="fas fa-exclamation-triangle text-xl"></i>
@@ -40,6 +58,45 @@ foreach($sales as $s) {
     <a href="pages/inventory.php?filter=low" class="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
         Take Action Now
     </a>
+</div>
+<?php endif; ?>
+
+<?php if ($expiring_count > 0): ?>
+<div class="mb-6 p-6 bg-amber-50 border border-amber-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-amber-500/5 gap-4">
+    <div class="flex items-center gap-6">
+        <div class="w-14 h-14 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:-rotate-12 transition-transform shrink-0">
+            <i class="fas fa-calendar-times text-xl"></i>
+        </div>
+        <div>
+            <h4 class="text-lg font-bold text-amber-900">Expiry Alert</h4>
+            <p class="text-amber-700/80 text-sm font-medium"><strong><?= $expiring_count ?> products</strong> are expiring within the next <?= $notify_days ?> days.</p>
+        </div>
+    </div>
+    <a href="pages/inventory.php?filter=expiring" class="px-8 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
+        View Expiring List
+    </a>
+</div>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['update_available']) && $_SESSION['update_available']): ?>
+<div class="mb-8 p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-teal-500/5 gap-4 border-l-8 border-l-teal-500">
+    <div class="flex items-center gap-6">
+        <div class="w-14 h-14 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform shrink-0">
+            <i class="fas fa-cloud-download-alt text-xl"></i>
+        </div>
+        <div>
+            <h4 class="text-lg font-bold text-teal-900">Software Update Available</h4>
+            <p class="text-teal-700/80 text-sm font-medium">A new version of DEWAAN is ready for installation. Keep your system up to date for new features.</p>
+        </div>
+    </div>
+    <div class="flex gap-2 w-full md:w-auto">
+        <a href="pages/settings.php?tab=updates" class="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
+            Update Now
+        </a>
+        <button onclick="this.parentElement.parentElement.remove()" class="p-3 text-teal-400 hover:text-teal-600 transition">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
 </div>
 <?php endif; ?>
 

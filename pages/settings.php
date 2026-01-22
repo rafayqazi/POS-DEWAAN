@@ -89,6 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);
         }
         exit;
+    } elseif ($action == 'update_general_settings') {
+        $expiry_days = $_POST['expiry_notify_days'] ?? '7';
+        updateSetting('expiry_notify_days', $expiry_days);
+        $message = "General settings updated successfully.";
     }
 }
 
@@ -115,6 +119,9 @@ $categories = readCSV('categories');
         </button>
         <button onclick="switchTab('updates')" id="tab-updates" class="tab-btn px-8 py-4 font-bold text-gray-500 hover:text-primary transition-colors border-b-2 border-transparent focus:outline-none relative whitespace-nowrap">
             <i class="fas fa-cloud-download-alt mr-2"></i> Updates
+        </button>
+        <button onclick="switchTab('general')" id="tab-general" class="tab-btn px-8 py-4 font-bold text-gray-500 hover:text-primary transition-colors border-b-2 border-transparent focus:outline-none relative whitespace-nowrap">
+            <i class="fas fa-cogs mr-2"></i> General
         </button>
     </div>
 
@@ -209,6 +216,37 @@ $categories = readCSV('categories');
                     <pre id="terminalContent" class="font-mono text-sm text-green-400 overflow-x-auto whitespace-pre-wrap h-40 custom-scrollbar">Initializing...</pre>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- General Settings Tab -->
+    <div id="content-general" class="tab-content hidden bg-white rounded-b-2xl shadow-xl p-8 border border-t-0 border-gray-100 mb-8 min-h-[400px]">
+        <div class="max-w-2xl">
+            <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                <span class="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mr-3">
+                    <i class="fas fa-bell text-sm"></i>
+                </span>
+                Notification Settings
+            </h2>
+            <form method="POST" class="space-y-6">
+                <input type="hidden" name="action" value="update_general_settings">
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Expiry Notification Period</label>
+                    <p class="text-gray-500 text-xs mb-4">Set how many days before expiry you want to be notified on the dashboard.</p>
+                    <?php $current_expiry = getSetting('expiry_notify_days', '7'); ?>
+                    <select name="expiry_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
+                        <option value="7" <?= $current_expiry == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
+                        <option value="15" <?= $current_expiry == '15' ? 'selected' : '' ?>>15 Days</option>
+                        <option value="30" <?= $current_expiry == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
+                    </select>
+                </div>
+                
+                <div class="pt-6 border-t border-gray-100">
+                    <button type="submit" class="bg-primary text-white font-bold py-3 px-8 rounded-xl hover:bg-secondary transition shadow-md transform active:scale-95 flex items-center">
+                        <i class="fas fa-save mr-2"></i> Save General Settings
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if (password_verify($password, $u['password'])) {
                 $_SESSION['user_id'] = $u['id'];
                 $_SESSION['username'] = $u['username'];
+                $_SESSION['check_updates'] = true; // Trigger update check on dashboard
                 redirect('index.php');
                 $found = true;
                 break;
