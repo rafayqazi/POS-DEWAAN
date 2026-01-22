@@ -1,0 +1,19 @@
+<?php
+/**
+ * Dynamic Session Management
+ * Generates a unique session name based on the application's root path
+ * to prevent conflicts between multiple instances on the same domain (e.g., localhost).
+ */
+
+// Generate a unique ID based on the absolute path of this file's parent directory
+$app_path = realpath(__DIR__ . '/../');
+$unique_id = md5($app_path);
+$session_name = 'POS_DEWAAN_' . substr($unique_id, 0, 8);
+
+// Set the session name before starting
+session_name($session_name);
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}

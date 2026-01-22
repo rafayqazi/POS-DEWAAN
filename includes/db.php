@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/session.php';
 // Core System Configuration
 define('DATA_DIR', __DIR__ . '/../data/');
 

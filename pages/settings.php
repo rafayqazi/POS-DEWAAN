@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
@@ -55,33 +54,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         error_reporting(E_ALL);
         set_time_limit(60);
         
-        // 1. Fetch latest from all remotes
-        exec('git fetch --all 2>&1', $fetch_out, $fetch_ret);
-        
-        // 2. Get current branch name
-        exec('git rev-parse --abbrev-ref HEAD 2>&1', $branch_out, $branch_ret);
-        $current_branch = $branch_out[0] ?? 'master';
-        
-        // 3. Compare local HEAD with the corresponding remote branch
-        // We check how many commits the remote is ahead of local
-        exec("git rev-list --count HEAD..origin/$current_branch 2>&1", $count_out, $count_ret);
-        
-        $commits_behind = (int)($count_out[0] ?? 0);
-        $updateAvailable = ($commits_behind > 0);
-        
-        // Check local vs remote hash for additional info
-        exec('git rev-parse HEAD 2>&1', $local_hash_out);
-        exec("git rev-parse origin/$current_branch 2>&1", $remote_hash_out);
-        $local_hash = substr($local_hash_out[0] ?? '', 0, 7);
-        $remote_hash = substr($remote_hash_out[0] ?? '', 0, 7);
+        $status = getUpdateStatus();
         
         ob_clean();
         header('Content-Type: application/json');
         echo json_encode([
-            'status' => 'success', 
-            'update_available' => $updateAvailable,
-            'message' => $updateAvailable ? "$commits_behind new update(s) found!" : "You are up to date.",
-            'debug' => "Branch: $current_branch | Local: $local_hash | Remote: $remote_hash"
+            'status' => empty($status['error']) ? 'success' : 'error', 
+            'update_available' => $status['available'],
+            'message' => $status['available'] ? $status['count'] . " new update(s) found!" : (empty($status['error']) ? "You are up to date." : $status['error']),
+            'debug' => "Branch: " . $status['branch'] . " | Local: " . $status['local'] . " | Remote: " . $status['remote']
         ]);
         exit;
     } elseif ($action == 'do_update') {
@@ -90,19 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         ini_set('display_errors', 0);
         set_time_limit(120);
         
-        // Get current branch to pull correctly
-        exec('git rev-parse --abbrev-ref HEAD 2>&1', $branch_out);
-        $current_branch = $branch_out[0] ?? 'master';
-        
-        // Pull changes
-        exec("git pull origin $current_branch 2>&1", $output, $return_var);
+        $result = runUpdate();
         
         ob_clean();
         header('Content-Type: application/json');
-        if ($return_var === 0) {
-            echo json_encode(['status' => 'success', 'message' => "Update installed successfully from $current_branch branch!"]);
+        if ($result['success']) {
+            echo json_encode(['status' => 'success', 'message' => "Update installed successfully from " . $result['branch'] . " branch!"]);
         } else {
-             echo json_encode(['status' => 'error', 'message' => "Update failed: " . implode(" ", $output)]);
+             echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);
         }
         exit;
     }

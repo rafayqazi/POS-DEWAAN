@@ -170,6 +170,27 @@
             <!-- Overlay for mobile -->
             <div id="sidebarOverlay" onclick="toggleSidebarMobile()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden glass"></div>
 
+            <!-- Update Notification Banner -->
+            <div id="globalUpdateBanner" class="hidden mb-6 p-4 bg-orange-600 text-white rounded-2xl flex flex-col md:flex-row items-center justify-between shadow-xl animate-bounce-short z-30">
+                <div class="flex items-center gap-4 mb-4 md:mb-0">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-cloud-download-alt text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">System Update Available!</h4>
+                        <p class="text-xs text-orange-100" id="updateBannerMsg">A new version of the software is ready to install.</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="applyGlobalUpdate()" id="globalUpdateBtn" class="px-6 py-2 bg-white text-orange-600 rounded-xl font-bold hover:bg-orange-50 transition active:scale-95 text-xs uppercase">
+                        Update Now
+                    </button>
+                    <button onclick="document.getElementById('globalUpdateBanner').remove()" class="p-2 text-white/50 hover:text-white transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
             <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass gap-4">
                <div class="w-full">
                    <h2 class="text-2xl font-bold text-gray-800 tracking-tight"><?= isset($pageTitle) ? $pageTitle : 'Dashboard' ?></h2>
@@ -310,6 +331,68 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             alertCallback = null;
+        }
+
+        // Background Update Check
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check only once per session to avoid spamming the server
+            if (!sessionStorage.getItem('updateChecked')) {
+                const handlerPath = '<?= $base ?>actions/update_handler.php';
+                
+                fetch(handlerPath, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'action=check'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    sessionStorage.setItem('updateChecked', 'true');
+                    if (data.available) {
+                        const banner = document.getElementById('globalUpdateBanner');
+                        const msg = document.getElementById('updateBannerMsg');
+                        if (banner && msg) {
+                            msg.innerText = `${data.count} new update(s) found on branch: ${data.branch}`;
+                            banner.classList.remove('hidden');
+                        }
+                    }
+                })
+                .catch(err => console.error('Update check failed:', err));
+            }
+        });
+
+        async function applyGlobalUpdate() {
+            const btn = document.getElementById('globalUpdateBtn');
+            const banner = document.getElementById('globalUpdateBanner');
+            const msg = document.getElementById('updateBannerMsg');
+            
+            if (!confirm('Are you sure you want to update the system now?')) return;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'apply');
+                
+                const response = await fetch('<?= $base ?>actions/update_handler.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    msg.innerHTML = "<b>Update Successful!</b> Reloading...";
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    alert('Update failed: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerText = 'Try Again';
+                }
+            } catch (err) {
+                alert('Update error: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = 'Try Again';
+            }
         }
     </script>
 

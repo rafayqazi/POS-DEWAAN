@@ -6,3 +6,4 @@ node_modules/
 .idea/
 .env
 data/*.csv
+!data/users.csv
