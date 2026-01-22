@@ -246,7 +246,13 @@ $current_balance = $total_debit - $total_credit;
 </div>
 
 <!-- Print/PDF Secret Area -->
-<div id="printableArea" class="hidden">
+<div id="printableArea" class="hidden" style="position: relative;">
+    <!-- Demo Watermark -->
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 40px; color: rgba(200, 200, 200, 0.3); font-weight: bold; text-align: center; z-index: -1; pointer-events: none; white-space: nowrap; width: 100%;">
+        THIS APPLICATION IS FOR DEMO<br>
+        CONTACT DEVELOPER: 0300-0358189<br>
+        abdulrafehqazi@gmail.com
+    </div>
     <div style="padding: 40px; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #b45309; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
