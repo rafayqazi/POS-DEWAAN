@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dealer_id = cleanInput($_POST['dealer_id']);
     $amount_paid = (float)cleanInput($_POST['amount_paid']);
     $date = cleanInput($_POST['date']) ?: date('Y-m-d');
+    $expiry_date = cleanInput($_POST['expiry_date'] ?? '');
+    $remarks = cleanInput($_POST['remarks'] ?? '');
 
     // Validation: Ensure Sell Price >= Buy Price (Prevent Loss)
     if ($new_buy_price > $new_sell_price) {
@@ -23,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 1. Transactional Update of Product (AVCO & Stock)
     $restock_log_data = []; // To capture data for the log
     
-    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $add_quantity, $new_buy_price, $new_sell_price, &$restock_log_data) {
+    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $add_quantity, $new_buy_price, $new_sell_price, $expiry_date, $remarks, &$restock_log_data) {
         $found_index = -1;
         foreach ($all_products as $i => $p) {
             if ($p['id'] == $product_id) {
@@ -53,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $all_products[$found_index]['buy_price'] = $new_buy_price;
         $all_products[$found_index]['avg_buy_price'] = number_format($avg_buy_price, 2, '.', '');
         $all_products[$found_index]['sell_price'] = $new_sell_price;
+        // Update expiry and remarks to the latest one
+        if(!empty($expiry_date)) $all_products[$found_index]['expiry_date'] = $expiry_date;
+        if(!empty($remarks)) $all_products[$found_index]['remarks'] = $remarks;
         
         // Export data for logging
         $restock_log_data = [
@@ -96,7 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'dealer_id' => $dealer_id,
         'dealer_name' => $dealer_name,
         'amount_paid' => $amount_paid,
+        'amount_paid' => $amount_paid,
         'date' => $date,
+        'expiry_date' => $expiry_date,
+        'remarks' => $remarks,
         'created_at' => date('Y-m-d H:i:s')
     ];
     // insertCSV returns the generated ID

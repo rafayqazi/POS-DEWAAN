@@ -80,11 +80,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             exit;
         }
         
-        // check status
-        exec('git status -uno 2>&1', $status_output); 
-        $status_str = implode("\n", $status_output);
+        // Efficient detection: Compare current HEAD with what we just fetched (FETCH_HEAD)
+        exec('git rev-parse HEAD 2>&1', $local_hash_out);
+        exec('git rev-parse FETCH_HEAD 2>&1', $remote_hash_out);
         
-        $updateAvailable = (strpos($status_str, 'behind') !== false);
+        $local_hash = $local_hash_out[0] ?? '';
+        $remote_hash = $remote_hash_out[0] ?? '';
+        
+        // If hashes differ, an update is available (assuming remote is always ahead or different)
+        $updateAvailable = ($local_hash !== $remote_hash && !empty($remote_hash));
+        
+        // Extra check: Is local behind remote? (Optional but more precise)
+        // exec("git merge-base --is-ancestor HEAD FETCH_HEAD 2>&1", $is_ancestor_out, $is_ancestor_ret);
+        // if ($is_ancestor_ret === 0) { ... }
         
         // Clear buffer before sending JSON to avoid any accidental HTML output
         ob_clean();
@@ -93,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'status' => 'success', 
             'update_available' => $updateAvailable,
             'message' => $updateAvailable ? "New version available!" : "You are up to date.",
-            'debug' => "Fetch: $fetch_output\nStatus: $status_str"
+            'debug' => "Local: $local_hash\nRemote: $remote_hash"
         ]);
         exit;
     } elseif ($action == 'do_update') {

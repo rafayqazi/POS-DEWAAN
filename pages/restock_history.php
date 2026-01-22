@@ -101,6 +101,7 @@ usort($restocks, function($a, $b) {
                 <tr class="bg-orange-600 text-white text-xs uppercase tracking-widest font-black">
                     <th class="p-6">Date</th>
                     <th class="p-6">Product</th>
+                    <th class="p-6">Expiry & Remarks</th>
                     <th class="p-6">Qty Added</th>
                     <th class="p-6">Purchase Cost</th>
                     <th class="p-6">Selling Rate</th>
@@ -124,6 +125,21 @@ usort($restocks, function($a, $b) {
                             <td class="p-6">
                                 <span class="font-bold text-gray-800 block"><?= htmlspecialchars($log['product_name'] ?? 'Unknown Product') ?></span>
                                 <span class="text-[10px] text-gray-400 font-bold uppercase">ID: <?= $log['product_id'] ?></span>
+                            </td>
+                            <td class="p-6">
+                                <?php if (!empty($log['expiry_date'])): ?>
+                                    <div class="text-xs text-red-500 font-bold mb-1">
+                                        <i class="far fa-calendar-alt mr-1"></i> Exp: <?= date('d M Y', strtotime($log['expiry_date'])) ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-[10px] text-gray-300 italic mb-1">No Expiry</div>
+                                <?php endif; ?>
+
+                                <?php if (!empty($log['remarks'])): ?>
+                                    <div class="text-xs text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100 inline-block max-w-[200px] truncate" title="<?= htmlspecialchars($log['remarks']) ?>">
+                                        <i class="fas fa-sticky-note mr-1 text-teal-500"></i> <?= htmlspecialchars($log['remarks']) ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td class="p-6">
                                 <span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">
@@ -164,7 +180,7 @@ usort($restocks, function($a, $b) {
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="8" class="p-20 text-center text-gray-300">
+                        <td colspan="10" class="p-20 text-center text-gray-300">
                             <i class="fas fa-history text-6xl mb-4 opacity-20"></i>
                             <p class="font-medium">No restock history found yet.</p>
                         </td>

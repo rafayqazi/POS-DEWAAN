@@ -67,6 +67,17 @@ $products = readCSV('products');
 
                 <div class="grid grid-cols-2 gap-6">
                     <div>
+                         <label class="block text-sm font-bold text-gray-700 mb-2">Expiry Date <span class="text-xs font-normal text-gray-400">(Optional)</span></label>
+                         <input type="date" name="expiry_date" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-teal-500">
+                    </div>
+                    <div>
+                         <label class="block text-sm font-bold text-gray-700 mb-2">Remarks <span class="text-xs font-normal text-gray-400">(Optional)</span></label>
+                         <input type="text" name="remarks" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="Any additional notes...">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">New Buy Price</label>
                         <input type="number" step="0.01" name="new_buy_price" id="restock_buy_price" oninput="calculateTotal()" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-teal-500">
                     </div>
