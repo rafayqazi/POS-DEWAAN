@@ -58,11 +58,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         ob_clean();
         header('Content-Type: application/json');
+        
+        $msg = "You are up to date.";
+        if ($status['available']) {
+            $msg = $status['count'] . " new update(s) found!";
+        } elseif (!empty($status['error'])) {
+            $msg = $status['error'];
+        }
+
         echo json_encode([
             'status' => empty($status['error']) ? 'success' : 'error', 
             'update_available' => $status['available'],
-            'message' => $status['available'] ? $status['count'] . " new update(s) found!" : (empty($status['error']) ? "You are up to date." : $status['error']),
-            'debug' => "Branch: " . $status['branch'] . " | Local: " . $status['local'] . " | Remote: " . $status['remote']
+            'message' => $msg,
+            'debug' => "Branch: " . $status['branch'] . " | Local: " . $status['local'] . " | Remote: " . $status['remote'] . " | Count: " . $status['count']
         ]);
         exit;
     } elseif ($action == 'do_update') {

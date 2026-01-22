@@ -35,6 +35,28 @@ include '../includes/header.php';
 </style>
 
 <div class="max-w-5xl mx-auto space-y-8">
+    <!-- Developer Portfolio Section (Top Centered) -->
+    <div class="flex flex-col items-center justify-center pt-4 pb-8">
+        <div class="relative group">
+            <div class="absolute -inset-1 bg-gradient-to-r from-teal-500 to-accent rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+            <div class="relative">
+                <img src="../developer.jpg" alt="Developer" class="w-40 h-40 rounded-full object-cover object-top border-4 border-white shadow-2xl">
+                <div class="absolute bottom-1 right-2 bg-accent text-white w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                    <i class="fas fa-check-circle text-lg"></i>
+                </div>
+            </div>
+        </div>
+        <div class="text-center mt-6">
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Abdul Rafay</h1>
+            <p class="text-teal-600 font-semibold text-lg">Lead Developer & Lead Architect</p>
+            <div class="flex items-center justify-center gap-4 mt-2 text-gray-500 text-sm">
+                <span><i class="fas fa-code mr-1"></i> Full Stack</span>
+                <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+                <span><i class="fas fa-terminal mr-1"></i> Solution Architect</span>
+            </div>
+        </div>
+    </div>
+
     <!-- License Header & Restriction Alert -->
     <div class="alert-banner p-6 flex items-start gap-4">
         <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 text-red-600">
@@ -88,18 +110,7 @@ include '../includes/header.php';
         <!-- Developer Info Sidebar -->
         <div class="space-y-6">
             <div class="developer-box p-6 shadow-xl">
-                <div class="text-center mb-6">
-                    <div class="relative inline-block">
-                        <img src="../developer.jpg" alt="Developer" class="w-32 h-32 rounded-2xl object-cover border-4 border-white/20 shadow-lg mx-auto mb-4">
-                        <div class="absolute -bottom-2 -right-2 bg-accent text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-teal-900">
-                            <i class="fas fa-check text-xs"></i>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-bold">Abdul Rafay</h3>
-                    <p class="text-teal-200 text-sm">Lead Developer & Architect</p>
-                </div>
-                
-                <div class="space-y-4 text-sm">
+                <div class="space-y-4 text-sm mt-2">
                     <div class="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/10">
                         <i class="fas fa-phone-alt text-accent"></i>
                         <span>0300-0358189</span>
