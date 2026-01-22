@@ -150,6 +150,12 @@
                         </a>
                     </li>
                     <li>
+                        <a href="/POS-DEWAAN/pages/license.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'license.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Software License">
+                            <i class="fas fa-file-contract w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Software License</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="/POS-DEWAAN/pages/backup_restore.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'backup_restore.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Backup & Restore">
                             <i class="fas fa-database w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Backup/Restore</span>

@@ -49,59 +49,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         deleteCSV('categories', $id);
         $message = "Category deleted.";
     } elseif ($action == 'check_update') {
-        // Prevent any previous output from breaking JSON
         ob_end_clean(); 
         ob_start();
-        
-        // Suppress display errors to prevent warnings in JSON response
         ini_set('display_errors', 0);
         error_reporting(E_ALL);
-
-        // Increase execution time slightly for git operations
         set_time_limit(60);
         
-        // Use 2>&1 to capture stderr to see errors if any
-        $output = [];
-        $return_var = 0;
+        // 1. Fetch latest from all remotes
+        exec('git fetch --all 2>&1', $fetch_out, $fetch_ret);
         
-        // Full path to git might be needed if not in PATH for the web server user
-        // Try 'git' first, if that fails we might need to look for it, but usually XAMPP path is set.
-        exec('git fetch origin master 2>&1', $output, $return_var);
+        // 2. Get current branch name
+        exec('git rev-parse --abbrev-ref HEAD 2>&1', $branch_out, $branch_ret);
+        $current_branch = $branch_out[0] ?? 'master';
         
-        $fetch_output = implode("\n", $output);
+        // 3. Compare local HEAD with the corresponding remote branch
+        // We check how many commits the remote is ahead of local
+        exec("git rev-list --count HEAD..origin/$current_branch 2>&1", $count_out, $count_ret);
         
-        if ($return_var !== 0) {
-            ob_clean();
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'error',
-                'message' => "Git fetch failed (Code $return_var): " . $fetch_output
-            ]);
-            exit;
-        }
+        $commits_behind = (int)($count_out[0] ?? 0);
+        $updateAvailable = ($commits_behind > 0);
         
-        // Efficient detection: Compare current HEAD with what we just fetched (FETCH_HEAD)
+        // Check local vs remote hash for additional info
         exec('git rev-parse HEAD 2>&1', $local_hash_out);
-        exec('git rev-parse FETCH_HEAD 2>&1', $remote_hash_out);
+        exec("git rev-parse origin/$current_branch 2>&1", $remote_hash_out);
+        $local_hash = substr($local_hash_out[0] ?? '', 0, 7);
+        $remote_hash = substr($remote_hash_out[0] ?? '', 0, 7);
         
-        $local_hash = $local_hash_out[0] ?? '';
-        $remote_hash = $remote_hash_out[0] ?? '';
-        
-        // If hashes differ, an update is available (assuming remote is always ahead or different)
-        $updateAvailable = ($local_hash !== $remote_hash && !empty($remote_hash));
-        
-        // Extra check: Is local behind remote? (Optional but more precise)
-        // exec("git merge-base --is-ancestor HEAD FETCH_HEAD 2>&1", $is_ancestor_out, $is_ancestor_ret);
-        // if ($is_ancestor_ret === 0) { ... }
-        
-        // Clear buffer before sending JSON to avoid any accidental HTML output
         ob_clean();
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'success', 
             'update_available' => $updateAvailable,
-            'message' => $updateAvailable ? "New version available!" : "You are up to date.",
-            'debug' => "Local: $local_hash\nRemote: $remote_hash"
+            'message' => $updateAvailable ? "$commits_behind new update(s) found!" : "You are up to date.",
+            'debug' => "Branch: $current_branch | Local: $local_hash | Remote: $remote_hash"
         ]);
         exit;
     } elseif ($action == 'do_update') {
@@ -110,12 +90,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         ini_set('display_errors', 0);
         set_time_limit(120);
         
-        exec('git pull origin master 2>&1', $output, $return_var);
+        // Get current branch to pull correctly
+        exec('git rev-parse --abbrev-ref HEAD 2>&1', $branch_out);
+        $current_branch = $branch_out[0] ?? 'master';
+        
+        // Pull changes
+        exec("git pull origin $current_branch 2>&1", $output, $return_var);
         
         ob_clean();
         header('Content-Type: application/json');
         if ($return_var === 0) {
-            echo json_encode(['status' => 'success', 'message' => "Update installed successfully!"]);
+            echo json_encode(['status' => 'success', 'message' => "Update installed successfully from $current_branch branch!"]);
         } else {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . implode(" ", $output)]);
         }
