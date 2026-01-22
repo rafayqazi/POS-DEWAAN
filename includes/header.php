@@ -60,55 +60,55 @@
             <nav class="flex-1 overflow-y-auto py-4">
                 <ul class="space-y-1">
                     <li>
-                        <a href="/POS-DEWAAN/index.php" class="flex items-center px-6 py-4 hover:bg-teal-800/50 transition-all group <?= basename($_SERVER['PHP_SELF']) == 'index.php' ? 'sidebar-link-active shadow-lg' : '' ?>" title="Dashboard">
+                        <a href="<?= $base ?>index.php" class="flex items-center px-6 py-4 hover:bg-teal-800/50 transition-all group <?= basename($_SERVER['PHP_SELF']) == 'index.php' ? 'sidebar-link-active shadow-lg' : '' ?>" title="Dashboard">
                             <i class="fas fa-th-large w-6 text-xl group-hover:scale-110 transition-transform"></i>
                             <span class="font-bold ml-4 sidebar-text">Dashboard</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/inventory.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Inventory">
+                        <a href="<?= $base ?>pages/inventory.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Inventory">
                             <i class="fas fa-boxes w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Inventory</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/restock_history.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Restock History">
+                        <a href="<?= $base ?>pages/restock_history.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Restock History">
                             <i class="fas fa-history w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Restock History</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/quick_restock.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Quick Restock">
+                        <a href="<?= $base ?>pages/quick_restock.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Quick Restock">
                             <i class="fas fa-plus-square w-6 text-xl text-orange-300"></i>
                             <span class="font-medium ml-4 sidebar-text text-orange-200">Quick Restock</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/pos.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="POS / Sale">
+                        <a href="<?= $base ?>pages/pos.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="POS / Sale">
                             <i class="fas fa-cash-register w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">POS / Sale</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/customers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Customers">
+                        <a href="<?= $base ?>pages/customers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Customers">
                             <i class="fas fa-users w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Customers</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/dealers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'dealers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Dealers">
+                        <a href="<?= $base ?>pages/dealers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'dealers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Dealers">
                             <i class="fas fa-truck w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Dealers</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/expenses.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Expenses">
+                        <a href="<?= $base ?>pages/expenses.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Expenses">
                             <i class="fas fa-wallet w-6 text-xl text-red-300"></i>
                             <span class="font-medium ml-4 sidebar-text text-red-200">Expenses</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/reports.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Reports">
+                        <a href="<?= $base ?>pages/reports.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Reports">
                             <i class="fas fa-chart-line w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Reports</span>
                         </a>
@@ -124,13 +124,13 @@
                         </button>
                         <ul id="setupDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
                             <li>
-                                <a href="/POS-DEWAAN/pages/categories.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Categories">
+                                <a href="<?= $base ?>pages/categories.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Categories">
                                     <i class="fas fa-tags mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Categories</span>
                                 </a>
                             </li>
                             <li>
-                                <a href="/POS-DEWAAN/pages/units.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'units.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Units">
+                                <a href="<?= $base ?>pages/units.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'units.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Units">
                                     <i class="fas fa-balance-scale mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Units</span>
                                 </a>
@@ -138,13 +138,13 @@
                         </ul>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/settings.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Settings">
+                        <a href="<?= $base ?>pages/settings.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Settings">
                             <i class="fas fa-cog w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Settings</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/POS-DEWAAN/pages/backup_restore.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'backup_restore.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Backup & Restore">
+                        <a href="<?= $base ?>pages/backup_restore.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'backup_restore.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Backup & Restore">
                             <i class="fas fa-database w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Backup/Restore</span>
                         </a>
@@ -153,7 +153,7 @@
             </nav>
 
             <div class="p-6">
-                <a href="/POS-DEWAAN/logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
+                <a href="<?= $base ?>logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
                     <i class="fas fa-power-off"></i> 
                     <span class="ml-3 sidebar-text">Sign Out</span>
                 </a>

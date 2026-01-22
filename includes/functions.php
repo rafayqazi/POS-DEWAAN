@@ -14,7 +14,8 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        redirect('/POS-DEWAAN/login.php');
+        $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : '';
+        redirect($base . 'login.php');
     }
 }
 
