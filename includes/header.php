@@ -71,17 +71,29 @@
                             <span class="font-medium ml-4 sidebar-text">Inventory</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="<?= $base ?>pages/restock_history.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Restock History">
-                            <i class="fas fa-history w-6 text-xl"></i>
-                            <span class="font-medium ml-4 sidebar-text">Restock History</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="<?= $base ?>pages/quick_restock.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Quick Restock">
-                            <i class="fas fa-plus-square w-6 text-xl text-orange-300"></i>
-                            <span class="font-medium ml-4 sidebar-text text-orange-200">Quick Restock</span>
-                        </a>
+                    <!-- Dropdown for Restock Management -->
+                    <li class="relative">
+                        <button onclick="toggleDropdown('restockDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Inventory Restock">
+                            <div class="flex items-center">
+                                <i class="fas fa-plus-square w-6 text-xl text-orange-300"></i>
+                                <span class="font-bold ml-4 sidebar-text text-orange-100 italic">Inventory Restock</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="restockDropdownIcon"></i>
+                        </button>
+                        <ul id="restockDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
+                            <li>
+                                <a href="<?= $base ?>pages/quick_restock.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Quick Restock">
+                                    <i class="fas fa-plus-square mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Quick Restock</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="<?= $base ?>pages/restock_history.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Restock History">
+                                    <i class="fas fa-history mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Restock History</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li>
                         <a href="<?= $base ?>pages/pos.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="POS / Sale">
@@ -276,7 +288,20 @@
             if (['categories.php', 'units.php'].includes(currentFile)) {
                 // Ensure dropdown is visible if we are on a child page
                 const dropdown = document.getElementById('setupDropdown');
-                if(dropdown) dropdown.classList.remove('hidden');
+                if(dropdown) {
+                    dropdown.classList.remove('hidden');
+                    const icon = document.getElementById('setupDropdownIcon');
+                    if(icon) icon.classList.add('rotate-180');
+                }
+            }
+            if (['restock_history.php', 'quick_restock.php'].includes(currentFile)) {
+                // Ensure dropdown is visible if we are on a child page
+                const dropdown = document.getElementById('restockDropdown');
+                if(dropdown) {
+                    dropdown.classList.remove('hidden');
+                    const icon = document.getElementById('restockDropdownIcon');
+                    if(icon) icon.classList.add('rotate-180');
+                }
             }
         });
 
