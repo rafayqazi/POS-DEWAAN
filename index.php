@@ -90,9 +90,9 @@ $expiring_count = count($expiring_products);
         </div>
     </div>
     <div class="flex gap-2 w-full md:w-auto">
-        <a href="pages/settings.php?tab=updates" class="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
-            Update Now
-        </a>
+        <button onclick="startSeamlessUpdate()" class="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center flex items-center justify-center gap-2">
+            <i class="fas fa-cloud-download-alt"></i> Update Now
+        </button>
         <button onclick="this.parentElement.parentElement.remove()" class="p-3 text-teal-400 hover:text-teal-600 transition">
             <i class="fas fa-times"></i>
         </button>
@@ -288,6 +288,74 @@ $expiring_count = count($expiring_products);
          </div>
     </div>
 </div>
+
+<!-- Hidden iframe for backup trigger -->
+<iframe id="backupFrame" style="display:none;"></iframe>
+
+<!-- Update Loading Overlay -->
+<div id="updateOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-[9999] flex-col items-center justify-center text-center p-6">
+    <div class="bg-white rounded-[3rem] p-10 max-w-sm w-full shadow-2xl scale-in transform transition-all">
+        <div class="w-20 h-20 bg-teal-100 text-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-teal-50">
+            <i class="fas fa-cloud-download-alt text-3xl animate-bounce"></i>
+        </div>
+        <h3 class="text-2xl font-black text-gray-800 mb-2">System Updating</h3>
+        <p class="text-gray-500 text-sm mb-6 leading-relaxed">
+            Please wait while we backup your database and install the latest updates. <br>
+            <strong>Do not close this page.</strong>
+        </p>
+        <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-3">
+            <div id="updateProgressBar" class="h-full bg-teal-500 w-0 transition-all duration-1000"></div>
+        </div>
+        <p id="updateStatusText" class="text-[10px] font-black uppercase tracking-widest text-teal-600">Initializing Update...</p>
+    </div>
+</div>
+
+<script>
+async function startSeamlessUpdate() {
+    const overlay = document.getElementById('updateOverlay');
+    const bar = document.getElementById('updateProgressBar');
+    const status = document.getElementById('updateStatusText');
+    const backupFrame = document.getElementById('backupFrame');
+    
+    // 1. Show Overlay
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    
+    try {
+        // 2. Trigger Backup Download
+        status.innerText = "Backing up Database...";
+        bar.style.width = "30%";
+        backupFrame.src = 'actions/backup_process.php';
+        
+        // Give a second for backup header to fire
+        await new Promise(r => setTimeout(r, 2000));
+        
+        // 3. Perform Update
+        status.innerText = "Installing Latest Updates...";
+        bar.style.width = "70%";
+        
+        const response = await fetch('pages/settings.php', {
+            method: 'POST',
+            body: new URLSearchParams({ 'action': 'do_update' })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            bar.style.width = "100%";
+            status.innerText = "SUCCESS! RELOADING...";
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            throw new Error(data.message);
+        }
+        
+    } catch (error) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        alert("Update Failed: " + error.message);
+    }
+}
+</script>
 
 <?php 
 include 'includes/footer.php';
