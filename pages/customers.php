@@ -31,21 +31,13 @@ include '../includes/header.php';
 
 $customers = readCSV('customers');
 
-// Calculate Debt for all customers
-$sales = readCSV('sales');
-$payments = readCSV('customer_payments');
+// Calculate Debt for all customers (Unified Logic)
+$transactions = readCSV('customer_transactions');
 $debt_map = [];
 
-foreach($sales as $s) {
-    if(!empty($s['customer_id'])) {
-        $cid = $s['customer_id'];
-        $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$s['total_amount'] - (float)$s['paid_amount']);
-    }
-}
-
-foreach($payments as $p) {
-    $cid = $p['customer_id'];
-    $debt_map[$cid] = ($debt_map[$cid] ?? 0) - (float)$p['amount'];
+foreach($transactions as $t) {
+    $cid = $t['customer_id'];
+    $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
 }
 
 usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest first

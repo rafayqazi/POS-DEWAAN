@@ -8,18 +8,11 @@ if (isset($_GET['id'])) {
     $id = $_GET['id'];
 
     // 1. Check for Dependencies
-    $sales = readCSV('sales');
-    foreach ($sales as $s) {
-        if ($s['customer_id'] == $id) {
-            $_SESSION['error'] = "Cannot delete customer: This customer has sales records. Please delete their sales first.";
-            redirect('../pages/customers.php');
-        }
-    }
-
-    $payments = readCSV('customer_payments');
-    foreach ($payments as $p) {
-        if ($p['customer_id'] == $id) {
-            $_SESSION['error'] = "Cannot delete customer: This customer has payment records.";
+    // 1. Check for Dependencies (Unified Ledger)
+    $txns = readCSV('customer_transactions');
+    foreach ($txns as $t) {
+        if ($t['customer_id'] == $id) {
+            $_SESSION['error'] = "Cannot delete customer: This customer has ledger transactions. Please delete their transactions/sales first.";
             redirect('../pages/customers.php');
         }
     }

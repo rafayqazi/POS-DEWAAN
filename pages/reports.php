@@ -63,12 +63,14 @@ foreach($sales as $s) {
     $total_paid_at_sale += (float)$s['paid_amount'];
 }
 
-$all_payments = readCSV('customer_payments');
+$customer_txns = readCSV('customer_transactions');
 $total_customer_payments = 0;
-foreach($all_payments as $pm) {
-    $total_customer_payments += (float)$pm['amount'];
+$total_debt_customers = 0;
+
+foreach($customer_txns as $tx) {
+    $total_customer_payments += (float)$tx['credit'];
+    $total_debt_customers += (float)$tx['debit'] - (float)$tx['credit'];
 }
-$total_debt_customers = $total_sales_amount - $total_paid_at_sale - $total_customer_payments;
 
 $dealer_purchases = 0;
 $dealer_payments = 0;
