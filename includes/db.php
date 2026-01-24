@@ -347,17 +347,17 @@ initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit'
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 
-// Seed defaults if empty
-if (count(readCSV('settings')) == 0) {
+// Seed defaults only if files do not exist (fresh install)
+if (!file_exists(getCSVPath('settings'))) {
     updateSetting('expiry_notify_days', '7');
 }
 
-if (count(readCSV('units')) == 0) {
+if (!file_exists(getCSVPath('units'))) {
     insertCSV('units', ['name' => 'Katta']);
     insertCSV('units', ['name' => 'Ctn']);
     insertCSV('units', ['name' => 'KG']);
 }
-if (count(readCSV('categories')) == 0) {
+if (!file_exists(getCSVPath('categories'))) {
     insertCSV('categories', ['name' => 'Fertilizer']);
     insertCSV('categories', ['name' => 'Pesticide']);
     insertCSV('categories', ['name' => 'Other']);

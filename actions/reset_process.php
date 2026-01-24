@@ -46,13 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     foreach ($files as $file) {
         $filename = basename($file);
-        // Important: Do NOT delete users.csv
-        if ($filename !== 'users.csv') {
+        if ($filename === 'users.csv') continue;
+
+        $tableName = str_replace('.csv', '', $filename);
+        if (in_array($tableName, ['units', 'categories', 'settings'])) {
+            // Truncate instead of delete to prevent re-seeding in db.php
+            if (writeCSV($tableName, [])) {
+                $deletedCount++;
+            } else {
+                $errors[] = $filename;
+            }
+        } else {
             if (unlink($file)) {
                 $deletedCount++;
-                
-                // Re-initialize essential tables with empty headers or defaults if needed
-                // Based on includes/db.php: units and categories are seeded if empty
             } else {
                 $errors[] = $filename;
             }
