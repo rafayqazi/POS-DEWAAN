@@ -81,9 +81,9 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
                         <div class="flex-1">
                             <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($dealer['name']) ?></h3>
                             <div class="flex items-center mt-1">
-                                <a href="tel:<?= $dealer['phone'] ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
+                                <a href="tel:<?= $dealer['phone'] ?? '' ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
                                     <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                    <?= htmlspecialchars($dealer['phone']) ?>
+                                    <?= htmlspecialchars($dealer['phone'] ?? '') ?>
                                 </a>
                             </div>
                         </div>
@@ -94,7 +94,7 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
                     
                     <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
                         <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
-                        <p class="line-clamp-2"><?= htmlspecialchars($dealer['address']) ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
+                        <p class="line-clamp-2"><?= htmlspecialchars($dealer['address'] ?? '') ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
                     </div>
                     
                     <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -120,9 +120,6 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
 </div>
 
 <script>
-    });
-});
-
 document.getElementById('dealerSearch').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         const visibleCards = Array.from(document.querySelectorAll('.dealer-card')).filter(c => c.style.display !== 'none');
