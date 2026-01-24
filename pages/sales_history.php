@@ -15,6 +15,33 @@ $customers = readCSV('customers');
 $c_map = [];
 foreach($customers as $c) $c_map[$c['id']] = $c['name'];
 
+// NEW: FIFO Payment Allocation Logic
+$transactions = readCSV('customer_transactions');
+$customer_credits = []; // total credits per customer
+foreach($transactions as $t) {
+    $cid = $t['customer_id'];
+    $customer_credits[$cid] = ($customer_credits[$cid] ?? 0) + (float)$t['credit'];
+}
+
+// Sort all sales by date ASC for FIFO allocation
+$all_sales_fifo = readCSV('sales');
+usort($all_sales_fifo, function($a, $b) {
+    return strtotime($a['sale_date']) - strtotime($b['sale_date']);
+});
+
+$sale_paid_adj = []; // sale_id => adjusted_paid_amount
+foreach($all_sales_fifo as $as) {
+    if (empty($as['customer_id'])) {
+        $sale_paid_adj[$as['id']] = (float)$as['paid_amount'];
+        continue;
+    }
+    $cid = $as['customer_id'];
+    $total_sale = (float)$as['total_amount'];
+    $allocated = min($total_sale, ($customer_credits[$cid] ?? 0));
+    $sale_paid_adj[$as['id']] = $allocated;
+    $customer_credits[$cid] = ($customer_credits[$cid] ?? 0) - $allocated;
+}
+
 $p_cost_map = [];
 foreach($products as $p) $p_cost_map[$p['id']] = (float)$p['buy_price'];
 
@@ -68,7 +95,7 @@ $chart_data = [];
 foreach($sales as $s) {
     $sale_id = $s['id'];
     $revenue = (float)$s['total_amount'];
-    $paid = (float)$s['paid_amount'];
+    $paid = $sale_paid_adj[$s['id']] ?? (float)$s['paid_amount'];
     $stats['revenue'] += $revenue;
     $stats['recovered'] += $paid;
     $stats['debt'] += ($revenue - $paid);
@@ -368,14 +395,18 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                                 </div>
                             </td>
                             <td class="p-4 font-bold text-gray-900 text-right"><?= formatCurrency((float)$s['total_amount']) ?></td>
-                            <td class="p-4 text-green-600 font-semibold text-right"><?= formatCurrency((float)$s['paid_amount']) ?></td>
+                            <?php $adj_paid = $sale_paid_adj[$s['id']] ?? (float)$s['paid_amount']; ?>
+                            <td class="p-4 text-green-600 font-semibold text-right"><?= formatCurrency($adj_paid) ?></td>
                             <td class="p-4">
                                 <span class="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-medium border border-gray-200 uppercase">
                                     <?= $s['payment_method'] ?>
                                 </span>
                             </td>
-                            <td class="p-4 text-center">
-                                <?php if($s['total_amount'] > $s['paid_amount']): ?>
+                             <td class="p-4 text-center">
+                                <?php 
+                                $total_amt = (float)$s['total_amount'];
+                                $paid_amt = $sale_paid_adj[$s['id']] ?? (float)$s['paid_amount'];
+                                if($total_amt > $paid_amt): ?>
                                     <?php if(!empty($s['customer_id'])): ?>
                                         <a href="customer_ledger.php?id=<?= $s['customer_id'] ?>" class="bg-red-100 text-red-700 text-[10px] uppercase font-bold px-2 py-1 rounded-full border border-red-200 hover:bg-red-200 transition">
                                             <i class="fas fa-exclamation-circle mr-1"></i> Due

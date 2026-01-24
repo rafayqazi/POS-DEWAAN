@@ -6,7 +6,11 @@ requireLogin();
 
 $pageTitle = "Inventory Management";
 include '../includes/header.php';
+?>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<?php
 $message = '';
 $error = '';
 
@@ -28,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 if (!empty($new_dealer_name)) {
                     $dealer_data = [
                         'name' => $new_dealer_name,
-                        'contact' => '', // Optional info can be skipped for quick add
+                        'phone' => '', // Standardize key
+                        'address' => '', // Ensure key exists
                         'created_at' => date('Y-m-d H:i:s')
                     ];
                     $dealer_id = insertCSV('dealers', $dealer_data);
@@ -163,19 +168,100 @@ if (isset($_GET['filter']) && $_GET['filter'] == 'low') {
 }
 
 // Reverse sort to show newest first
+// Sort by created_at desc (newest first)
 usort($products, function($a, $b) {
-    return $b['id'] - $a['id'];
+    return strtotime($b['created_at']) - strtotime($a['created_at']);
 });
+
+// Calculate Analytics Data
+$total_products = count($products);
+$total_stock_value = 0;
+$low_stock_count = 0;
+$category_counts = [];
+
+foreach ($products as $p) {
+    $total_stock_value += (float)$p['buy_price'] * (float)$p['stock_quantity'];
+    if ((float)$p['stock_quantity'] < 10) $low_stock_count++;
+    
+    $cat = $p['category'] ?: 'Uncategorized';
+    $category_counts[$cat] = ($category_counts[$cat] ?? 0) + 1;
+}
+
+// Prepare Chart Data
+$chart_labels = array_keys($category_counts);
+$chart_data = array_values($category_counts);
 ?>
 
-<div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-    <div class="relative w-full max-w-md">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-            <i class="fas fa-search"></i>
-        </span>
-        <input type="text" id="inventorySearch" autofocus placeholder="Search inventory..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-teal-500 focus:outline-none">
+<!-- Analytics Dashboard -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 mt-2">
+    <!-- KPI Cards -->
+    <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-teal-500 relative overflow-hidden group hover:shadow-xl transition-all">
+            <div class="absolute -right-4 -top-4 text-teal-50 opacity-10 group-hover:scale-110 transition-transform">
+                <i class="fas fa-boxes text-8xl"></i>
+            </div>
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Products</p>
+            <h3 class="text-3xl font-black text-gray-800"><?= number_format($total_products) ?></h3>
+            <p class="text-xs text-gray-500 mt-2">Active in inventory</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-amber-500 relative overflow-hidden group hover:shadow-xl transition-all">
+             <div class="absolute -right-4 -top-4 text-amber-50 opacity-10 group-hover:scale-110 transition-transform">
+                <i class="fas fa-wallet text-8xl"></i>
+            </div>
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
+            <h3 class="text-3xl font-black text-gray-800"><?= formatCurrency($total_stock_value) ?></h3>
+            <p class="text-xs text-gray-500 mt-2">Total investment</p>
+        </div>
+
+        <a href="inventory.php?filter=low" class="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-red-500 relative overflow-hidden group hover:shadow-xl transition-all cursor-pointer block">
+             <div class="absolute -right-4 -top-4 text-red-50 opacity-10 group-hover:scale-110 transition-transform">
+                <i class="fas fa-exclamation-triangle text-8xl"></i>
+            </div>
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Low Stock Alerts</p>
+            <h3 class="text-3xl font-black text-red-600"><?= number_format($low_stock_count) ?></h3>
+            <p class="text-xs text-red-500 font-bold mt-2 flex items-center">
+                <i class="fas fa-arrow-down mr-1"></i> Below 10 units
+            </p>
+        </a>
     </div>
-    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition flex items-center shadow-lg w-full md:w-auto justify-center">
+
+    <!-- Category Pie Chart -->
+    <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center relative min-h-[200px]">
+        <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 w-full text-center">Category Spread</h4>
+        <div class="w-full h-full max-h-[150px] relative mt-[-20px]">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="mb-6 flex flex-col lg:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+    <!-- Search and Filters -->
+    <div class="flex flex-col md:flex-row items-center gap-3 flex-1 w-full">
+        <div class="relative w-full max-w-md">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <i class="fas fa-search text-xs"></i>
+            </span>
+            <input type="text" id="inventorySearch" autofocus placeholder="Search inventory..." class="w-full pl-9 pr-4 py-2.5 rounded-xl border-gray-200 border focus:ring-2 focus:ring-teal-500 focus:outline-none transition text-sm">
+        </div>
+
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <div class="flex-1 md:flex-none">
+                <select id="filterType" onchange="updateFilterOptions()" class="w-full md:w-40 pl-3 pr-8 py-2.5 rounded-xl border-gray-200 border focus:ring-2 focus:ring-teal-500 focus:outline-none transition text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1em_1em]" style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E');">
+                    <option value="none">Searched By</option>
+                    <option value="category">By Categories</option>
+                    <option value="unit">By Units</option>
+                </select>
+            </div>
+            <div class="flex-1 md:flex-none">
+                <select id="filterValue" onchange="applyFilters()" class="w-full md:w-48 pl-3 pr-8 py-2.5 rounded-xl border-gray-200 border focus:ring-2 focus:ring-teal-500 focus:outline-none transition text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1em_1em]" style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E');">
+                    <option value="all">All Values</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-6 py-2.5 rounded-xl hover:bg-teal-700 transition flex items-center shadow-lg w-full lg:w-auto justify-center font-bold text-sm transform active:scale-95">
         <i class="fas fa-plus mr-2"></i> Add Product
     </button>
 </div>
@@ -194,8 +280,10 @@ usort($products, function($a, $b) {
             <thead>
                 <tr class="bg-teal-700 text-white text-sm uppercase tracking-wider">
                     <th class="p-4 w-12 text-center">Sr #</th>
+                    <th class="p-4">Purchased Date</th>
                     <th class="p-4">Product Name</th>
                     <th class="p-4">Category</th>
+                    <th class="p-4">Remarks</th>
                     <th class="p-4">Stock</th>
                     <th class="p-4 text-right">Buy Price</th>
                     <th class="p-4 text-right">Sell Price</th>
@@ -227,8 +315,15 @@ usort($products, function($a, $b) {
                         $grand_total_profit += $total_profit;
                         $grand_total_profit_avco = ($grand_total_profit_avco ?? 0) + $avco_profit_total;
                 ?>
-                        <tr class="hover:bg-gray-50 transition border-b">
+                        <tr class="hover:bg-gray-50 transition border-b product-row" 
+                            data-category="<?= strtolower(htmlspecialchars($product['category'])) ?>"
+                            data-unit="<?= strtolower(htmlspecialchars($product['unit'])) ?>">
                             <td class="p-4 text-gray-400 font-mono text-xs text-center"><?= $sn++ ?></td>
+                            <td class="p-4">
+                                <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded uppercase">
+                                    <?= date('d M Y', strtotime($product['created_at'])) ?>
+                                </span>
+                            </td>
                             <td class="p-4 font-bold text-gray-800">
                                 <?= htmlspecialchars($product['name']) ?>
                                 <?php if(!empty($product['expiry_date'])): ?>
@@ -238,6 +333,11 @@ usort($products, function($a, $b) {
                             <td class="p-4">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200">
                                     <?= htmlspecialchars($product['category']) ?>
+                                </span>
+                            </td>
+                            <td class="p-4">
+                                <span class="text-xs text-gray-500 italic">
+                                    <?= !empty($product['remarks']) ? htmlspecialchars($product['remarks']) : 'No Remarks' ?>
                                 </span>
                             </td>
                             <td class="p-4">
@@ -270,7 +370,7 @@ usort($products, function($a, $b) {
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="10" class="p-12 text-center text-gray-400">
+                        <td colspan="12" class="p-12 text-center text-gray-400">
                             <i class="fas fa-box-open text-5xl mb-4 text-gray-200"></i><br>
                             No products found. Start by adding one.
                         </td>
@@ -280,7 +380,7 @@ usort($products, function($a, $b) {
             <?php if (count($products) > 0): ?>
             <tfoot class="bg-gray-800 text-white font-bold">
                 <tr>
-                    <td colspan="6" class="p-4 text-right uppercase tracking-wider text-xs">Grand Inventory Totals:</td>
+                    <td colspan="8" class="p-4 text-right uppercase tracking-wider text-xs">Grand Inventory Totals:</td>
                     <td class="p-4 text-right font-mono"><?= formatCurrency($grand_total_cost) ?></td>
                     <td class="p-4 text-right font-mono text-green-400"><?= formatCurrency($grand_total_profit) ?></td>
                     <td class="p-4 text-right font-mono text-emerald-400 border-l border-gray-700"><?= formatCurrency($grand_total_profit_avco ?? 0) ?></td>
@@ -704,25 +804,57 @@ function checkDropdown(select) {
     }
 }
 
-// Search functionality
-document.getElementById('inventorySearch').addEventListener('input', function(e) {
-    const term = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('tbody tr');
+// Filtering logic
+const categoriesData = <?= json_encode(array_column($categories, 'name')) ?>;
+const unitsData = <?= json_encode(array_column($units, 'name')) ?>;
+
+function updateFilterOptions() {
+    const type = document.getElementById('filterType').value;
+    const valueSelect = document.getElementById('filterValue');
+    valueSelect.innerHTML = '<option value="all">All Values</option>';
+    
+    let options = [];
+    if (type === 'category') options = categoriesData;
+    else if (type === 'unit') options = unitsData;
+    
+    options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt;
+        valueSelect.appendChild(o);
+    });
+    
+    applyFilters();
+}
+
+function applyFilters() {
+    const term = document.getElementById('inventorySearch').value.toLowerCase();
+    const type = document.getElementById('filterType').value;
+    const filterVal = document.getElementById('filterValue').value.toLowerCase();
+    const rows = document.querySelectorAll('.product-row');
     
     rows.forEach(row => {
-        const nameNode = row.querySelector('td:nth-child(2)');
-        if (!nameNode) return; // Skip footer or header if any
+        const nameNode = row.querySelector('td:nth-child(3)'); 
+        if (!nameNode) return;
         
         const name = nameNode.textContent.toLowerCase();
-        const cat = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+        const category = row.getAttribute('data-category');
+        const unit = row.getAttribute('data-unit');
         
-        if (name.includes(term) || cat.includes(term)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
+        const matchesSearch = name.includes(term) || category.includes(term);
+        let matchesFilter = true;
+        
+        if (type === 'category' && filterVal !== 'all') {
+            matchesFilter = (category === filterVal);
+        } else if (type === 'unit' && filterVal !== 'all') {
+            matchesFilter = (unit === filterVal);
         }
+        
+        row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
     });
-});
+}
+
+document.getElementById('inventorySearch').addEventListener('input', applyFilters);
 
 document.getElementById('inventorySearch').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
@@ -731,6 +863,38 @@ document.getElementById('inventorySearch').addEventListener('keydown', function(
             const editBtn = visibleRows[0].querySelector('button[title="Edit"]');
             if (editBtn) editBtn.click();
         }
+    }
+});
+
+// Category Chart Initialization
+const ctx = document.getElementById('categoryChart').getContext('2d');
+new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: <?= json_encode($chart_labels) ?>,
+        datasets: [{
+            data: <?= json_encode($chart_data) ?>,
+            backgroundColor: [
+                '#14b8a6', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#6366f1'
+            ],
+            borderWidth: 0,
+            hoverOffset: 12
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return ` ${context.label}: ${context.raw} Products`;
+                    }
+                }
+            }
+        },
+        cutout: '10%'
     }
 });
 </script>

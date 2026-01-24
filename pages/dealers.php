@@ -193,10 +193,10 @@ document.getElementById('dealerSearch').addEventListener('keydown', function(e) 
 
 <script>
 function editDealer(dealer) {
-    document.getElementById('edit_id').value = dealer.id;
-    document.getElementById('edit_name').value = dealer.name;
-    document.getElementById('edit_phone').value = dealer.phone;
-    document.getElementById('edit_address').value = dealer.address;
+    document.getElementById('edit_id').value = dealer.id || '';
+    document.getElementById('edit_name').value = dealer.name || '';
+    document.getElementById('edit_phone').value = dealer.phone || '';
+    document.getElementById('edit_address').value = dealer.address || '';
     document.getElementById('editDealerModal').classList.remove('hidden');
 }
 

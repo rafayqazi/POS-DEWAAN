@@ -225,7 +225,13 @@ $current_balance = $total_debit - $total_credit;
                      <input type="date" name="date" id="txnDate" required value="<?= date('Y-m-d') ?>" class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-sm">
                 </div>
                 <div>
-                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Amount</label>
+                     <div class="flex justify-between items-center mb-2">
+                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest">Amount</label>
+                         <div class="flex items-center gap-1.5 cursor-pointer group" onclick="togglePayTotal()">
+                             <input type="checkbox" id="payTotalCheck" class="rounded border-gray-300 text-primary focus:ring-primary h-3 w-3 cursor-pointer">
+                             <label for="payTotalCheck" class="text-[10px] font-black text-primary uppercase cursor-pointer group-hover:underline">Pay total</label>
+                         </div>
+                     </div>
                      <input type="number" name="amount" id="txnAmount" required step="0.01" placeholder="0.00" class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-black text-emerald-600">
                 </div>
             </div>
@@ -332,9 +338,25 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('txnDate').value = '<?= date('Y-m-d') ?>';
         document.getElementById('txnAmount').value = '';
         document.getElementById('txnDesc').value = '';
+        document.getElementById('payTotalCheck').checked = false;
         document.getElementById('modalTitle').innerText = (type == 'Purchase') ? "Record Goods" : "Record Payment";
         document.getElementById('txnModal').classList.remove('hidden');
         document.getElementById('txnModal').classList.add('flex');
+    }
+
+    function togglePayTotal() {
+        const check = document.getElementById('payTotalCheck');
+        const amountInput = document.getElementById('txnAmount');
+        const balance = <?= (float)$current_balance ?>;
+        
+        // If event came from label click, checkbox may not have toggled yet in some browsers/scenarios
+        // but since we are using onclick on a container, we should be careful.
+        // Actually, just checking the checked state is fine if we use the checkbox's state.
+        if (check.checked) {
+            amountInput.value = balance.toFixed(2);
+        } else {
+            amountInput.value = '';
+        }
     }
 
     function editTxn(data) {
@@ -343,6 +365,7 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('txnDate').value = data.date;
         document.getElementById('txnAmount').value = (data.debit > 0) ? data.debit : data.credit;
         document.getElementById('txnDesc').value = data.description;
+        document.getElementById('payTotalCheck').checked = false;
         document.getElementById('modalTitle').innerText = "Edit " + data.type;
         document.getElementById('txnModal').classList.remove('hidden');
         document.getElementById('txnModal').classList.add('flex');
