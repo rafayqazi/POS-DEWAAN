@@ -178,6 +178,7 @@ $current_balance = $total_debit - $total_credit;
         <table class="w-full text-left">
             <thead class="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100">
                 <tr>
+                    <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
                     <th class="p-6">Description</th>
                     <th class="p-6 text-center">Type</th>
@@ -283,7 +284,8 @@ $current_balance = $total_debit - $total_credit;
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
                 <tr style="background: #ea580c; color: #fff;">
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Date</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Goods)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
@@ -499,6 +501,7 @@ $current_balance = $total_debit - $total_credit;
             
             if (isPrint) {
                 html += `<tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${displayDate}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${t.description}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #ea580c; font-size: 11px;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
@@ -507,6 +510,7 @@ $current_balance = $total_debit - $total_credit;
                 </tr>`;
             } else {
                 html += `<tr class="hover:bg-amber-50/30 transition border-b border-gray-50 last:border-0 group">
+                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6">
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
                     </td>

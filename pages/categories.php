@@ -52,10 +52,13 @@ $categories = readCSV('categories');
             <div class="space-y-2">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Existing Categories</h3>
                 <div class="divide-y divide-gray-50 border rounded-xl overflow-hidden bg-gray-50/30">
-                    <?php if (count($categories) > 0): ?>
+                    <?php if (count($categories) > 0): $sn = 1; ?>
                         <?php foreach($categories as $cat): ?>
                         <div class="flex justify-between items-center p-4 hover:bg-white transition group">
-                            <span class="font-medium text-gray-700"><?= htmlspecialchars($cat['name']) ?></span>
+                            <div class="flex items-center">
+                                <span class="w-8 text-xs font-mono text-gray-400"><?= $sn++ ?>.</span>
+                                <span class="font-medium text-gray-700"><?= htmlspecialchars($cat['name']) ?></span>
+                            </div>
                             <div class="opacity-0 group-hover:opacity-100 transition flex space-x-2">
                                 <button onclick="confirmCategoryDelete(<?= $cat['id'] ?>, '<?= addslashes($cat['name']) ?>')" class="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center">
                                     <i class="fas fa-trash-alt text-xs"></i>

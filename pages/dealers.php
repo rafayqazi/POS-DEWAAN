@@ -117,10 +117,17 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
                         <div class="flex-1">
                             <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($dealer['name']) ?></h3>
                             <div class="flex items-center mt-1">
-                                <a href="tel:<?= $dealer['phone'] ?? '' ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
-                                    <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                    <?= htmlspecialchars($dealer['phone'] ?? '') ?>
-                                </a>
+                                <?php if(!empty($dealer['phone'])): ?>
+                                    <a href="tel:<?= htmlspecialchars($dealer['phone']) ?>" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
+                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                                        <?= htmlspecialchars($dealer['phone']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-gray-400 text-xs italic flex items-center">
+                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
+                                        No phone provided
+                                    </span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <button onclick="event.stopPropagation(); editDealer(<?= htmlspecialchars(json_encode($dealer)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">

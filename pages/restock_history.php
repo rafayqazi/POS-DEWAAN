@@ -9,19 +9,11 @@ include '../includes/header.php';
 
 $restocks = readCSV('restocks');
 
-// Filter Logic
-if (!empty($_GET['from']) && !empty($_GET['to'])) {
-    $from = $_GET['from'];
-    $to = $_GET['to'];
-    $restocks = array_filter($restocks, function($r) use ($from, $to) {
-        if (empty($r['date'])) return false;
-        return $r['date'] >= $from && $r['date'] <= $to;
-    });
-}
+$restocks = readCSV('restocks');
 
 // Sort by ID descending to see newest first
 usort($restocks, function($a, $b) {
-    return (int)$b['id'] - (int)$a['id'];
+    return (int)($b['id'] ?? 0) - (int)($a['id'] ?? 0);
 });
 ?>
 
@@ -50,18 +42,19 @@ usort($restocks, function($a, $b) {
         </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
-            <input type="date" name="from" id="dateFrom" value="<?= $_GET['from'] ?? '' ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="date" id="dateFrom" onchange="renderTable()" value="<?= date('Y-m-01') ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
         </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
-            <input type="date" name="to" id="dateTo" value="<?= $_GET['to'] ?? '' ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
         </div>
-        <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-md font-bold text-sm h-[38px]">
-            <i class="fas fa-filter mr-1"></i> Filter
-        </button>
-        <?php if(isset($_GET['from']) || isset($_GET['to'])): ?>
+        
+        <div class="flex gap-2">
+            <button onclick="printReport()" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md font-bold text-sm h-[38px] flex items-center">
+                <i class="fas fa-print mr-2"></i> Print Report
+            </button>
             <a href="restock_history.php" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm h-[38px] flex items-center">Reset</a>
-        <?php endif; ?>
+        </div>
     </form>
     <script>
     function applyQuickDate(type) {
@@ -98,6 +91,7 @@ usort($restocks, function($a, $b) {
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-orange-600 text-white text-xs uppercase tracking-widest font-black">
+                    <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
                     <th class="p-6">Product</th>
                     <th class="p-6">Expiry & Remarks</th>
@@ -109,82 +103,8 @@ usort($restocks, function($a, $b) {
                     <th class="p-6 text-center">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100 italic-rows">
-                <?php if (count($restocks) > 0): ?>
-                    <?php foreach ($restocks as $log): ?>
-                        <tr class="hover:bg-orange-50/30 transition">
-                            <td class="p-6 text-sm font-medium text-gray-500 font-mono">
-                                <?php if (!empty($log['date'])): ?>
-                                    <?= date('d M, Y', strtotime($log['date'])) ?>
-                                    <br><span class="text-[10px] opacity-50"><?= !empty($log['created_at']) ? date('H:i', strtotime($log['created_at'])) : '' ?></span>
-                                <?php else: ?>
-                                    <span class="text-gray-300">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="p-6">
-                                <span class="font-bold text-gray-800 block"><?= htmlspecialchars($log['product_name'] ?? 'Unknown Product') ?></span>
-                                <span class="text-[10px] text-gray-400 font-bold uppercase">ID: <?= $log['product_id'] ?></span>
-                            </td>
-                            <td class="p-6">
-                                <?php if (!empty($log['expiry_date'])): ?>
-                                    <div class="text-xs text-red-500 font-bold mb-1">
-                                        <i class="far fa-calendar-alt mr-1"></i> Exp: <?= date('d M Y', strtotime($log['expiry_date'])) ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="text-[10px] text-gray-300 italic mb-1">No Expiry</div>
-                                <?php endif; ?>
-
-                                <?php if (!empty($log['remarks'])): ?>
-                                    <div class="text-xs text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100 inline-block max-w-[200px] truncate" title="<?= htmlspecialchars($log['remarks']) ?>">
-                                        <i class="fas fa-sticky-note mr-1 text-teal-500"></i> <?= htmlspecialchars($log['remarks']) ?>
-                                    </div>
-                                <?php endif; ?>
-                            </td>
-                            <td class="p-6">
-                                <span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">
-                                    +<?= $log['quantity'] ?>
-                                </span>
-                            </td>
-                            <td class="p-6">
-                                <div class="text-gray-800 font-bold text-sm"><?= formatCurrency((float)$log['new_buy_price']) ?></div>
-                                <div class="text-[10px] text-gray-400 line-through italic">Prev: <?= formatCurrency((float)$log['old_buy_price']) ?></div>
-                            </td>
-                            <td class="p-6">
-                                <div class="text-teal-600 font-bold text-sm"><?= formatCurrency((float)$log['new_sell_price']) ?></div>
-                                <div class="text-[10px] text-gray-400 line-through italic">Prev: <?= formatCurrency((float)$log['old_sell_price']) ?></div>
-                            </td>
-                            <td class="p-6">
-                                <?php if (!empty($log['dealer_name'])): ?>
-                                    <span class="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                                        <i class="fas fa-truck text-orange-400"></i>
-                                        <?= htmlspecialchars($log['dealer_name']) ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span class="text-xs text-gray-400 italic">Self Stock / Unknown</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="p-6 text-right">
-                                <?php if (isset($log['amount_paid']) && $log['amount_paid'] !== ''): ?>
-                                    <span class="font-black text-gray-800"><?= formatCurrency((float)$log['amount_paid']) ?></span>
-                                <?php else: ?>
-                                    <span class="text-gray-300 font-bold">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="p-6 text-center">
-                                <button onclick="confirmDeleteRestock(<?= $log['id'] ?>)" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition" title="Revert this Restock">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="10" class="p-20 text-center text-gray-300">
-                            <i class="fas fa-history text-6xl mb-4 opacity-20"></i>
-                            <p class="font-medium">No restock history found yet.</p>
-                        </td>
-                    </tr>
-                <?php endif; ?>
+            <tbody class="divide-y divide-gray-100 italic-rows" id="restockBody">
+                <!-- JS Rendered -->
             </tbody>
         </table>
     </div>
@@ -195,22 +115,154 @@ usort($restocks, function($a, $b) {
     .italic-rows .line-through { font-style: italic; }
 </style>
 
+<!-- Printable Area -->
+<div id="printableArea" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+            <div>
+                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Inventory Restock History Report</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #333;">Summary Report</h2>
+                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #ea580c; color: #fff;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Product</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Qty Added</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Purchase Cost</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Dealer</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Paid Amount</th>
+                </tr>
+            </thead>
+            <tbody id="printBody">
+                <!-- JS Populated -->
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fafb; font-weight: bold;">
+                    <td colspan="5" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total amount paid in this period:</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #ea580c; font-size: 16px;">Rs. 0</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
+            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
+            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+        </div>
+    </div>
+</div>
+
 <?php 
 include '../includes/footer.php'; 
 echo '</main></div>';
-
-// Add the delete form at the bottom
 ?>
 <form id="deleteRestockForm" action="../actions/delete_restock.php" method="POST" class="hidden">
     <input type="hidden" name="restock_id" id="deleteRestockId">
 </form>
 
 <script>
+    const allRestocks = <?= json_encode($restocks) ?>;
+
+    const formatCurrency = (amount) => {
+        return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+    };
+
+    function renderTable() {
+        const dateFromVal = document.getElementById('dateFrom').value;
+        const dateToVal = document.getElementById('dateTo').value;
+        
+        let filtered = allRestocks.filter(r => {
+            const rDate = (r.date || "").substring(0, 10);
+            if (dateFromVal && rDate < dateFromVal) return false;
+            if (dateToVal && rDate > dateToVal) return false;
+            return true;
+        });
+
+        const body = document.getElementById('restockBody');
+        const printBody = document.getElementById('printBody');
+        let html = '';
+        let printHtml = '';
+        let totalPaid = 0;
+
+        if (filtered.length === 0) {
+            html = '<tr><td colspan="10" class="p-20 text-center text-gray-300"><i class="fas fa-history text-6xl mb-4 opacity-20"></i><p class="font-medium">No restock history found for this period.</p></td></tr>';
+            printHtml = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">No records found.</td></tr>';
+        } else {
+            filtered.forEach((log, index) => {
+                const sn = index + 1;
+                const paid = parseFloat(log.amount_paid || 0);
+                totalPaid += paid;
+                
+                const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
+                const timeDisplay = log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+
+                const expiryHtml = log.expiry_date ? 
+                    `<div class="text-xs text-red-500 font-bold mb-1"><i class="far fa-calendar-alt mr-1"></i> Exp: ${new Date(log.expiry_date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})}</div>` : 
+                    `<div class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1 opacity-60">No Expiry</div>`;
+                
+                const remarksHtml = log.remarks ? 
+                    `<div class="text-xs text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100 inline-block max-w-[200px] truncate" title="${log.remarks}"><i class="fas fa-sticky-note mr-1 text-teal-500"></i> ${log.remarks}</div>` : 
+                    '';
+
+                html += `<tr class="hover:bg-orange-50/30 transition">
+                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
+                    <td class="p-6 text-sm font-medium text-gray-500 font-mono">${dateDisplay}<br><span class="text-[10px] opacity-50">${timeDisplay}</span></td>
+                    <td class="p-6">
+                        <span class="font-bold text-gray-800 block">${log.product_name || 'Unknown Product'}</span>
+                        <span class="text-[10px] text-gray-400 font-bold uppercase">ID: ${log.product_id}</span>
+                    </td>
+                    <td class="p-6">${expiryHtml}${remarksHtml}</td>
+                    <td class="p-6"><span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${log.quantity}</span></td>
+                    <td class="p-6">
+                        <div class="text-gray-800 font-bold text-sm">${formatCurrency(parseFloat(log.new_buy_price || 0))}</div>
+                        <div class="text-[10px] text-gray-400 line-through italic">Prev: ${formatCurrency(parseFloat(log.old_buy_price || 0))}</div>
+                    </td>
+                    <td class="p-6 text-teal-600 font-bold text-sm">${formatCurrency(parseFloat(log.new_sell_price || 0))}</td>
+                    <td class="p-6">${log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700"><i class="fas fa-truck text-orange-400"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>'}</td>
+                    <td class="p-6 text-right">${log.amount_paid !== '' ? `<span class="font-black text-gray-800">${formatCurrency(paid)}</span>` : '<span class="text-gray-300 font-bold">-</span>'}</td>
+                    <td class="p-6 text-center"><button onclick="confirmDeleteRestock(${log.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button></td>
+                </tr>`;
+
+                printHtml += `<tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dateDisplay}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${log.product_name}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${log.quantity}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${formatCurrency(parseFloat(log.new_buy_price))}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${log.dealer_name || 'Self'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; font-weight: bold;">${formatCurrency(paid)}</td>
+                </tr>`;
+            });
+        }
+
+        body.innerHTML = html;
+        printBody.innerHTML = printHtml;
+        document.getElementById('printFooterTotal').innerText = formatCurrency(totalPaid);
+    }
+
+    function printReport() {
+        const content = document.getElementById('printableArea').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write('<html><head><title>Restock Report</title><style>body { font-family: sans-serif; }</style></head><body>');
+        printWindow.document.write(content);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+    }
+
     function confirmDeleteRestock(id) {
         showConfirm('Are you sure you want to revert this restock? \n\nThis will:\n1. Remove the added quantity from stock.\n2. Revert the Average Buy Price.\n3. Delete any linked Dealer Transactions.', () => {
             document.getElementById('deleteRestockId').value = id;
             document.getElementById('deleteRestockForm').submit();
         }, 'Revert Restock');
     }
+
+    document.addEventListener('DOMContentLoaded', renderTable);
 </script>
 </body></html>

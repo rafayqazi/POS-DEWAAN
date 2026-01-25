@@ -137,6 +137,7 @@ usort($ledger, function($a, $b) {
         <table class="w-full text-left">
             <thead class="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100">
                 <tr>
+                    <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
                     <th class="p-6">Description</th>
                     <th class="p-6 text-right">Debit (Sale)</th>
@@ -414,6 +415,7 @@ usort($ledger, function($a, $b) {
                 </tr>`;
             } else {
                 html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0 group">
+                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6">
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
                     </td>

@@ -50,6 +50,7 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
         <table class="w-full text-left">
             <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                 <tr>
+                    <th class="px-6 py-4 font-bold w-12 text-center">Sno#</th>
                     <th class="px-6 py-4 font-bold">Date</th>
                     <th class="px-6 py-4 font-bold">Category</th>
                     <th class="px-6 py-4 font-bold">Title</th>
@@ -61,15 +62,16 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
             <tbody class="divide-y divide-gray-50">
                 <?php if (empty($expenses)): ?>
                     <tr>
-                        <td colspan="6" class="px-6 py-10 text-center text-gray-400">
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-400">
                             <i class="fas fa-folder-open text-4xl mb-3 block"></i>
                             No expenses recorded yet.
                         </td>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($expenses as $e): ?>
-                        <tr class="hover:bg-gray-50/50 transition-colors group">
-                            <td class="px-6 py-4 whitespace-nowrap">
+<?php else: $sn = 1; ?>
+<?php foreach ($expenses as $e): ?>
+    <tr class="hover:bg-gray-50/50 transition-colors group">
+        <td class="px-6 py-4 whitespace-nowrap text-center text-xs font-mono text-gray-400"><?= $sn++ ?></td>
+        <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase">
                                     <?= date('d M, Y', strtotime($e['date'])) ?>
                                 </span>

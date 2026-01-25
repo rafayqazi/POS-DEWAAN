@@ -104,7 +104,7 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
         <?php foreach ($customers as $c): ?>
             <div class="customer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
                  data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>"
-                 data-phone="<?= strtolower(htmlspecialchars($c['phone'])) ?>"
+                 data-phone="<?= strtolower(htmlspecialchars($c['phone'] ?? '')) ?>"
                  onclick="window.location.href='customer_ledger.php?id=<?= $c['id'] ?>'">
                 <div class="bg-amber-500 h-2 w-full"></div>
                 <div class="p-6">
@@ -122,10 +122,17 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
                                 <?php endif; ?>
                             </div>
                             <div class="flex items-center mt-1">
-                                <a href="tel:<?= $c['phone'] ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
-                                    <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                    <?= htmlspecialchars($c['phone']) ?>
-                                </a>
+                                <?php if(!empty($c['phone'])): ?>
+                                    <a href="tel:<?= htmlspecialchars($c['phone']) ?>" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
+                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                                        <?= htmlspecialchars($c['phone']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-gray-400 text-xs italic flex items-center">
+                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
+                                        No phone provided
+                                    </span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="flex flex-col gap-2">

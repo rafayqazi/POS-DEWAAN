@@ -12,8 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    $users = readCSV('users');
-    $found = false;
+    if (!isset($_POST['accept_terms'])) {
+        $error = "You must accept the Terms and Conditions to login.";
+    } else {
+        $users = readCSV('users');
+        $found = false;
 
     foreach ($users as $u) {
         if ($u['username'] == $username) {
@@ -29,8 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
-    if (!$found) {
-        $error = "Invalid username or password.";
+        if (!$found) {
+            $error = "Invalid username or password.";
+        }
     }
 }
 ?>
@@ -84,6 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </span>
                     <input class="w-full pl-10 pr-3 py-3 rounded-lg border-2 border-gray-200 focus:outline-none focus:border-teal-500 transition-colors" id="password" name="password" type="password" placeholder="**************" required>
                 </div>
+            </div>
+
+            <div class="mb-6 flex items-center">
+                <input class="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" id="accept_terms" name="accept_terms" type="checkbox" required>
+                <label class="ml-2 text-sm font-medium text-gray-700 select-none cursor-pointer" for="accept_terms">
+                    I accept the <a href="terms.php" class="text-teal-600 hover:text-teal-800 underline">Terms and Conditions</a>
+                </label>
             </div>
             
             <button class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1" type="submit">
