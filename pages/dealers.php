@@ -44,8 +44,39 @@ foreach($all_txns as $t) {
     }
 }
 
+$total_payable_balance = array_sum($balance_map);
+$total_dealer_count = count($dealers);
+
 usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
 ?>
+
+<!-- Financial Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-l-4 border-amber-500 glass transition transform hover:scale-[1.02]">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Total Dealers</h3>
+                <p class="text-3xl font-black text-gray-800 tracking-tighter mt-1"><?= number_format($total_dealer_count) ?></p>
+            </div>
+            <div class="w-12 h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-truck-loading text-xl"></i>
+            </div>
+        </div>
+        <div class="mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Active Suppliers</div>
+    </div>
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-l-4 border-red-500 glass transition transform hover:scale-[1.02]">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Total Payable Balance</h3>
+                <p class="text-3xl font-black text-red-600 tracking-tighter mt-1"><?= formatCurrency($total_payable_balance) ?></p>
+            </div>
+            <div class="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-hand-holding-usd text-xl"></i>
+            </div>
+        </div>
+        <div class="mt-4 text-[10px] text-red-400 font-bold uppercase tracking-wider">Total Amount to Pay</div>
+    </div>
+</div>
 
 <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
     <div class="relative w-full max-w-md">
@@ -54,9 +85,14 @@ usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
         </span>
         <input type="text" id="dealerSearch" autofocus placeholder="Search dealers..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm transition">
     </div>
-    <button onclick="document.getElementById('addDealerModal').classList.remove('hidden')" class="w-full md:w-auto bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
-        <i class="fas fa-truck mr-2"></i> Add Dealer
-    </button>
+    <div class="flex gap-3 w-full md:w-auto">
+        <button onclick="printReport()" class="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95">
+            <i class="fas fa-print mr-2"></i> Print Report
+        </button>
+        <button onclick="document.getElementById('addDealerModal').classList.remove('hidden')" class="w-full md:w-auto bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
+            <i class="fas fa-truck mr-2"></i> Add Dealer
+        </button>
+    </div>
 </div>
 
 <?php if ($message): ?>
@@ -222,4 +258,70 @@ document.getElementById('dealerSearch').addEventListener('keydown', function(e) 
         }
     }
 });
+
+function printReport() {
+    const element = document.getElementById('printableArea');
+    const content = element.innerHTML;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write('<html><head><title>Dealer Payable Report</title><style>body { font-family: sans-serif; }</style></head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
 </script>
+
+<!-- Printable Area -->
+<div id="printableArea" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+            <div>
+                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Dealer Payable Balance Report</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #333;">Summary Report</h2>
+                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #ea580c; color: #fff;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Dealer/Company</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Phone</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Payable Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php $sn = 1; foreach ($dealers as $d): 
+                    $bal = $balance_map[$d['id']] ?? 0;
+                ?>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;"><?= $sn++ ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;"><?= htmlspecialchars($d['name']) ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;"><?= htmlspecialchars($d['phone'] ?? '') ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: <?= $bal > 0 ? '#dc2626' : '#059669' ?>; font-weight: bold; font-size: 11px;"><?= formatCurrency($bal) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fafb; font-weight: bold;">
+                    <td colspan="3" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Grand Total Payable:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($total_payable_balance) ?></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
+            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
+            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+        </div>
+    </div>
+</div>
