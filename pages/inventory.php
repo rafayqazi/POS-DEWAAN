@@ -529,64 +529,77 @@ $chart_data = array_values($category_counts);
         <form method="POST" action="">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" id="edit_id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-                    <input type="text" name="name" id="edit_name" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 focus:border-teal-500">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                        <select name="category" id="edit_category" onchange="checkDropdown(this)" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+            <div class="space-y-3">
+                <!-- Row 1: Basic Info -->
+                <div class="grid grid-cols-12 gap-3">
+                    <div class="col-span-6">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Product Name</label>
+                        <input type="text" name="name" id="edit_name" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 focus:border-teal-500 text-sm font-bold text-gray-800">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                        <select name="category" id="edit_category" onchange="checkDropdown(this)" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm">
                             <?php foreach($categories as $cat): ?>
                             <option value="<?= htmlspecialchars($cat['name']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
                             <?php endforeach; ?>
-                            <option value="ADD_NEW" class="text-teal-600 font-bold">+ Add Category</option>
+                            <option value="ADD_NEW" class="text-teal-600 font-bold">+ Add New</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                        <select name="unit" id="edit_unit" onchange="checkDropdown(this)" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                    <div class="col-span-3">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Unit</label>
+                        <select name="unit" id="edit_unit" onchange="checkDropdown(this)" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm">
                             <?php foreach($units as $u): ?>
                             <option value="<?= htmlspecialchars($u['name']) ?>"><?= htmlspecialchars($u['name']) ?></option>
                             <?php endforeach; ?>
-                            <option value="ADD_NEW" class="text-teal-600 font-bold">+ Add Unit</option>
+                            <option value="ADD_NEW" class="text-teal-600 font-bold">+ Add New</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <!-- Row 2: Pricing involved -->
+                <div class="grid grid-cols-2 gap-3 bg-gray-50 p-2 rounded-lg border border-gray-100">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Buy Price</label>
-                        <input type="number" step="0.01" name="buy_price" id="edit_buy_price" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Buy Price</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1.5 text-gray-400 text-xs">Rs.</span>
+                            <input type="number" step="0.01" name="buy_price" id="edit_buy_price" required class="w-full rounded-lg border-gray-300 border p-1.5 pl-8 focus:ring-teal-500 text-sm font-semibold">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Sell Price</label>
-                        <input type="number" step="0.01" name="sell_price" id="edit_sell_price" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Sell Price</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1.5 text-gray-400 text-xs">Rs.</span>
+                            <input type="number" step="0.01" name="sell_price" id="edit_sell_price" required class="w-full rounded-lg border-gray-300 border p-1.5 pl-8 focus:ring-teal-500 text-sm font-semibold">
+                        </div>
                     </div>
                 </div>
                 
+                <!-- Row 3: Stock & Dates -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Current Stock</label>
+                        <input type="number" name="stock_quantity" id="edit_stock_quantity" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm font-bold text-gray-700 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Expiry Date <span class="text-[9px] text-gray-400 normal-case">(Opt)</span></label>
+                        <input type="date" name="expiry_date" id="edit_expiry_date" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-xs">
+                    </div>
+                     <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Last Purchase</label>
+                        <div class="text-xs text-gray-500 p-2 italic" id="edit_created_at_display">-</div>
+                    </div>
+                </div>
+
+                <!-- Row 4: Remarks -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-                    <input type="number" name="stock_quantity" id="edit_stock_quantity" required class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
-                </div>
-                
-                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                        <input type="date" name="expiry_date" id="edit_expiry_date" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
-                    </div>
-                    <div>
-                         <label class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                         <input type="text" name="remarks" id="edit_remarks" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500">
-                    </div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Remarks</label>
+                    <input type="text" name="remarks" id="edit_remarks" class="w-full rounded-lg border-gray-300 border p-2 focus:ring-teal-500 text-sm" placeholder="Remarks (optional)...">
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end space-x-3">
-                <button type="button" onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
-                <button type="submit" class="px-6 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 shadow-md">Update Product</button>
+            <div class="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onclick="closeEditModal()" class="py-2.5 rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 font-bold transition">Cancel</button>
+                <button type="submit" class="py-2.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700 font-bold shadow-lg shadow-teal-500/30 transition">Update Product</button>
             </div>
         </form>
     </div>
@@ -703,6 +716,12 @@ function openEditModal(product) {
     document.getElementById('edit_stock_quantity').value = product.stock_quantity;
     document.getElementById('edit_expiry_date').value = product.expiry_date || '';
     document.getElementById('edit_remarks').value = product.remarks || '';
+    
+    // Optional: display created_at date
+    if(document.getElementById('edit_created_at_display')) {
+        const d = new Date(product.created_at);
+        document.getElementById('edit_created_at_display').innerText = d.toLocaleDateString();
+    }
     
     document.getElementById('editProductModal').classList.remove('hidden');
 }

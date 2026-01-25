@@ -48,9 +48,10 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
             <i class="fas fa-search"></i>
         </span>
-        <input type="text" id="customerSearch" autofocus placeholder="Search by name or phone..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-sm transition">
+<!-- Search Input -->
+        <input type="text" id="customerSearch" autofocus placeholder="Search by name or phone..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm transition">
     </div>
-    <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="w-full md:w-auto bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
+    <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="w-full md:w-auto bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
         <i class="fas fa-user-plus mr-2"></i> Add Customer
     </button>
 </div>
@@ -62,88 +63,78 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
     </div>
 <?php endif; ?>
 
-<div class="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left">
-            <thead>
-                <tr class="bg-purple-700 text-white text-sm uppercase tracking-wider">
-                    <th class="p-3 pl-6">ID</th>
-                    <th class="p-3">Customer Name</th>
-                    <th class="p-3">Phone Number</th>
-                    <th class="p-3 text-right">Outstanding Debt</th>
-                    <th class="p-3">Location / Address</th>
-                    <th class="p-3 text-center">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="customerTableBody" class="divide-y divide-gray-100">
-                <?php if (count($customers) > 0): ?>
-                    <?php foreach ($customers as $c): ?>
-                        <tr class="hover:bg-purple-50 transition customer-row cursor-pointer" 
-                            data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>" 
-                            data-phone="<?= strtolower(htmlspecialchars($c['phone'])) ?>"
-                            onclick="window.location.href='customer_ledger.php?id=<?= $c['id'] ?>'">
-                            <td class="p-3 pl-6 text-gray-500 text-sm">#<?= $c['id'] ?></td>
-                            <td class="p-3">
-                                <div class="flex items-center gap-2">
-                                    <div class="font-bold text-gray-800"><?= htmlspecialchars($c['name']) ?></div>
-                                    <?php if(($debt_map[$c['id']] ?? 0) <= 0): ?>
-                                        <span title="Debt Fully Cleared!" class="text-yellow-500 text-xs">
-                                            <i class="fas fa-trophy scale-110"></i>
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                            <td class="p-3">
-                                <a href="tel:<?= $c['phone'] ?>" class="text-gray-600 hover:text-purple-600 flex items-center text-sm" onclick="event.stopPropagation();">
-                                    <i class="fas fa-phone-alt mr-2 text-xs opacity-50"></i>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="customerGrid">
+    <?php if (count($customers) > 0): ?>
+        <?php foreach ($customers as $c): ?>
+            <div class="customer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
+                 data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>"
+                 data-phone="<?= strtolower(htmlspecialchars($c['phone'])) ?>"
+                 onclick="window.location.href='customer_ledger.php?id=<?= $c['id'] ?>'">
+                <div class="bg-amber-500 h-2 w-full"></div>
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
+                            <i class="fas fa-user text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($c['name']) ?></h3>
+                                <?php if(($debt_map[$c['id']] ?? 0) <= 0): ?>
+                                    <span title="Debt Fully Cleared!" class="text-yellow-500 text-xs">
+                                        <i class="fas fa-trophy scale-110"></i>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="flex items-center mt-1">
+                                <a href="tel:<?= $c['phone'] ?>" class="text-amber-600 hover:text-amber-700 text-sm font-semibold flex items-center" onclick="event.stopPropagation();">
+                                    <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
                                     <?= htmlspecialchars($c['phone']) ?>
                                 </a>
-                            </td>
-                            <td class="p-3 text-right">
-                                <?php $debt = $debt_map[$c['id']] ?? 0; ?>
-                                <span class="font-bold <?= $debt > 0 ? 'text-red-600' : 'text-green-600' ?>">
-                                    <?= formatCurrency($debt) ?>
-                                </span>
-                            </td>
-                            <td class="p-3 text-gray-500 text-sm">
-                                <div class="truncate max-w-xs" title="<?= htmlspecialchars($c['address']) ?>">
-                                    <?= htmlspecialchars($c['address']) ?: '<span class="italic text-gray-300">No address set</span>' ?>
-                                </div>
-                            </td>
-                            <td class="p-3 text-center">
-                                <div class="flex justify-center space-x-2" onclick="event.stopPropagation();">
-                                    <button onclick="editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition text-xs font-bold flex items-center">
-                                        <i class="fas fa-edit mr-1"></i> Edit
-                                    </button>
-                                    <a href="customer_ledger.php?id=<?= $c['id'] ?>" class="bg-purple-100 text-purple-600 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition text-xs font-bold flex items-center">
-                                        <i class="fas fa-history mr-1"></i> Ledger
-                                    </a>
-                                    <button onclick="confirmDelete(<?= $c['id'] ?>)" class="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-200 transition text-xs font-bold flex items-center">
-                                        <i class="fas fa-trash mr-1"></i> Delete
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="5" class="p-12 text-center text-gray-400 italic">
-                            <i class="fas fa-users text-4xl mb-4 text-gray-200"></i><br>
-                            No customers found. Start by adding one.
-                        </td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <button onclick="event.stopPropagation(); editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); confirmDelete(<?= $c['id'] ?>)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
+                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
+                        <p class="line-clamp-2"><?= htmlspecialchars($c['address']) ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
+                    </div>
+                    
+                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
+                        <?php $debt = $debt_map[$c['id']] ?? 0; ?>
+                        <p class="text-xl font-black <?= $debt > 0 ? 'text-red-600' : 'text-green-600' ?>">
+                            <?= formatCurrency($debt) ?>
+                        </p>
+                    </div>
+
+                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
+            <i class="fas fa-users text-6xl text-gray-100 mb-4"></i>
+            <p class="text-gray-400 font-medium">No customers found. Start by adding one.</p>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- Add Customer Modal -->
 <div id="addCustomerModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-all">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-0 overflow-hidden transform scale-100">
-        <div class="bg-purple-700 p-4 flex justify-between items-center text-white">
-            <h3 class="text-lg font-bold flex items-center"><i class="fas fa-user-plus mr-2 text-purple-300"></i> Add New Customer</h3>
-            <button onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="hover:bg-purple-600 rounded-full p-1 w-8 h-8 flex items-center justify-center transition">
+        <div class="bg-amber-600 p-4 flex justify-between items-center text-white">
+            <h3 class="text-lg font-bold flex items-center"><i class="fas fa-user-plus mr-2 text-amber-200"></i> Add New Customer</h3>
+            <button onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="hover:bg-amber-500 rounded-full p-1 w-8 h-8 flex items-center justify-center transition">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -152,20 +143,20 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
-                    <input type="text" name="name" placeholder="Enter customer name" required class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition shadow-sm">
+                    <input type="text" name="name" placeholder="Enter customer name" required class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
-                    <input type="text" name="phone" placeholder="e.g. 03001234567" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition shadow-sm">
+                    <input type="text" name="phone" placeholder="e.g. 03001234567" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Residential Address</label>
-                    <textarea name="address" placeholder="Enter full address" rows="3" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition shadow-sm"></textarea>
+                    <textarea name="address" placeholder="Enter full address" rows="3" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm"></textarea>
                 </div>
             </div>
             <div class="mt-8 flex justify-end gap-3">
                 <button type="button" onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="px-5 py-2 rounded-lg text-gray-500 font-semibold hover:bg-gray-100 transition">Cancel</button>
-                <button type="submit" class="bg-purple-700 text-white px-8 py-2 rounded-lg font-bold hover:bg-purple-800 shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
+                <button type="submit" class="bg-amber-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-amber-700 shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
                     Create Account
                 </button>
             </div>
@@ -216,23 +207,23 @@ function editCustomer(customer) {
 
 document.getElementById('customerSearch').addEventListener('input', function(e) {
     const term = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('.customer-row');
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name');
-        const phone = row.getAttribute('data-phone');
+    const cards = document.querySelectorAll('.customer-card');
+    cards.forEach(card => {
+        const name = card.getAttribute('data-name');
+        const phone = card.getAttribute('data-phone');
         if (name.includes(term) || phone.includes(term)) {
-            row.style.display = '';
+            card.style.display = 'block';
         } else {
-            row.style.display = 'none';
+            card.style.display = 'none';
         }
     });
 });
 
 document.getElementById('customerSearch').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        const visibleRows = Array.from(document.querySelectorAll('.customer-row')).filter(r => r.style.display !== 'none');
-        if (visibleRows.length > 0) {
-            const editBtn = visibleRows[0].querySelector('button'); // First button in actions is usually Edit
+        const visibleCards = Array.from(document.querySelectorAll('.customer-card')).filter(c => c.style.display !== 'none');
+        if (visibleCards.length > 0) {
+            const editBtn = visibleCards[0].querySelector('button[title="Edit Customer"]');
             if (editBtn) editBtn.click();
         }
     }

@@ -132,6 +132,13 @@ function updateCSV($table, $id, $new_data) {
     $fp = fopen($path, 'r+');
     if ($fp && flock($fp, LOCK_EX)) {
         $headers = fgetcsv($fp);
+        
+        if (!$headers) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            return false;
+        }
+
         $rows = [];
         
         while (($r = fgetcsv($fp)) !== FALSE) {
@@ -179,6 +186,13 @@ function deleteCSV($table, $id) {
     $fp = fopen($path, 'r+');
     if ($fp && flock($fp, LOCK_EX)) {
         $headers = fgetcsv($fp);
+        
+        if (!$headers) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            return false;
+        }
+
         $rows = [];
         while (($r = fgetcsv($fp)) !== FALSE) {
              $rows[] = $r;
@@ -344,7 +358,7 @@ initCSV('categories', ['id', 'name']);
 initCSV('settings', ['id', 'key', 'value']);
 initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id']);
 initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id']);
-initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'created_at']);
+initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'expiry_date', 'remarks', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 
 // Seed defaults only if files do not exist (fresh install)
@@ -361,5 +375,30 @@ if (!file_exists(getCSVPath('categories'))) {
     insertCSV('categories', ['name' => 'Fertilizer']);
     insertCSV('categories', ['name' => 'Pesticide']);
     insertCSV('categories', ['name' => 'Other']);
+}
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Fix missing headers in restocks.csv
+// ----------------------------------------------------
+$restockPath = getCSVPath('restocks');
+if (file_exists($restockPath)) {
+    $fp_mig = fopen($restockPath, 'r');
+    if ($fp_mig) {
+        $headers = fgetcsv($fp_mig);
+        fclose($fp_mig);
+        
+        // Check if expiry_date is missing
+        if ($headers && !in_array('expiry_date', $headers)) {
+            // Perform Migration
+            $data = readCSV('restocks'); // Reads data with old headers
+            $newHeaders = array_merge($headers, ['expiry_date', 'remarks']);
+            
+            // Clean duplicates if any (e.g. if partial run)
+            $newHeaders = array_unique($newHeaders);
+            
+            // Write back with new headers (helper fills missing keys with empty string)
+            writeCSV('restocks', $data, $newHeaders);
+        }
+    }
 }
 ?>
