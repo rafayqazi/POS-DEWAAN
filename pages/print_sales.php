@@ -192,9 +192,9 @@ foreach($sales as $s) {
 
         <div style="clear: both;"></div>
 
-        <div class="footer">
-            <div>Software Developed by Abdul Rafay</div>
-            <div class="text-right">Page 1 of 1</div>
+        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
+            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
+            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
         </div>
     </div>
 
