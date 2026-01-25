@@ -310,6 +310,83 @@ $expiring_count = count($expiring_products);
     </div>
 </div>
 
+<?php if (isset($_SESSION['show_welcome']) && $_SESSION['show_welcome']): ?>
+    <?php unset($_SESSION['show_welcome']); ?>
+    <!-- Welcome Screen Modal -->
+    <div id="welcomeModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[10000] flex items-center justify-center p-6 animate-in fade-in duration-500">
+        <div class="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-teal-50 transform scale-in transition-all duration-700 relative overflow-hidden group">
+            <!-- Animated Background Circles -->
+            <div class="absolute -top-12 -right-12 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl group-hover:bg-teal-500/10 transition-colors"></div>
+            <div class="absolute -bottom-12 -left-12 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl group-hover:bg-purple-500/10 transition-colors"></div>
+
+            <div class="relative z-10 text-center">
+                <div class="w-24 h-24 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-teal-500/20 transform hover:rotate-6 transition-transform">
+                    <i class="fas fa-rocket text-4xl animate-pulse"></i>
+                </div>
+                
+                <h2 class="text-[10px] font-black text-teal-600 uppercase tracking-[0.3em] mb-3">Login Successful</h2>
+                <h3 class="text-3xl font-black text-gray-800 mb-4 tracking-tight leading-tight">
+                    Welcome to <span class="text-teal-600">POS DEWAAN</span>
+                </h3>
+                
+                <p class="text-sm font-medium text-gray-500 mb-8 leading-relaxed px-4">
+                    The Point of Sale & Inventory Management System is ready for your operations.
+                </p>
+
+                <div class="h-px w-16 bg-gradient-to-r from-transparent via-gray-200 to-transparent mx-auto mb-8"></div>
+
+                <div class="flex flex-col items-center">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Architect & Developer</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center border border-teal-100">
+                            <i class="fas fa-code text-teal-600 text-[10px]"></i>
+                        </div>
+                        <p class="text-sm font-black text-gray-800">Abdul Rafay</p>
+                    </div>
+                </div>
+
+                <div class="mt-10 flex justify-center">
+                    <div class="flex gap-1.5 items-center">
+                        <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                        <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                        <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Auto-close timer display (subtle) -->
+            <div class="absolute bottom-0 left-0 h-1 bg-teal-500/20 w-full">
+                <div id="welcomeProgress" class="h-full bg-teal-500 w-full transition-all duration-[4000ms] ease-linear"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('welcomeModal');
+            const progress = document.getElementById('welcomeProgress');
+            
+            // Trigger progress bar shrink
+            setTimeout(() => {
+                if(progress) progress.style.width = '0%';
+            }, 50);
+
+            // Auto-close modal
+            setTimeout(() => {
+                if(modal) {
+                    modal.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => modal.remove(), 500);
+                }
+            }, 4000);
+
+            // Click to close immediately
+            modal.addEventListener('click', function() {
+                modal.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => modal.remove(), 500);
+            });
+        });
+    </script>
+<?php endif; ?>
+
 <script>
 async function startSeamlessUpdate() {
     const overlay = document.getElementById('updateOverlay');
