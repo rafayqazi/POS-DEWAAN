@@ -258,6 +258,9 @@ $chart_data = array_values($category_counts);
                     <option value="all">All Values</option>
                 </select>
             </div>
+            <button onclick="clearFilters()" class="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition h-[42px] flex items-center border border-gray-200">
+                Clear
+            </button>
         </div>
     </div>
 
@@ -273,10 +276,22 @@ $chart_data = array_values($category_counts);
     <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded"><?= $error ?></div>
 <?php endif; ?>
 
+<style>
+    #inventoryTable thead {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #inventoryTable thead th {
+        background-color: #0f766e !important;
+    }
+</style>
+
 <!-- Inventory Table -->
-<div class="bg-white rounded-xl shadow-lg overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+<div class="bg-white rounded-xl shadow-lg">
+    <div class="overflow-auto max-h-[600px]">
+        <table id="inventoryTable" class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-teal-700 text-white text-sm uppercase tracking-wider">
                     <th class="p-4 w-12 text-center">Sr #</th>
@@ -288,8 +303,6 @@ $chart_data = array_values($category_counts);
                     <th class="p-4 text-right">Buy Price</th>
                     <th class="p-4 text-right">Sell Price</th>
                     <th class="p-4 text-right bg-teal-800">Total Cost</th>
-                    <th class="p-4 text-right bg-teal-900">Est. Profit</th>
-                    <th class="p-4 text-right bg-emerald-900 text-emerald-100">Profit (AVCO)</th>
                     <th class="p-4 text-center">Actions</th>
                 </tr>
             </thead>
@@ -304,16 +317,7 @@ $chart_data = array_values($category_counts);
                         $sell = (float)$product['sell_price'];
                         $qty = (float)$product['stock_quantity'];
                         $stock_val = $buy * $qty;
-                        $total_profit = ($sell - $buy) * $qty;
-                        
-                        // Weighted Average Profit Logic
-                        $avco_cost = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : $buy;
-                        $avco_profit_unit = $sell - $avco_cost;
-                        $avco_profit_total = $avco_profit_unit * $qty;
-
                         $grand_total_cost += $stock_val;
-                        $grand_total_profit += $total_profit;
-                        $grand_total_profit_avco = ($grand_total_profit_avco ?? 0) + $avco_profit_total;
                 ?>
                         <tr class="hover:bg-gray-50 transition border-b product-row" 
                             data-category="<?= strtolower(htmlspecialchars($product['category'])) ?>"
@@ -348,11 +352,6 @@ $chart_data = array_values($category_counts);
                             <td class="p-4 text-right text-gray-600 text-sm"><?= formatCurrency($buy) ?></td>
                             <td class="p-4 text-right font-bold text-teal-700 text-sm"><?= formatCurrency($sell) ?></td>
                             <td class="p-4 text-right font-mono font-bold text-gray-700 bg-gray-50/50"><?= formatCurrency($stock_val) ?></td>
-                            <td class="p-4 text-right font-mono font-bold text-green-600 bg-green-50/30"><?= formatCurrency($total_profit) ?></td>
-                            <td class="p-4 text-right font-mono font-bold text-emerald-600 bg-emerald-50/30 border-l border-emerald-100">
-                                <?= formatCurrency($avco_profit_total) ?>
-                                <div class="text-[9px] text-gray-400 font-normal">@ <?= number_format($avco_cost, 2) ?> avg</div>
-                            </td>
                             <td class="p-4 text-center">
                                 <div class="flex justify-center space-x-2">
                                     <button onclick='openRestockModal(<?= json_encode($product) ?>)' class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Restock">
@@ -382,8 +381,6 @@ $chart_data = array_values($category_counts);
                 <tr>
                     <td colspan="8" class="p-4 text-right uppercase tracking-wider text-xs">Grand Inventory Totals:</td>
                     <td class="p-4 text-right font-mono"><?= formatCurrency($grand_total_cost) ?></td>
-                    <td class="p-4 text-right font-mono text-green-400"><?= formatCurrency($grand_total_profit) ?></td>
-                    <td class="p-4 text-right font-mono text-emerald-400 border-l border-gray-700"><?= formatCurrency($grand_total_profit_avco ?? 0) ?></td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -844,6 +841,12 @@ function updateFilterOptions() {
     });
     
     applyFilters();
+}
+
+function clearFilters() {
+    document.getElementById('inventorySearch').value = '';
+    document.getElementById('filterType').value = 'none';
+    updateFilterOptions();
 }
 
 function applyFilters() {

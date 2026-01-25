@@ -263,7 +263,7 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 mt-6">
-                    <a href="sales_history.php" class="bg-gray-100 text-gray-500 font-bold py-3 rounded-2xl text-xs text-center hover:bg-gray-200 transition active:scale-95">Reset</a>
+                    <a href="sales_history.php" class="bg-gray-100 text-gray-500 font-bold py-3 rounded-2xl text-xs text-center hover:bg-gray-200 transition active:scale-95 flex items-center justify-center">CLEAR FILTERS</a>
                     <button type="submit" class="bg-teal-600 text-white font-bold py-3 rounded-2xl text-xs hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95">Apply Filter</button>
                 </div>
             </form>

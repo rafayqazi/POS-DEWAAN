@@ -132,6 +132,7 @@ $current_balance = $total_debit - $total_credit;
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none w-36 shadow-sm">
                 <option value="">Custom</option>
+                <option value="today">Today</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="last_90">Last 90 Days</option>
@@ -145,6 +146,12 @@ $current_balance = $total_debit - $total_credit;
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
             <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm">
+        </div>
+        <div>
+            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
+            <button onclick="clearFilters()" class="p-3 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center">
+                CLEAR
+            </button>
         </div>
         <!-- No Filter Button - Realtime -->
         <button onclick="renderTable()" class="hidden"></button>
@@ -249,12 +256,6 @@ $current_balance = $total_debit - $total_credit;
 
 <!-- Print/PDF Hidden Area -->
 <div id="printableArea" class="hidden">
-    <!-- Demo Watermark -->
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 40px; color: rgba(200, 200, 200, 0.3); font-weight: bold; text-align: center; z-index: -1; pointer-events: none; white-space: nowrap; width: 100%;">
-        THIS APPLICATION IS FOR DEMO<br>
-        CONTACT DEVELOPER: 0300-0358189<br>
-        abdulrafehqazi@gmail.com
-    </div>
     <div style="padding: 40px; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
@@ -325,7 +326,10 @@ $current_balance = $total_debit - $total_credit;
         const today = new Date();
         let start, end;
         
-        if (type === 'this_month') {
+        if (type === 'today') {
+            start = new Date();
+            end = new Date();
+        } else if (type === 'this_month') {
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         } else if (type === 'last_month') {
@@ -354,6 +358,14 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('dateFrom').value = fmt(start);
         document.getElementById('dateTo').value = fmt(end);
         renderTable(); 
+    }
+
+    function clearFilters() {
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
+        if(quickRange) quickRange.value = '';
+        renderTable();
     }
 
     function renderTable() {
@@ -484,8 +496,9 @@ $current_balance = $total_debit - $total_credit;
             return html;
         }
 
-        list.forEach(t => {
+        list.forEach((t, index) => {
             const dateObj = new Date(t.date);
+            const sn = index + 1;
             const displayDate = dateObj.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
             
             let displayTime = '';

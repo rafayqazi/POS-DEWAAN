@@ -94,30 +94,10 @@ foreach($sales as $s) {
         .badge-paid { background-color: #dcfce7; color: #166534; }
         .badge-due { background-color: #fee2e2; color: #991b1b; }
 
-        /* Demo Watermark Styles */
-        .demo-watermark {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 50px;
-            color: rgba(200, 200, 200, 0.3);
-            font-weight: bold;
-            text-align: center;
-            z-index: -1;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
         @media print {
             body { margin: 0; }
             .no-print { display: none; }
             .summary-box { border: 1px solid #ccc; }
-            .demo-watermark {
-                display: block !important;
-                visibility: visible !important;
-            }
         }
     </style>
 </head>
@@ -136,12 +116,6 @@ foreach($sales as $s) {
     </div>
 
     <div id="reportContent" style="position: relative;">
-        <!-- Demo Watermark -->
-        <div class="demo-watermark">
-            THIS APPLICATION IS FOR DEMO<br>
-            CONTACT DEVELOPER: 0300-0358189<br>
-            abdulrafehqazi@gmail.com
-        </div>
         <div class="header">
             <h1>POS DEWAAN - MANAGEMENT SYSTEM</h1>
             <p><?= $report_title ?></p>

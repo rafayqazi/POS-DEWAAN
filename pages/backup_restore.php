@@ -54,9 +54,14 @@ include '../includes/header.php';
             <form id="restoreForm" class="w-full">
                 <div class="relative mb-4 group">
                     <input type="file" name="backup_file" id="backup_file" class="hidden" accept=".zip" required onchange="updateFileName(this)">
-                    <label for="backup_file" class="flex items-center justify-center gap-3 px-8 py-4 bg-gray-50 text-gray-700 rounded-2xl font-bold border-2 border-dashed border-gray-200 hover:border-amber-400 hover:bg-amber-50/30 transition-all cursor-pointer">
-                        <i class="fas fa-folder-open text-gray-400"></i>
-                        <span id="file-name-display">Choose ZIP File</span>
+                    <label for="backup_file" id="drop-zone" class="flex flex-col items-center justify-center gap-3 px-8 py-8 bg-gray-50 text-gray-700 rounded-2xl font-bold border-2 border-dashed border-gray-200 hover:border-amber-400 hover:bg-amber-50/30 transition-all cursor-pointer">
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-1 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-cloud-upload-alt text-amber-500 text-xl"></i>
+                        </div>
+                        <div class="flex flex-col">
+                            <span id="file-name-display">Drag & Drop ZIP File</span>
+                            <span class="text-[10px] text-gray-400 font-normal uppercase tracking-widest mt-1">or click to browse</span>
+                        </div>
                     </label>
                 </div>
                 <button type="button" onclick="handleRestore()" class="w-full flex items-center justify-center gap-3 px-8 py-4 bg-amber-500 text-white rounded-2xl font-bold hover:bg-amber-600 transition-all shadow-lg shadow-amber-900/10 active:scale-95">
@@ -115,9 +120,59 @@ include '../includes/header.php';
 
 <script>
     function updateFileName(input) {
-        const fileName = input.files[0]?.name || 'Choose ZIP File';
-        document.getElementById('file-name-display').innerText = fileName;
+        const file = input.files[0];
+        if (!file) {
+            document.getElementById('file-name-display').innerText = 'Drag & Drop ZIP File';
+            document.getElementById('file-name-display').classList.remove('text-amber-600');
+            return;
+        }
+
+        if (!file.name.endsWith('.zip')) {
+            showAlert("Please upload a valid ZIP file.", "Invalid File Type");
+            input.value = '';
+            document.getElementById('file-name-display').innerText = 'Drag & Drop ZIP File';
+            return;
+        }
+
+        document.getElementById('file-name-display').innerText = file.name;
         document.getElementById('file-name-display').classList.add('text-amber-600');
+    }
+
+    // Drag and Drop Logic
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('backup_file');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('border-amber-400', 'bg-amber-50');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('border-amber-400', 'bg-amber-50');
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileName(fileInput);
+        }
     }
 
     function startBackup() {

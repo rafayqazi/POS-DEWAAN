@@ -49,6 +49,22 @@ include '../includes/header.php';
 
 // Fetch all transactions for this customer
 $all_txns = readCSV('customer_transactions');
+$all_sales = readCSV('sales');
+$all_sale_items = readCSV('sale_items');
+$all_products = readCSV('products');
+
+// Create maps for efficient lookups
+$sales_map = [];
+foreach($all_sales as $s) $sales_map[$s['id']] = $s;
+
+$products_map = [];
+foreach($all_products as $p) $products_map[$p['id']] = $p['name'];
+
+$sale_items_grouped = [];
+foreach($all_sale_items as $si) {
+    $sale_items_grouped[$si['sale_id']][] = $si;
+}
+
 $ledger = [];
 $total_due = 0;
 
@@ -97,6 +113,7 @@ usort($ledger, function($a, $b) {
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none w-36 shadow-sm">
                 <option value="">Custom</option>
+                <option value="today">Today</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="last_90">Last 90 Days</option>
@@ -110,6 +127,12 @@ usort($ledger, function($a, $b) {
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
             <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm">
+        </div>
+        <div>
+            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
+            <button onclick="clearFilters()" class="p-3 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center">
+                CLEAR
+            </button>
         </div>
     </div>
     
@@ -139,9 +162,10 @@ usort($ledger, function($a, $b) {
                 <tr>
                     <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
-                    <th class="p-6">Description</th>
+                    <th class="p-6">Products & QTY</th>
                     <th class="p-6 text-right">Debit (Sale)</th>
                     <th class="p-6 text-right">Credit (Paid)</th>
+                    <th class="p-6 w-48 font-bold">Remarks</th>
                     <th class="p-6 text-right text-purple-600">Balance</th> 
                     <th class="p-6 text-center">Actions</th>
                 </tr>
@@ -153,14 +177,62 @@ usort($ledger, function($a, $b) {
     </div>
 </div>
 
+</div>
+
+<!-- Payment Modal -->
+<div id="payModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="payModalTitle" class="text-lg font-bold text-gray-800">Receive Payment</h3>
+            <button onclick="closePayModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        
+        <!-- Outstanding Balance Display -->
+        <div class="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-red-600 uppercase tracking-wider">Outstanding Balance</span>
+                <span id="modalDebtAmount" class="text-xl font-black text-red-700">Rs. 0</span>
+            </div>
+        </div>
+        
+        <form method="POST" class="space-y-4" onsubmit="return validatePayment()">
+            <input type="hidden" name="txn_id" id="txn_id">
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Date</label>
+                <input type="date" name="payment_date" id="paymentDate" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Amount Received</label>
+                
+                <!-- Pay in Full Checkbox -->
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" id="payInFullCheckbox" onchange="handlePayInFull(this.checked)" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-2 focus:ring-teal-500">
+                    <label for="payInFullCheckbox" class="text-sm font-bold text-teal-600 cursor-pointer">Pay in Full (Clear all debt)</label>
+                </div>
+                
+                <input type="number" name="amount" id="paymentAmount" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
+                <p id="amountError" class="hidden mt-1 text-xs text-red-600 font-bold">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> Amount cannot exceed outstanding balance!
+                </p>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (Optional)</label>
+                <textarea name="notes" id="paymentNotes" rows="2" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none" placeholder="Payment details..."></textarea>
+            </div>
+            
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closePayModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-300 transition">Cancel</button>
+                <button type="submit" class="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-bold text-sm hover:bg-teal-700 transition">Save Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Printable Area (Hidden from UI, used for PDF) -->
 <div id="printableArea" class="hidden">
-    <!-- Demo Watermark -->
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 40px; color: rgba(200, 200, 200, 0.3); font-weight: bold; text-align: center; z-index: -1; pointer-events: none; white-space: nowrap; width: 100%;">
-        THIS APPLICATION IS FOR DEMO<br>
-        CONTACT DEVELOPER: 0300-0358189<br>
-        abdulrafehqazi@gmail.com
-    </div>
     <div style="padding: 40px; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
@@ -218,6 +290,9 @@ usort($ledger, function($a, $b) {
 <script>
     // Pass PHP data to JS
     const allTxns = <?= json_encode($ledger) ?>;
+    const salesMap = <?= json_encode($sales_map) ?>;
+    const saleItemsMap = <?= json_encode($sale_items_grouped) ?>;
+    const productsMap = <?= json_encode($products_map) ?>;
     const initialBalance = <?= $total_due ?>;
 
     // Helper for currency formatting
@@ -229,7 +304,10 @@ usort($ledger, function($a, $b) {
         const today = new Date();
         let start, end;
         
-        if (type === 'this_month') {
+        if (type === 'today') {
+            start = new Date();
+            end = new Date();
+        } else if (type === 'this_month') {
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         } else if (type === 'last_month') {
@@ -258,6 +336,14 @@ usort($ledger, function($a, $b) {
         document.getElementById('dateFrom').value = fmt(start);
         document.getElementById('dateTo').value = fmt(end);
         renderTable(); 
+    }
+
+    function clearFilters() {
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
+        if(quickRange) quickRange.value = '';
+        renderTable();
     }
 
     function renderTable() {
@@ -414,13 +500,37 @@ usort($ledger, function($a, $b) {
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
                 </tr>`;
             } else {
+                let productsInfo = '';
+                let remarks = '-';
+                
+                if (t.type === 'Sale' && t.sale_id) {
+                    const sale = salesMap[t.sale_id];
+                    const items = saleItemsMap[t.sale_id] || [];
+                    
+                    if (sale && sale.remarks) remarks = sale.remarks;
+                    
+                    if (items.length > 0) {
+                        productsInfo = items.map(item => {
+                            const pName = productsMap[item.product_id] || 'Unknown Product';
+                            return `<div class="flex justify-between gap-4 text-xs">
+                                        <span class="font-bold text-gray-700">${pName}</span>
+                                        <span class="text-teal-600 font-black">x ${item.quantity}</span>
+                                    </div>`;
+                        }).join('');
+                    } else {
+                        productsInfo = `<span class="text-xs text-gray-400 italic">${t.description}</span>`;
+                    }
+                } else {
+                    productsInfo = `<div class="text-sm font-bold text-purple-600">${t.description}</div>`;
+                }
+
                 html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0 group">
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6">
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
                     </td>
                     <td class="p-6">
-                        <div class="text-sm font-bold text-gray-800">${t.description}</div>
+                        <div class="space-y-1 max-w-xs">${productsInfo}</div>
                     </td>
                     <td class="p-6 text-right font-black text-gray-700">
                         ${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '<span class="text-gray-200">-</span>'}
@@ -428,15 +538,31 @@ usort($ledger, function($a, $b) {
                     <td class="p-6 text-right font-black text-emerald-600">
                         ${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '<span class="text-gray-200">-</span>'}
                     </td>
+                    <td class="p-6">
+                        <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[180px]" title="${remarks}">${remarks}</div>
+                    </td>
                     <td class="p-6 text-right font-black text-red-600 bg-red-50/20">
                         ${formatCurrency(t.current_running_balance)}
                     </td>
                     <td class="p-6 text-center">
-                         <div class="flex justify-center space-x-2 transition-opacity">
-                               <button onclick="editPayment({id:'${t.id}', credit:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}'})" class="text-blue-500 hover:text-blue-700 p-1" title="Edit">
+                         <div class="flex justify-center items-center gap-1">
+                               ${t.type === 'Payment' ? `
+                               <button onclick="editPayment({id:'${t.id}', credit:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
                                    <i class="fas fa-edit"></i>
                                </button>
-                               <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="text-red-500 hover:text-red-700 p-1" title="Delete">
+                               ` : ''}
+                               
+                               <button onclick="openPayModal()" class="w-8 h-8 flex items-center justify-center text-green-500 hover:bg-green-50 rounded-lg transition" title="Receive Payment">
+                                   <i class="fas fa-hand-holding-usd"></i>
+                               </button>
+                               
+                               ${t.type === 'Sale' ? `
+                               <button onclick="revertSale('${t.id}', '${t.sale_id}')" class="w-8 h-8 flex items-center justify-center text-orange-500 hover:bg-orange-50 rounded-lg transition" title="Revert Sale (Restore Inventory)">
+                                   <i class="fas fa-undo"></i>
+                               </button>
+                               ` : ''}
+
+                               <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-lg transition" title="Delete record ONLY">
                                    <i class="fas fa-trash"></i>
                                </button>
                          </div>
@@ -449,25 +575,83 @@ usort($ledger, function($a, $b) {
     }
 
     function editPayment(data) {
+        // Calculate current debt
+        const currentDebt = calculateCurrentDebt();
+        document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebt);
+        
         document.getElementById('payModalTitle').innerText = "Edit Payment Entry";
         document.getElementById('txn_id').value = data.id;
         document.getElementById('paymentDate').value = data.date;
         document.getElementById('paymentAmount').value = data.credit;
         document.getElementById('paymentNotes').value = data.description.replace("Payment Received: ", "");
+        document.getElementById('payInFullCheckbox').checked = false;
         document.getElementById('payModal').classList.remove('hidden');
     }
 
     function openPayModal() {
+        // Calculate current debt
+        const currentDebt = calculateCurrentDebt();
+        document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebt);
+        
         document.getElementById('payModalTitle').innerText = "Receive Payment";
         document.getElementById('txn_id').value = '';
         document.getElementById('paymentDate').value = '<?= date('Y-m-d') ?>';
         document.getElementById('paymentAmount').value = '';
         document.getElementById('paymentNotes').value = '';
+        document.getElementById('payInFullCheckbox').checked = false;
         document.getElementById('payModal').classList.remove('hidden');
+    }
+    
+    function handlePayInFull(checked) {
+        const currentDebt = calculateCurrentDebt();
+        const amountInput = document.getElementById('paymentAmount');
+        
+        if (checked) {
+            amountInput.value = currentDebt.toFixed(2);
+            amountInput.readOnly = true;
+            amountInput.classList.add('bg-gray-100');
+        } else {
+            amountInput.value = '';
+            amountInput.readOnly = false;
+            amountInput.classList.remove('bg-gray-100');
+        }
+    }
+    
+    function calculateCurrentDebt() {
+        // Calculate debt from all transactions for this customer
+        let debt = 0;
+        allTxns.forEach(t => {
+            debt += (parseFloat(t.debit) || 0) - (parseFloat(t.credit) || 0);
+        });
+        return Math.max(0, debt); // Never negative
     }
 
     function closePayModal() {
         document.getElementById('payModal').classList.add('hidden');
+        document.getElementById('amountError').classList.add('hidden');
+    }
+    
+    function validatePayment() {
+        const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+        const currentDebt = calculateCurrentDebt();
+        const errorMsg = document.getElementById('amountError');
+        
+        if (amount > currentDebt) {
+            errorMsg.classList.remove('hidden');
+            document.getElementById('paymentAmount').classList.add('border-red-500');
+            showAlert(`Payment amount (Rs. ${amount.toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!`, 'Overpayment Not Allowed');
+            return false;
+        }
+        
+        errorMsg.classList.add('hidden');
+        document.getElementById('paymentAmount').classList.remove('border-red-500');
+        return true;
+    }
+
+    function revertSale(txnId, saleId) {
+        showConfirm("REVERT SALE: This will DELETE this sale and RESTORE the product quantities back to your inventory. Are you sure?", function() {
+            window.location.href = `../actions/revert_transaction.php?txn_id=${txnId}&sale_id=${saleId}&cid=<?= $cid ?>`;
+        });
     }
 
     function confirmDelete(url) {

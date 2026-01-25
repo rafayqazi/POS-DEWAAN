@@ -34,6 +34,7 @@ usort($restocks, function($a, $b) {
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none w-32">
                 <option value="">Custom</option>
+                <option value="today">Today</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="last_90">Last 90 Days</option>
@@ -48,6 +49,12 @@ usort($restocks, function($a, $b) {
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
             <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
         </div>
+        <div>
+            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
+            <button type="button" onclick="clearFilters()" class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm font-bold hover:bg-gray-200 transition h-[38px] flex items-center border">
+                CLEAR
+            </button>
+        </div>
         
         <div class="flex gap-2">
             <button onclick="printReport()" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md font-bold text-sm h-[38px] flex items-center">
@@ -61,7 +68,10 @@ usort($restocks, function($a, $b) {
         const today = new Date();
         let start, end;
         
-        if (type === 'this_month') {
+        if (type === 'today') {
+            start = new Date();
+            end = new Date();
+        } else if (type === 'this_month') {
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         } else if (type === 'last_month') {
@@ -82,6 +92,15 @@ usort($restocks, function($a, $b) {
         const fmt = d => d.toISOString().split('T')[0];
         document.getElementById('dateFrom').value = fmt(start);
         document.getElementById('dateTo').value = fmt(end);
+        renderTable();
+    }
+
+    function clearFilters() {
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
+        if(quickRange) quickRange.value = '';
+        renderTable();
     }
     </script>
 </div>

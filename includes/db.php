@@ -401,4 +401,54 @@ if (file_exists($restockPath)) {
         }
     }
 }
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Fix headers in dealers.csv
+// ----------------------------------------------------
+$dealerPath = getCSVPath('dealers');
+if (file_exists($dealerPath)) {
+    $fp_mig = fopen($dealerPath, 'r');
+    if ($fp_mig) {
+        $headers = fgetcsv($fp_mig);
+        fclose($fp_mig);
+        
+        if ($headers && !in_array('phone', $headers)) {
+            $data = readCSV('dealers');
+            foreach ($data as &$d) {
+                if (isset($d['contact'])) {
+                    $d['phone'] = $d['contact'];
+                    unset($d['contact']);
+                }
+                if (!isset($d['address'])) {
+                    $d['address'] = '';
+                }
+            }
+            writeCSV('dealers', $data, ['id', 'name', 'phone', 'address', 'created_at']);
+        }
+    }
+}
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Fix headers in sales.csv
+// ----------------------------------------------------
+$salesPath = getCSVPath('sales');
+if (file_exists($salesPath)) {
+    $fp_mig = fopen($salesPath, 'r');
+    if ($fp_mig) {
+        $headers = fgetcsv($fp_mig);
+        fclose($fp_mig);
+        
+        if ($headers && !in_array('remarks', $headers)) {
+            $data = readCSV('sales');
+            foreach ($data as &$s) {
+                if (!isset($s['remarks'])) {
+                    $s['remarks'] = '';
+                }
+            }
+            $newHeaders = array_merge($headers, ['remarks']);
+            $newHeaders = array_unique($newHeaders);
+            writeCSV('sales', $data, $newHeaders);
+        }
+    }
+}
 ?>
