@@ -101,7 +101,7 @@ $products = readCSV('products');
 $categories = readCSV('categories');
 ?>
 
-<div class="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4">
+<div class="h-[calc(100vh-80px)] mb-0 flex flex-col lg:flex-row gap-4">
     <!-- LEFT: Product Explorer -->
     <div class="flex-1 flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <!-- Search Header -->
@@ -119,31 +119,37 @@ $categories = readCSV('categories');
             </select>
         </div>
         
-        <!-- Product Grid -->
-        <div class="flex-1 overflow-y-auto p-4 bg-gray-50/50" id="productList">
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 align-content-start">
+        <!-- Product List -->
+        <div class="flex-1 overflow-y-auto p-2 bg-gray-50/50" id="productList">
+            <div class="flex flex-col gap-1 pr-2">
             <?php foreach ($products as $p): 
                 if ($p['stock_quantity'] <= 0) continue; 
             ?>
-                <div class="product-card bg-white border border-gray-200 p-3 rounded-lg hover:border-teal-400 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-32 group"
+                <div class="product-card bg-white border border-gray-100 p-2.5 rounded-lg hover:border-teal-400 hover:bg-teal-50/50 cursor-pointer transition-all flex items-center gap-4 group"
                      onclick="addToCart(<?= $p['id'] ?>, '<?= addslashes($p['name']) ?>', <?= $p['sell_price'] ?>, '<?= $p['unit'] ?>', <?= $p['stock_quantity'] ?>, <?= $p['buy_price'] ?>)"
                      data-name="<?= strtolower($p['name']) ?>"
                      data-category="<?= $p['category'] ?>">
                     
-                    <div>
-                        <div class="flex justify-between items-start mb-1">
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-gray-800 text-sm truncate group-hover:text-teal-700" title="<?= $p['name'] ?>"><?= $p['name'] ?></h4>
+                        <div class="flex items-center gap-2 mt-0.5">
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider"><?= $p['category'] ?></span>
-                            <span id="stock-label-<?= $p['id'] ?>" data-id="<?= $p['id'] ?>" data-stock="<?= $p['stock_quantity'] ?>"
-                                  class="text-[10px] font-bold <?= $p['stock_quantity'] < 5 ? 'text-red-600' : 'text-teal-600' ?>">
-                                <?= $p['stock_quantity'] ?> left
-                            </span>
+                            <span class="text-[10px] text-gray-400 font-medium italic">Unit: <?= $p['unit'] ?></span>
                         </div>
-                        <h4 class="font-bold text-gray-800 text-xs leading-snug line-clamp-2" title="<?= $p['name'] ?>"><?= $p['name'] ?></h4>
                     </div>
 
-                    <div class="pt-2 border-t border-gray-50 mt-1">
-                        <span class="block text-[10px] text-gray-400 font-medium uppercase">Price</span>
-                        <span class="block font-black text-gray-800 text-sm">Rs. <?= number_format((float)$p['sell_price']) ?></span>
+                    <div class="flex items-center gap-6 text-right shrink-0">
+                        <div class="min-w-[80px]">
+                            <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Availability</span>
+                            <span id="stock-label-<?= $p['id'] ?>" data-id="<?= $p['id'] ?>" data-stock="<?= $p['stock_quantity'] ?>"
+                                  class="text-xs font-black <?= $p['stock_quantity'] < 5 ? 'text-red-500' : 'text-teal-600' ?>">
+                                <?= $p['stock_quantity'] ?> <?= $p['unit'] ?>
+                            </span>
+                        </div>
+                        <div class="min-w-[100px] bg-gray-50 px-3 py-1 rounded border border-gray-100 group-hover:bg-teal-100 group-hover:border-teal-200 transition-colors">
+                            <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Sell Price</span>
+                            <span class="block font-black text-gray-800 text-sm">Rs. <?= number_format((float)$p['sell_price']) ?></span>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -151,12 +157,12 @@ $categories = readCSV('categories');
         </div>
     </div>
 
-    <!-- RIGHT: Checkout Panel -->
-    <div class="w-full lg:w-[380px] bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col h-full overflow-hidden">
+    <!-- RIGHT: Checkout Panel (Enlarged for better UX) -->
+    <div class="w-full lg:w-[480px] bg-white rounded-lg border border-gray-200 shadow-lg flex flex-col h-full overflow-hidden">
         <!-- Header -->
-        <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wide flex items-center">
-                <i class="fas fa-shopping-cart text-teal-600 mr-2"></i> Current Sale
+        <div class="px-4 py-4 border-b border-gray-100 flex justify-between items-center bg-teal-50/50">
+            <h2 class="text-base font-black text-teal-800 uppercase tracking-wider flex items-center">
+                <i class="fas fa-shopping-cart mr-3"></i> Current Sale
             </h2>
             <button onclick="clearCart()" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase hover:underline">Clear All</button>
         </div>
@@ -182,16 +188,16 @@ $categories = readCSV('categories');
             </div>
         </div>
 
-        <!-- Checkout Footer -->
-        <div class="border-t border-gray-200 bg-gray-50/30 p-4 space-y-3 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
+        <!-- Checkout Footer (Compact) -->
+        <div class="border-t border-gray-200 bg-gray-50/30 p-3 space-y-2.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
             
             <!-- Grand Total -->
-            <div class="flex justify-between items-center bg-teal-50 border border-teal-100 rounded-md px-3 py-2">
-                <span class="text-xs font-bold text-teal-800 uppercase">Grand Total</span>
+            <div class="flex justify-between items-center bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-xl px-3 py-2 shadow-inner">
+                <span class="text-[10px] font-black text-teal-800 uppercase tracking-widest">Grand Total</span>
                 <div class="flex items-baseline gap-1">
-                    <span class="text-sm font-bold text-teal-700">Rs.</span>
+                    <span class="text-xs font-bold text-teal-700">Rs.</span>
                     <input type="number" id="grandTotal" value="0"
-                           class="w-24 bg-transparent border-none p-0 text-xl font-black text-teal-800 text-right focus:ring-0 outline-none" 
+                           class="w-28 bg-transparent border-none p-0 text-xl font-black text-teal-900 text-right focus:ring-0 outline-none" 
                            oninput="handleTotalChange()" min="0">
                 </div>
             </div>
@@ -201,12 +207,12 @@ $categories = readCSV('categories');
             </div>
 
             <!-- Context Inputs -->
-            <form method="POST" id="checkoutForm" class="space-y-3">
+            <form method="POST" id="checkoutForm" class="space-y-2">
                 <input type="hidden" name="checkout" value="1">
                 <input type="hidden" name="cart_data" id="cartData">
                 <input type="hidden" name="total_amount" id="inputTotal">
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-2">
                     <!-- Customer -->
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Customer</label>
@@ -258,12 +264,12 @@ $categories = readCSV('categories');
 
                 <!-- Remarks -->
                 <div>
-                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sale Remarks</label>
-                     <textarea name="remarks" rows="2" class="w-full p-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none" placeholder="Optional notes for this sale..."></textarea>
+                     <textarea name="remarks" rows="1" class="w-full px-2 py-1.5 text-[11px] border border-gray-300 rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none" placeholder="Sale Remarks (Optional)..."></textarea>
                 </div>
 
                 <!-- Action -->
-                <button type="submit" id="submitBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded shadow-sm transition-colors text-sm uppercase tracking-wide">
+                <button type="submit" id="submitBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-black py-3 rounded-xl shadow-lg hover:shadow-teal-100 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2 group">
+                    <i class="fas fa-check-circle group-hover:scale-110 transition-transform"></i>
                     Complete Transaction
                 </button>
             </form>
@@ -428,7 +434,7 @@ function updateStockLabels() {
         if (label) {
             const max = parseFloat(label.dataset.stock);
             const rem = max - item.qty;
-            label.innerText = `${rem.toFixed(1)} left`;
+            label.innerText = `${rem.toFixed(1)} ${item.unit}`;
             if (rem <= 0) label.closest('.product-card').classList.add('opacity-50', 'pointer-events-none');
         }
     });
@@ -499,7 +505,14 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
 </script>
 
 <?php if ($message): ?>
-<script>showAlert("<?= $message ?>", "Status");</script>
+<script>
+    showAlert("<?= $message ?>", "Status");
+    <?php if (strpos($message, 'recorded successfully') !== false && isset($sale_id)): ?>
+        showConfirm("Sale recorded. Do you want to print the bill?", () => {
+            window.open('print_bill.php?id=<?= $sale_id ?>', '_blank');
+        }, "Print Receipt?");
+    <?php endif; ?>
+</script>
 <?php endif; ?>
 
 <?php include '../includes/footer.php'; echo '</main></div></body></html>'; ?>

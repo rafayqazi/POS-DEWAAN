@@ -429,6 +429,10 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                                 <?php endif; ?>
                             </td>
                             <td class="p-4 text-center">
+                                <a href="print_bill.php?id=<?= $s['id'] ?>" target="_blank"
+                                   class="text-teal-400 hover:text-teal-600 transition p-2" title="Print Bill">
+                                    <i class="fas fa-print"></i>
+                                </a>
                                 <button type="button" onclick="confirmDelete('../actions/delete_sale.php?id=<?= $s['id'] ?>')" 
                                    class="text-red-400 hover:text-red-600 transition p-2" title="Delete Sale">
                                     <i class="fas fa-trash"></i>
