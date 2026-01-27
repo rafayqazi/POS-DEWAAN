@@ -75,9 +75,14 @@ $recovery_details = [];
 // 1. Collect payments from Sales (paid at time of sale)
 foreach($sales as $s) {
     if ((float)$s['paid_amount'] > 0) {
+        $name = 'Walk-in Customer';
+        if (!empty($s['customer_id']) && isset($customer_map[$s['customer_id']])) {
+            $name = $customer_map[$s['customer_id']];
+        }
+        
         $recovery_details[] = [
             'date' => $s['sale_date'],
-            'name' => $s['customer_name'] ?: 'Walk-in Customer',
+            'name' => $name,
             'amount' => (float)$s['paid_amount'],
             'type' => 'Sale Payment'
         ];

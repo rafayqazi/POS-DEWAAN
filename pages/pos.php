@@ -415,8 +415,24 @@ function calculateDebt() {
     document.getElementById('debtAmount').innerText = debt > 0 ? 'Rs. ' + debt.toLocaleString() : '0';
     const display = document.getElementById('debtDisplay');
     const method = document.getElementById('paymentMethod').value;
-    if (method !== 'Cash' && debt > 0) display.classList.remove('hidden'); 
+    
+    // Show debt badge
+    if (debt > 0) display.classList.remove('hidden'); 
     else display.classList.add('hidden');
+
+    // Dynamically show/hide due date container
+    const dueDateContainer = document.getElementById('dueDateContainer');
+    const dueDateInput = document.getElementById('dueDate');
+    
+    // Only show due date if there is actual debt (Underpayment)
+    if (debt > 0) {
+        dueDateContainer.classList.remove('hidden');
+        dueDateInput.required = true;
+    } else {
+        dueDateContainer.classList.add('hidden');
+        dueDateInput.required = false;
+        dueDateInput.value = '';
+    }
 }
 
 function validateTotalPrice() {
@@ -453,19 +469,15 @@ function updateStockLabels() {
 function handlePaymentChange(method) {
     const paidInput = document.getElementById('paidAmount');
     const total = parseInt(document.getElementById('inputTotal').value) || 0;
-    if (method === 'Fully Debt') { paidInput.value = 0; paidInput.readOnly = true; }
-    else if (method === 'Cash') { paidInput.value = total; paidInput.readOnly = false; }
-    else { paidInput.readOnly = false; }
     
-    const dueDateContainer = document.getElementById('dueDateContainer');
-    const dueDateInput = document.getElementById('dueDate');
-    if (method !== 'Cash') {
-        dueDateContainer.classList.remove('hidden');
-        dueDateInput.required = true;
-    } else {
-        dueDateContainer.classList.add('hidden');
-        dueDateInput.required = false;
-        dueDateInput.value = '';
+    if (method === 'Fully Debt') { 
+        paidInput.value = 0; 
+        paidInput.readOnly = true; 
+    } else if (method === 'Cash') { 
+        paidInput.value = total; 
+        paidInput.readOnly = false; 
+    } else { 
+        paidInput.readOnly = false; 
     }
     
     calculateDebt();
@@ -519,11 +531,34 @@ document.getElementById('productSearch').addEventListener('keydown', function(e)
 document.getElementById('checkoutForm').onsubmit = function(e) {
     if (cart.length === 0) { showAlert("Cart is empty!", "Error"); return false; }
     if (!validateTotalPrice()) { showAlert("Below cost price!", "Error"); return false; }
+    
     const method = document.getElementById('paymentMethod').value;
     const cust = document.getElementById('customerSelect').value;
     const dueDate = document.getElementById('dueDate').value;
-    if (method !== 'Cash' && !cust) { showAlert("Customer required for debt.", "Error"); return false; }
-    if (method !== 'Cash' && !dueDate) { showAlert("Payment due date is mandatory for debt/partial payments.", "Error"); return false; }
+    const totalAmount = parseInt(document.getElementById('inputTotal').value) || 0;
+    const paidAmount = parseInt(document.getElementById('paidAmount').value) || 0;
+
+    // 1. Walk-in customer MUST pay exactly full (No debt, no credit/advance)
+    if (!cust && paidAmount !== totalAmount) {
+        const msg = paidAmount < totalAmount 
+            ? "Walk-in customer cannot have outstanding debt." 
+            : "Walk-in customer cannot pay more than the total amount.";
+        showAlert(msg + " Please select or add a customer first to proceed.", "Customer Required");
+        return false;
+    }
+
+    // 2. Expected Payment Date is mandatory ONLY for actual debt (Underpayment)
+    if (paidAmount < totalAmount && !dueDate) {
+        showAlert("Payment due date is mandatory for partial or debt transactions.", "Date Required");
+        return false;
+    }
+
+    // 3. Ensure credit transactions (Under/Over payment) have a customer
+    if (paidAmount !== totalAmount && !cust) {
+        showAlert("Please select or add a customer for transactions involving credit or debt.", "Customer Required");
+        return false;
+    }
+
     return true;
 };
 </script>

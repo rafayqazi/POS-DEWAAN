@@ -45,6 +45,14 @@ foreach($all_sales_fifo as $as) {
 $p_cost_map = [];
 foreach($products as $p) $p_cost_map[$p['id']] = (float)$p['buy_price'];
 
+$p_name_map = [];
+foreach($products as $p) $p_name_map[$p['id']] = $p['name'];
+
+$grouped_items = [];
+foreach($sale_items as $si) {
+    $grouped_items[$si['sale_id']][] = $si;
+}
+
 // Filtering Logic
 $f_type = $_GET['f_type'] ?? 'month';
 $current_year = date('Y');
@@ -373,6 +381,7 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                     <th class="p-3">Sr #</th>
                     <th class="p-4">Date & Time</th>
                     <th class="p-4">Customer</th>
+                    <th class="p-4">Products & QTY</th>
                     <th class="p-4 text-right">Total Amount</th>
                     <th class="p-4 text-right">Paid</th>
                     <th class="p-4">Payment Method</th>
@@ -394,9 +403,26 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                                     <?= isset($c_map[$s['customer_id']]) ? htmlspecialchars($c_map[$s['customer_id']]) : '<span class="text-gray-400 font-normal italic">Walk-in Customer</span>' ?>
                                 </div>
                             </td>
+                            <td class="p-4">
+                                <div class="space-y-1">
+                                    <?php 
+                                    $items = $grouped_items[$s['id']] ?? [];
+                                    foreach($items as $item):
+                                        $p_name = $p_name_map[$item['product_id']] ?? 'Unknown';
+                                    ?>
+                                        <div class="flex justify-between gap-4 text-[11px]">
+                                            <span class="font-bold text-gray-600 truncate max-w-[120px]" title="<?= htmlspecialchars($p_name) ?>"><?= htmlspecialchars($p_name) ?></span>
+                                            <span class="text-teal-600 font-black whitespace-nowrap">x <?= (float)$item['quantity'] ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </td>
                             <td class="p-4 font-bold text-gray-900 text-right"><?= formatCurrency((float)$s['total_amount']) ?></td>
-                            <?php $adj_paid = $sale_paid_adj[$s['id']] ?? (float)$s['paid_amount']; ?>
-                            <td class="p-4 text-green-600 font-semibold text-right"><?= formatCurrency($adj_paid) ?></td>
+                            <?php 
+                            // USER requested to see what customer actually paid for this specific transaction
+                            $actual_paid = (float)$s['paid_amount']; 
+                            ?>
+                            <td class="p-4 text-green-600 font-semibold text-right"><?= formatCurrency($actual_paid) ?></td>
                             <td class="p-4">
                                 <span class="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-medium border border-gray-200 uppercase">
                                     <?= $s['payment_method'] ?>
@@ -405,7 +431,7 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                              <td class="p-4 text-center">
                                 <?php 
                                 $total_amt = (float)$s['total_amount'];
-                                $paid_amt = $sale_paid_adj[$s['id']] ?? (float)$s['paid_amount'];
+                                $paid_amt = $actual_paid; // Use actual paid for status in this log view
                                 if($total_amt > $paid_amt): ?>
                                     <?php if(!empty($s['customer_id'])): ?>
                                         <a href="customer_ledger.php?id=<?= $s['customer_id'] ?>" class="bg-red-100 text-red-700 text-[10px] uppercase font-bold px-2 py-1 rounded-full border border-red-200 hover:bg-red-200 transition">
