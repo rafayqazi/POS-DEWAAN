@@ -117,7 +117,7 @@ foreach($sales as $s) {
 
     <div id="reportContent" style="position: relative;">
         <div class="header">
-            <h1>Fashion Shines POS - MANAGEMENT SYSTEM</h1>
+            <h1>Fashion Shines - MANAGEMENT SYSTEM</h1>
             <p><?= $report_title ?></p>
             <p>Generated on: <?= date('d M Y, h:i A') ?></p>
         </div>
@@ -167,8 +167,8 @@ foreach($sales as $s) {
         <div style="clear: both;"></div>
 
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 

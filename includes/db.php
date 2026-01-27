@@ -356,14 +356,15 @@ function processCSVTransaction($table, $callback) {
 initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
 initCSV('settings', ['id', 'key', 'value']);
-initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id']);
-initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id']);
+initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id', 'payment_type', 'payment_proof']);
+initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'expiry_date', 'remarks', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 
 // Seed defaults only if files do not exist (fresh install)
 if (!file_exists(getCSVPath('settings'))) {
     updateSetting('expiry_notify_days', '7');
+    updateSetting('recovery_notify_days', '7');
 }
 
 if (!file_exists(getCSVPath('units'))) {
@@ -445,9 +446,49 @@ if (file_exists($salesPath)) {
                     $s['remarks'] = '';
                 }
             }
-            $newHeaders = array_merge($headers, ['remarks']);
+            $newHeaders = array_merge($headers, ['remarks', 'due_date']);
             $newHeaders = array_unique($newHeaders);
             writeCSV('sales', $data, $newHeaders);
+        }
+    }
+}
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Add due_date to customer_transactions.csv
+// ----------------------------------------------------
+$custTxnPath = getCSVPath('customer_transactions');
+if (file_exists($custTxnPath)) {
+    $fp_mig = fopen($custTxnPath, 'r');
+    if ($fp_mig) {
+        $headers = fgetcsv($fp_mig);
+        fclose($fp_mig);
+        if ($headers && !in_array('due_date', $headers)) {
+            $data = readCSV('customer_transactions');
+            $newHeaders = array_merge($headers, ['due_date']);
+            writeCSV('customer_transactions', $data, array_unique($newHeaders));
+        }
+    }
+}
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Payment Fields for Transactions
+// ----------------------------------------------------
+foreach (['customer_transactions', 'dealer_transactions'] as $tbl) {
+    $p = getCSVPath($tbl);
+    if (file_exists($p)) {
+        $fp_mig = fopen($p, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('payment_type', $headers)) {
+                $data = readCSV($tbl);
+                foreach ($data as &$row) {
+                    $row['payment_type'] = (isset($row['type']) && $row['type'] == 'Payment') ? 'Cash' : '';
+                    $row['payment_proof'] = '';
+                }
+                $newHeaders = array_merge($headers, ['payment_type', 'payment_proof']);
+                writeCSV($tbl, $data, array_unique($newHeaders));
+            }
         }
     }
 }

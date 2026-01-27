@@ -75,8 +75,8 @@
                     <li class="relative">
                         <button onclick="toggleDropdown('restockDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Inventory Restock">
                             <div class="flex items-center">
-                                <i class="fas fa-plus-square w-6 text-xl text-orange-300"></i>
-                                <span class="font-bold ml-4 sidebar-text text-orange-100 italic">Inventory Restock</span>
+                                <i class="fas fa-plus-square w-6 text-xl text-accent"></i>
+                                <span class="font-bold ml-4 sidebar-text text-teal-50">Inventory Restock</span>
                             </div>
                             <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="restockDropdownIcon"></i>
                         </button>

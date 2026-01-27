@@ -47,7 +47,7 @@ foreach($all_txns as $t) {
 $total_payable_balance = array_sum($balance_map);
 $total_dealer_count = count($dealers);
 
-usort($dealers, function($a, $b) { return $b['id'] - $a['id']; });
+usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
 ?>
 
 <!-- Financial Stats Cards -->
@@ -286,9 +286,9 @@ function printReport() {
 <!-- Printable Area -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
                 <p style="color: #666; margin: 5px 0 0 0;">Dealer Payable Balance Report</p>
             </div>
             <div style="text-align: right;">
@@ -299,7 +299,7 @@ function printReport() {
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
-                <tr style="background: #ea580c; color: #fff;">
+                <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Dealer/Company</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Phone</th>
@@ -327,8 +327,8 @@ function printReport() {
         </table>
 
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>

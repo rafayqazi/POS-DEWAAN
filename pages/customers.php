@@ -43,7 +43,21 @@ foreach($transactions as $t) {
 $total_outstanding_debt = array_sum($debt_map);
 $total_customer_count = count($customers);
 
-usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest first
+// Calculate Earliest Due Date per customer
+$due_map = [];
+foreach($transactions as $t) {
+    if (!empty($t['due_date'])) {
+        $cid = $t['customer_id'];
+        $due_date = $t['due_date'];
+        if (($debt_map[$cid] ?? 0) > 1) { // Only if they actually owe money
+            if (!isset($due_map[$cid]) || $due_date < $due_map[$cid]) {
+                $due_map[$cid] = $due_date;
+            }
+        }
+    }
+}
+
+usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
 ?>
 
 <!-- Financial Stats Cards -->
@@ -150,12 +164,23 @@ usort($customers, function($a, $b) { return $b['id'] - $a['id']; }); // Newest f
                         <p class="line-clamp-2"><?= htmlspecialchars($c['address']) ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
                     </div>
                     
-                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
-                        <?php $debt = $debt_map[$c['id']] ?? 0; ?>
-                        <p class="text-xl font-black <?= $debt > 0 ? 'text-red-600' : 'text-green-600' ?>">
-                            <?= formatCurrency($debt) ?>
-                        </p>
+                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 relative">
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
+                            <?php $debt = $debt_map[$c['id']] ?? 0; ?>
+                            <p class="text-xl font-black <?= $debt > 0 ? 'text-red-600' : 'text-green-600' ?>">
+                                <?= formatCurrency($debt) ?>
+                            </p>
+                        </div>
+                        <?php if (isset($due_map[$c['id']])): ?>
+                            <div class="mt-2 pt-2 border-t border-gray-200">
+                                <p class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">Next Payment Due</p>
+                                <p class="text-xs font-bold text-gray-700 flex items-center gap-1">
+                                    <i class="fas fa-calendar-day text-[10px]"></i>
+                                    <?= date('d M Y', strtotime($due_map[$c['id']])) ?>
+                                </p>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
@@ -327,9 +352,9 @@ function printReport() {
 <!-- Printable Area -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
                 <p style="color: #666; margin: 5px 0 0 0;">Customer Outstanding Debt Report</p>
             </div>
             <div style="text-align: right;">
@@ -340,7 +365,7 @@ function printReport() {
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
-                <tr style="background: #ea580c; color: #fff;">
+                <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Customer Name</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Phone</th>
@@ -368,8 +393,8 @@ function printReport() {
         </table>
 
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>

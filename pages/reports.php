@@ -64,13 +64,44 @@ foreach($sales as $s) {
 }
 
 $customer_txns = readCSV('customer_transactions');
+$customers_data = readCSV('customers');
+$customer_map = [];
+foreach($customers_data as $c) $customer_map[$c['id']] = $c['name'];
+
 $total_customer_payments = 0;
 $total_debt_customers = 0;
+$recovery_details = [];
 
+// 1. Collect payments from Sales (paid at time of sale)
+foreach($sales as $s) {
+    if ((float)$s['paid_amount'] > 0) {
+        $recovery_details[] = [
+            'date' => $s['sale_date'],
+            'name' => $s['customer_name'] ?: 'Walk-in Customer',
+            'amount' => (float)$s['paid_amount'],
+            'type' => 'Sale Payment'
+        ];
+    }
+}
+
+// 2. Collect payments from Customer Ledger (credits)
 foreach($customer_txns as $tx) {
-    $total_customer_payments += (float)$tx['credit'];
+    if ((float)$tx['credit'] > 0) {
+        $total_customer_payments += (float)$tx['credit'];
+        $recovery_details[] = [
+            'date' => $tx['date'],
+            'name' => $customer_map[$tx['customer_id']] ?? 'Unknown Customer',
+            'amount' => (float)$tx['credit'],
+            'type' => 'Ledger Payment'
+        ];
+    }
     $total_debt_customers += (float)$tx['debit'] - (float)$tx['credit'];
 }
+
+// Sort recovery details by date descending
+usort($recovery_details, function($a, $b) {
+    return strtotime($b['date']) - strtotime($a['date']);
+});
 
 $dealer_purchases = 0;
 $dealer_payments = 0;
@@ -116,10 +147,11 @@ $total_recovered = $total_paid_at_sale + $total_customer_payments;
     </a>
 
     <!-- Recovery Card -->
-    <a href="sales_history.php" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-blue-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
+    <div onclick="showRecoveryDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-teal-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
         <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Total Recovered</h3>
-        <p class="text-3xl font-black text-blue-600 tracking-tight mt-1"><?= formatCurrency($total_recovered) ?></p>
-    </a>
+        <p class="text-3xl font-black text-teal-600 tracking-tight mt-1"><?= formatCurrency($total_recovered) ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Click to view breakdown</p>
+    </div>
 </div>
 
 <!-- Detailed Profit & Debt Analysis -->
@@ -230,5 +262,256 @@ $total_recovered = $total_paid_at_sale + $total_customer_payments;
         </ul>
     </div>
 </div>
+
+<!-- Recovery Details Modal -->
+<div id="recoveryModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col scale-100 transition-all">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-teal-600 text-white">
+            <div>
+                <h3 class="text-xl font-bold">Recovered Payments Breakdown</h3>
+                <p class="text-xs opacity-80 mt-1">Showing all payments from sales and customer ledgers</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="printRecoveryReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="document.getElementById('recoveryModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+            <!-- Filter Bar -->
+            <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex gap-2">
+                        <button onclick="filterRecovery('all')" class="recovery-filter-btn active px-4 py-2 rounded-xl text-xs font-bold transition-all border border-teal-100 bg-teal-50 text-teal-600">All Time</button>
+                        <button onclick="filterRecovery('today')" class="recovery-filter-btn px-4 py-2 rounded-xl text-xs font-bold transition-all border border-gray-100 text-gray-500 hover:bg-gray-50">Today</button>
+                        <button onclick="filterRecovery('month')" class="recovery-filter-btn px-4 py-2 rounded-xl text-xs font-bold transition-all border border-gray-100 text-gray-500 hover:bg-gray-50">This Month</button>
+                        <button onclick="filterRecovery('60days')" class="recovery-filter-btn px-4 py-2 rounded-xl text-xs font-bold transition-all border border-gray-100 text-gray-500 hover:bg-gray-50">Last 60 Days</button>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                        <input type="date" id="recoveryFromDate" class="bg-transparent border-none text-[10px] font-bold text-gray-600 outline-none w-28">
+                        <span class="text-gray-300 text-xs">to</span>
+                        <input type="date" id="recoveryToDate" class="bg-transparent border-none text-[10px] font-bold text-gray-600 outline-none w-28">
+                        <button onclick="filterRecovery('custom')" class="bg-teal-600 text-white p-2 rounded-xl hover:bg-teal-700 transition">
+                            <i class="fas fa-search text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-teal-50 p-6 rounded-[2rem] mb-6 flex justify-between items-center border border-teal-100">
+                <div>
+                     <span class="text-xs font-bold text-teal-400 uppercase tracking-widest block mb-1">Recovery Summary</span>
+                     <span class="text-sm font-bold text-teal-700" id="recoveryStatsTitle">All Time Recovery</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs font-bold text-teal-400 uppercase tracking-widest block mb-1">Total Amount</span>
+                    <span class="text-3xl font-black text-teal-800" id="recoveryTotalText"><?= formatCurrency($total_recovered) ?></span>
+                </div>
+            </div>
+            
+            <div id="recoveryPrintableContainer" class="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 bg-gray-50/50">
+                            <th class="py-4 pl-6">Sr #</th>
+                            <th class="py-4">Date</th>
+                            <th class="py-4">Customer / Source</th>
+                            <th class="py-4">Type</th>
+                            <th class="py-4 text-right pr-6">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recoveryTableBody" class="divide-y divide-gray-50">
+                        <!-- Content via JS -->
+                    </tbody>
+                </table>
+                <div id="noRecoveryMessage" class="hidden p-20 text-center text-gray-400">
+                    <i class="fas fa-search-dollar text-5xl mb-4 opacity-20"></i>
+                    <p class="font-bold">No transactions found for the selected period.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4 bg-gray-50 border-t border-gray-100 text-center">
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">End of Detailed Report</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pass initial data to JS
+const recoveryData = <?= json_encode($recovery_details) ?>;
+
+function formatCurrencyJS(amount) {
+    return 'Rs. ' + Number(amount).toLocaleString();
+}
+
+function renderRecoveryTable(data) {
+    const tbody = document.getElementById('recoveryTableBody');
+    const noMsg = document.getElementById('noRecoveryMessage');
+    const totalText = document.getElementById('recoveryTotalText');
+    
+    tbody.innerHTML = '';
+    let total = 0;
+    
+    if (data.length === 0) {
+        noMsg.classList.remove('hidden');
+        totalText.innerText = formatCurrencyJS(0);
+        return;
+    }
+    
+    noMsg.classList.add('hidden');
+    data.forEach((item, index) => {
+        total += Number(item.amount);
+        const date = new Date(item.date);
+        const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + 
+                        date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        
+        const row = `
+            <tr class="hover:bg-teal-50/30 transition-colors group border-b border-gray-50">
+                <td class="py-4 pl-6 text-[10px] font-bold text-gray-400 font-mono">${index + 1}</td>
+                <td class="py-4 text-xs font-medium text-gray-500">${dateStr}</td>
+                <td class="py-4">
+                    <div class="text-sm font-bold text-gray-800 group-hover:text-teal-600 transition-colors">${item.name}</div>
+                </td>
+                <td class="py-4">
+                    <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase border ${item.type === 'Sale Payment' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-teal-50 text-teal-600 border-teal-100'}">
+                        ${item.type}
+                    </span>
+                </td>
+                <td class="py-4 text-right pr-6 font-black text-gray-900">
+                    ${formatCurrencyJS(item.amount)}
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+    
+    totalText.innerText = formatCurrencyJS(total);
+}
+
+function filterRecovery(range) {
+    // UI Update
+    document.querySelectorAll('.recovery-filter-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-teal-50', 'text-teal-600', 'border-teal-100');
+        btn.classList.add('text-gray-500', 'border-gray-100');
+        if (btn.innerText.toLowerCase().includes(range)) {
+             btn.classList.add('active', 'bg-teal-50', 'text-teal-600', 'border-teal-100');
+             btn.classList.remove('text-gray-500', 'border-gray-100');
+        }
+    });
+
+    if (range === 'all' && event) {
+         event.target.classList.add('active', 'bg-teal-50', 'text-teal-600', 'border-teal-100');
+         event.target.classList.remove('text-gray-500', 'border-gray-100');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const titleText = document.getElementById('recoveryStatsTitle');
+    
+    let filtered = recoveryData;
+    
+    if (range === 'today') {
+        titleText.innerText = "Today's Recovery";
+        filtered = recoveryData.filter(d => new Date(d.date) >= today);
+    } else if (range === 'month') {
+        titleText.innerText = "This Month's Recovery";
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        filtered = recoveryData.filter(d => new Date(d.date) >= startOfMonth);
+    } else if (range === '60days') {
+        titleText.innerText = "Last 60 Days Recovery";
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(today.getDate() - 60);
+        filtered = recoveryData.filter(d => new Date(d.date) >= sixtyDaysAgo);
+    } else if (range === 'custom') {
+        const fromDate = document.getElementById('recoveryFromDate').value;
+        const toDate = document.getElementById('recoveryToDate').value;
+        if (!fromDate || !toDate) {
+            alert('Please select both from and to dates');
+            return;
+        }
+        titleText.innerText = `Recovery from ${fromDate} to ${toDate}`;
+        const start = new Date(fromDate);
+        start.setHours(0,0,0,0);
+        const end = new Date(toDate);
+        end.setHours(23,59,59,999);
+        filtered = recoveryData.filter(d => {
+            const date = new Date(d.date);
+            return date >= start && date <= end;
+        });
+    } else {
+        titleText.innerText = "All Time Recovery";
+    }
+    
+    renderRecoveryTable(filtered);
+}
+
+function printRecoveryReport() {
+    const content = document.getElementById('recoveryPrintableContainer').innerHTML;
+    const stats = document.getElementById('recoveryStatsTitle').innerText;
+    const total = document.getElementById('recoveryTotalText').innerText;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Recovery Report</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 12px; border: 1px solid #eee; text-align: left; font-size: 12px; }
+                th { background: #f8fafc; font-weight: bold; text-transform: uppercase; color: #64748b; }
+                .header { display: flex; justify-content: space-between; border-bottom: 3px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px; }
+                .total-box { background: #f0fdfa; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+                .text-right { text-align: right; }
+                .font-black { font-weight: 900; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div>
+                     <h1 style="margin: 0; color: #0f766e;">Fashion Shines</h1>
+                     <p style="margin: 5px 0 0 0; color: #64748b;">Recovered Payments Report</p>
+                </div>
+                <div class="text-right">
+                     <h3 style="margin: 0;">${stats}</h3>
+                     <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 10px;">Generated: ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+            
+            <div class="total-box">
+                <span style="font-weight: bold; color: #0f766e;">Total Amount Recovered:</span>
+                <span style="font-size: 24px; font-weight: 900; color: #134e4a;">${total}</span>
+            </div>
+            
+            ${content}
+
+            <div style="margin-top: 50px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+                <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+            </div>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
+
+function showRecoveryDetails() {
+    document.getElementById('recoveryModal').classList.remove('hidden');
+    // Initialize with all data
+    document.getElementById('recoveryFromDate').value = '';
+    document.getElementById('recoveryToDate').value = '';
+    filterRecovery('all');
+}
+</script>
 
 <?php include '../includes/footer.php'; echo '</main></div></body></html>'; ?>

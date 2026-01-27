@@ -91,7 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     } elseif ($action == 'update_general_settings') {
         $expiry_days = $_POST['expiry_notify_days'] ?? '7';
+        $recovery_days = $_POST['recovery_notify_days'] ?? '7';
         updateSetting('expiry_notify_days', $expiry_days);
+        updateSetting('recovery_notify_days', $recovery_days);
         $message = "General settings updated successfully.";
     }
 }
@@ -238,6 +240,17 @@ $categories = readCSV('categories');
                         <option value="7" <?= $current_expiry == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
                         <option value="15" <?= $current_expiry == '15' ? 'selected' : '' ?>>15 Days</option>
                         <option value="30" <?= $current_expiry == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Customer Recovery Notification Period</label>
+                    <p class="text-gray-500 text-xs mb-4">Set how many days before a payment is due you want to be notified on the dashboard.</p>
+                    <?php $current_recovery = getSetting('recovery_notify_days', '7'); ?>
+                    <select name="recovery_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
+                        <option value="7" <?= $current_recovery == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
+                        <option value="15" <?= $current_recovery == '15' ? 'selected' : '' ?>>15 Days</option>
+                        <option value="30" <?= $current_recovery == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
                     </select>
                 </div>
                 

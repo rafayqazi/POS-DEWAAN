@@ -109,7 +109,7 @@ usort($restocks, function($a, $b) {
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
-                <tr class="bg-orange-600 text-white text-xs uppercase tracking-widest font-black">
+                <tr class="bg-teal-700 text-white text-xs uppercase tracking-widest font-black">
                     <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
                     <th class="p-6">Product</th>
@@ -137,9 +137,9 @@ usort($restocks, function($a, $b) {
 <!-- Printable Area -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
                 <p style="color: #666; margin: 5px 0 0 0;">Inventory Restock History Report</p>
             </div>
             <div style="text-align: right;">
@@ -150,7 +150,7 @@ usort($restocks, function($a, $b) {
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
-                <tr style="background: #ea580c; color: #fff;">
+                <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Product</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Qty Added</th>
@@ -165,14 +165,14 @@ usort($restocks, function($a, $b) {
             <tfoot>
                 <tr style="background: #f9fafb; font-weight: bold;">
                     <td colspan="5" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total amount paid in this period:</td>
-                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #ea580c; font-size: 16px;">Rs. 0</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #0f766e; font-size: 16px;">Rs. 0</td>
                 </tr>
             </tfoot>
         </table>
 
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>
@@ -229,7 +229,7 @@ echo '</main></div>';
                     `<div class="text-xs text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100 inline-block max-w-[200px] truncate" title="${log.remarks}"><i class="fas fa-sticky-note mr-1 text-teal-500"></i> ${log.remarks}</div>` : 
                     '';
 
-                html += `<tr class="hover:bg-orange-50/30 transition">
+                html += `<tr class="hover:bg-teal-50/30 transition">
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6 text-sm font-medium text-gray-500 font-mono">${dateDisplay}<br><span class="text-[10px] opacity-50">${timeDisplay}</span></td>
                     <td class="p-6">
@@ -243,7 +243,7 @@ echo '</main></div>';
                         <div class="text-[10px] text-gray-400 line-through italic">Prev: ${formatCurrency(parseFloat(log.old_buy_price || 0))}</div>
                     </td>
                     <td class="p-6 text-teal-600 font-bold text-sm">${formatCurrency(parseFloat(log.new_sell_price || 0))}</td>
-                    <td class="p-6">${log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700"><i class="fas fa-truck text-orange-400"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>'}</td>
+                    <td class="p-6">${log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700"><i class="fas fa-truck text-teal-400"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>'}</td>
                     <td class="p-6 text-right">${log.amount_paid !== '' ? `<span class="font-black text-gray-800">${formatCurrency(paid)}</span>` : '<span class="text-gray-300 font-bold">-</span>'}</td>
                     <td class="p-6 text-center"><button onclick="confirmDeleteRestock(${log.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button></td>
                 </tr>`;

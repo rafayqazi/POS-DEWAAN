@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
             'paid_amount' => $_POST['paid_amount'],
             'payment_method' => $_POST['payment_method'],
             'remarks' => cleanInput($_POST['remarks'] ?? ''),
+            'due_date' => $_POST['due_date'] ?? '',
             'sale_date' => date('Y-m-d H:i:s')
         ]);
 
@@ -69,7 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 'description' => "Sale #$sale_id",
                 'date' => date('Y-m-d'),
                 'created_at' => date('Y-m-d H:i:s'),
-                'sale_id' => $sale_id
+                'sale_id' => $sale_id,
+                'due_date' => $_POST['due_date'] ?? ''
             ]);
         }
 
@@ -262,6 +264,14 @@ $categories = readCSV('categories');
                      </div>
                 </div>
 
+                <!-- Due Date (Mandatory for Debt) -->
+                <div id="dueDateContainer" class="hidden">
+                    <label class="block text-[10px] font-bold text-orange-600 uppercase mb-1 flex items-center gap-1">
+                        <i class="fas fa-calendar-alt"></i> Expected Payment Date *
+                    </label>
+                    <input type="date" name="due_date" id="dueDate" class="w-full p-2 text-xs border border-orange-200 bg-orange-50 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500 outline-none">
+                </div>
+
                 <!-- Remarks -->
                 <div>
                      <textarea name="remarks" rows="1" class="w-full px-2 py-1.5 text-[11px] border border-gray-300 rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none" placeholder="Sale Remarks (Optional)..."></textarea>
@@ -446,6 +456,18 @@ function handlePaymentChange(method) {
     if (method === 'Fully Debt') { paidInput.value = 0; paidInput.readOnly = true; }
     else if (method === 'Cash') { paidInput.value = total; paidInput.readOnly = false; }
     else { paidInput.readOnly = false; }
+    
+    const dueDateContainer = document.getElementById('dueDateContainer');
+    const dueDateInput = document.getElementById('dueDate');
+    if (method !== 'Cash') {
+        dueDateContainer.classList.remove('hidden');
+        dueDateInput.required = true;
+    } else {
+        dueDateContainer.classList.add('hidden');
+        dueDateInput.required = false;
+        dueDateInput.value = '';
+    }
+    
     calculateDebt();
 }
 
@@ -499,7 +521,9 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
     if (!validateTotalPrice()) { showAlert("Below cost price!", "Error"); return false; }
     const method = document.getElementById('paymentMethod').value;
     const cust = document.getElementById('customerSelect').value;
+    const dueDate = document.getElementById('dueDate').value;
     if (method !== 'Cash' && !cust) { showAlert("Customer required for debt.", "Error"); return false; }
+    if (method !== 'Cash' && !dueDate) { showAlert("Payment due date is mandatory for debt/partial payments.", "Error"); return false; }
     return true;
 };
 </script>

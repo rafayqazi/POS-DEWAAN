@@ -1,4 +1,4 @@
-# 🚀 Fashion Shines POS (DEWAAN)
+# 🚀 Fashion Shines POS
 
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-777bb4.svg?style=flat-square&logo=php)](https://www.php.net/)
 [![Platform](https://img.shields.io/badge/Platform-XAMPP-orange.svg?style=flat-square)](https://www.apachefriends.org/)

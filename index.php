@@ -42,6 +42,38 @@ foreach ($products as $p) {
     }
 }
 $expiring_count = count($expiring_products);
+
+// 3. Customer Recovery Notifications Logic
+$rec_notify_days = (int)getSetting('recovery_notify_days', '7');
+$rec_threshold = date('Y-m-d', strtotime("+$rec_notify_days days"));
+$today_d = date('Y-m-d');
+$pending_recoveries = [];
+
+// Get customer balances to ensure we only notify for people who still owe money
+$all_txns = readCSV('customer_transactions');
+$cust_map = [];
+foreach($customers as $c) $cust_map[$c['id']] = $c['name'];
+
+$balances = [];
+foreach ($all_txns as $tx) {
+    if(!isset($balances[$tx['customer_id']])) $balances[$tx['customer_id']] = 0;
+    $balances[$tx['customer_id']] += (float)$tx['debit'] - (float)$tx['credit'];
+}
+
+$due_customers = [];
+foreach ($all_txns as $tx) {
+    if (!empty($tx['due_date']) && $tx['due_date'] <= $rec_threshold) {
+        // Only if customer still owes more than 10 units (noise reduction)
+        if (($balances[$tx['customer_id']] ?? 0) > 1) {
+            $due_customers[$tx['customer_id']] = [
+                'name' => $cust_map[$tx['customer_id']] ?? 'Unknown',
+                'date' => $tx['due_date'],
+                'balance' => $balances[$tx['customer_id']]
+            ];
+        }
+    }
+}
+$recovery_alert_count = count($due_customers);
 ?>
 
 <?php if ($low_stock > 0): ?>
@@ -75,6 +107,40 @@ $expiring_count = count($expiring_products);
     <a href="pages/inventory.php?filter=expiring" class="px-8 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
         View Expiring List
     </a>
+</div>
+<?php endif; ?>
+
+<?php if ($recovery_alert_count > 0): ?>
+<div class="mb-6 p-6 bg-orange-50 border border-orange-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-orange-500/5 gap-4">
+    <div class="flex items-center gap-6">
+        <div class="w-14 h-14 bg-orange-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform shrink-0">
+            <i class="fas fa-hand-holding-usd text-xl"></i>
+        </div>
+        <div>
+            <h4 class="text-lg font-bold text-orange-900">Payment Recovery Alert</h4>
+            <p class="text-orange-700/80 text-sm font-medium">
+                <?php if ($recovery_alert_count <= 3): ?>
+                    <?php 
+                    $msgs = [];
+                    foreach($due_customers as $dc) {
+                        $diff = strtotime($dc['date']) - strtotime(date('Y-m-d'));
+                        $days = round($diff / (60 * 60 * 24));
+                        $day_text = ($days == 0) ? "today" : (($days < 0) ? abs($days) . " days overdue" : $days . " days left");
+                        $msgs[] = "<strong>" . htmlspecialchars($dc['name']) . "</strong> ($day_text)";
+                    }
+                    echo implode(", ", $msgs);
+                    ?>
+                <?php else: ?>
+                    <strong><?= $recovery_alert_count ?> customers</strong> have payments due soon or overdue.
+                <?php endif; ?>
+            </p>
+        </div>
+    </div>
+    <div class="flex gap-2 w-full md:w-auto">
+        <a href="pages/customers.php" class="px-8 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
+            View Debtors
+        </a>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -140,10 +206,10 @@ $expiring_count = count($expiring_products);
      <!-- Stat Card 4 -->
      <a href="pages/customers.php" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 glass card-hover transition-all duration-300 group">
         <div class="flex items-center justify-between mb-4">
-            <div class="p-3 bg-purple-500 rounded-2xl text-white shadow-md shadow-purple-500/10 group-hover:bg-purple-600 transition-colors">
+            <div class="p-3 bg-teal-500 rounded-2xl text-white shadow-md shadow-teal-500/10 group-hover:bg-teal-600 transition-colors">
                 <i class="fas fa-users text-lg"></i>
             </div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-3 py-1 rounded-full">People</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-3 py-1 rounded-full">People</span>
         </div>
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-tight">Total Customers</p>
         <p class="text-3xl font-bold text-gray-800 mt-1"><?= count($customers) ?></p>
@@ -152,22 +218,22 @@ $expiring_count = count($expiring_products);
     <!-- Stat Card 5 -->
     <a href="pages/restock_history.php" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 glass card-hover transition-all duration-300 group">
         <div class="flex items-center justify-between mb-4">
-            <div class="p-3 bg-orange-500 rounded-2xl text-white shadow-md shadow-orange-500/10 group-hover:bg-orange-600 transition-colors">
+            <div class="p-3 bg-teal-600 rounded-2xl text-white shadow-md shadow-teal-600/10 group-hover:bg-teal-700 transition-colors">
                 <i class="fas fa-history text-lg"></i>
             </div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full">Logs</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-3 py-1 rounded-full">Logs</span>
         </div>
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-tight">Restock activities</p>
         <p class="text-3xl font-bold text-gray-800 mt-1"><?= count(readCSV('restocks')) ?></p>
     </a>
 
     <!-- Stat Card 6 (Quick Restock) -->
-    <a href="pages/quick_restock.php" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 glass card-hover transition-all duration-300 group ring-2 ring-orange-100">
+    <a href="pages/quick_restock.php" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 glass card-hover transition-all duration-300 group ring-2 ring-teal-100">
         <div class="flex items-center justify-between mb-4">
-            <div class="p-3 bg-orange-600 rounded-2xl text-white shadow-md shadow-orange-600/10 group-hover:bg-orange-700 transition-colors">
+            <div class="p-3 bg-teal-600 rounded-2xl text-white shadow-md shadow-teal-600/10 group-hover:bg-teal-700 transition-colors">
                 <i class="fas fa-boxes text-lg"></i>
             </div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-orange-700 bg-orange-50 px-3 py-1 rounded-full">Action</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-3 py-1 rounded-full">Action</span>
         </div>
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-tight">Quick Restock</p>
         <p class="text-xs font-bold text-gray-800 mt-1">Add Stock Now</p>
@@ -178,7 +244,7 @@ $expiring_count = count($expiring_products);
 <!-- Additional Quick Access Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <!-- Reports & Analytics Card -->
-    <a href="pages/reports.php" class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl shadow-lg p-6 border border-blue-400 hover:scale-105 transition-all duration-300 group text-white">
+    <a href="pages/reports.php" class="bg-gradient-to-br from-teal-500 to-teal-700 rounded-3xl shadow-lg p-6 border border-teal-400 hover:scale-105 transition-all duration-300 group text-white">
         <div class="flex items-center justify-between mb-4">
             <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                 <i class="fas fa-chart-pie text-2xl"></i>
@@ -190,7 +256,7 @@ $expiring_count = count($expiring_products);
     </a>
 
     <!-- Categories Management Card -->
-    <a href="pages/categories.php" class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl shadow-lg p-6 border border-indigo-400 hover:scale-105 transition-all duration-300 group text-white">
+    <a href="pages/categories.php" class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-3xl shadow-lg p-6 border border-teal-500 hover:scale-105 transition-all duration-300 group text-white">
         <div class="flex items-center justify-between mb-4">
             <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                 <i class="fas fa-tags text-2xl"></i>
@@ -202,7 +268,7 @@ $expiring_count = count($expiring_products);
     </a>
 
     <!-- Units Management Card -->
-    <a href="pages/units.php" class="bg-gradient-to-br from-pink-500 to-pink-600 rounded-3xl shadow-lg p-6 border border-pink-400 hover:scale-105 transition-all duration-300 group text-white">
+    <a href="pages/units.php" class="bg-gradient-to-br from-accent to-amber-600 rounded-3xl shadow-lg p-6 border border-amber-400 hover:scale-105 transition-all duration-300 group text-white">
         <div class="flex items-center justify-between mb-4">
             <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                 <i class="fas fa-balance-scale text-2xl"></i>
@@ -214,7 +280,7 @@ $expiring_count = count($expiring_products);
     </a>
 
     <!-- Ledgers Card -->
-    <a href="pages/customer_ledger.php" class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-3xl shadow-lg p-6 border border-violet-400 hover:scale-105 transition-all duration-300 group text-white">
+    <a href="pages/customer_ledger.php" class="bg-gradient-to-br from-teal-700 to-teal-900 rounded-3xl shadow-lg p-6 border border-teal-600 hover:scale-105 transition-all duration-300 group text-white">
         <div class="flex items-center justify-between mb-4">
             <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                 <i class="fas fa-file-invoice-dollar text-2xl"></i>
@@ -241,16 +307,16 @@ $expiring_count = count($expiring_products);
                 <i class="fas fa-plus-circle text-2xl text-blue-600 mb-3 group-hover:text-white transition-colors"></i>
                 <span class="font-bold text-sm">Add Product</span>
             </a>
-            <a href="pages/dealers.php" class="flex flex-col items-center justify-center p-6 bg-amber-50 rounded-2xl hover:bg-amber-600 hover:text-white transition-all duration-300 border border-amber-100 group shadow-sm">
-                <i class="fas fa-truck-loading text-2xl text-amber-600 mb-3 group-hover:text-white transition-colors"></i>
-                <span class="font-bold text-sm">Dealer Restock</span>
+            <a href="pages/dealers.php" class="flex flex-col items-center justify-center p-6 bg-teal-50 rounded-2xl hover:bg-teal-600 hover:text-white transition-all duration-300 border border-teal-100 group shadow-sm">
+                <i class="fas fa-truck-loading text-2xl text-teal-600 mb-3 group-hover:text-white transition-colors"></i>
+                <span class="font-bold text-sm">Dealer Register</span>
             </a>
-            <a href="pages/customers.php" class="flex flex-col items-center justify-center p-6 bg-purple-50 rounded-2xl hover:bg-purple-600 hover:text-white transition-all duration-300 border border-purple-100 group shadow-sm">
-                <i class="fas fa-user-plus text-2xl text-purple-600 mb-3 group-hover:text-white transition-colors"></i>
+            <a href="pages/customers.php" class="flex flex-col items-center justify-center p-6 bg-teal-50 rounded-2xl hover:bg-teal-600 hover:text-white transition-all duration-300 border border-teal-100 group shadow-sm">
+                <i class="fas fa-user-plus text-2xl text-teal-600 mb-3 group-hover:text-white transition-colors"></i>
                 <span class="font-bold text-sm">Add Customer</span>
             </a>
-            <a href="pages/inventory.php" class="flex flex-col items-center justify-center p-6 bg-orange-50 rounded-2xl hover:bg-orange-600 hover:text-white transition-all duration-300 border border-orange-100 group shadow-sm">
-                <i class="fas fa-plus-circle text-2xl text-orange-600 mb-3 group-hover:text-white transition-colors"></i>
+            <a href="pages/inventory.php" class="flex flex-col items-center justify-center p-6 bg-teal-50 rounded-2xl hover:bg-teal-600 hover:text-white transition-all duration-300 border border-teal-100 group shadow-sm">
+                <i class="fas fa-plus-circle text-2xl text-teal-600 mb-3 group-hover:text-white transition-colors"></i>
                 <span class="font-bold text-sm">Restock Inventory</span>
             </a>
             <a href="pages/backup_restore.php" class="flex flex-col items-center justify-center p-6 bg-zinc-50 rounded-2xl hover:bg-zinc-600 hover:text-white transition-all duration-300 border border-zinc-100 group shadow-sm">

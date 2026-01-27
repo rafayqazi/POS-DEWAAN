@@ -28,8 +28,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'debit' => ($type == 'Purchase' || $type == 'Debt') ? $amount : 0,
         'credit' => ($type == 'Payment') ? $amount : 0,
         'description' => cleanInput($_POST['description']),
-        'date' => $_POST['date']
+        'date' => $_POST['date'],
+        'payment_type' => $_POST['payment_type'] ?? '',
+        'payment_proof' => $_POST['existing_proof'] ?? ''
     ];
+
+    // Handle File Upload
+    if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] == 0) {
+        $upload_dir = '../uploads/payments/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+        
+        $ext = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
+        $filename = 'deal_' . time() . '_' . uniqid() . '.' . $ext;
+        if (move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_dir . $filename)) {
+            $data['payment_proof'] = $filename;
+        }
+    }
     
     if (isset($_POST['txn_id']) && !empty($_POST['txn_id'])) {
         updateCSV('dealer_transactions', $_POST['txn_id'], $data);
@@ -218,7 +232,7 @@ $current_balance = $total_debit - $total_credit;
             <span id="modalDebtAmount" class="text-lg font-black text-red-600">Rs. 0</span>
         </div>
         
-        <form method="POST" onsubmit="return validateTransaction()">
+        <form method="POST" onsubmit="return validateTransaction()" enctype="multipart/form-data">
             <input type="hidden" name="id" value="<?= $dealer_id ?>">
             <input type="hidden" name="type" id="txnType">
             <input type="hidden" name="txn_id" id="txn_id">
@@ -245,6 +259,22 @@ $current_balance = $total_debit - $total_credit;
                     <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Description</label>
                     <textarea name="description" id="txnDesc" rows="3" class="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none text-sm"></textarea>
                 </div>
+
+                <div id="paymentFields" class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Payment Type</label>
+                        <select name="payment_type" id="txnPaymentType" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm">
+                            <option value="Cash">Cash</option>
+                            <option value="Online">Online</option>
+                            <option value="Cheque">By Cheque</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Proof <span class="lowercase">(Opt)</span></label>
+                        <input type="file" name="payment_proof" id="txnPaymentProof" class="w-full p-2 bg-gray-50 border border-gray-100 rounded-xl text-[10px] outline-none focus:ring-2 focus:ring-amber-500 transition-all">
+                        <input type="hidden" name="existing_proof" id="existingProof">
+                    </div>
+                </div>
             </div>
             
             <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-4 rounded-xl mt-6 shadow-lg shadow-amber-500/30 transition-all active:scale-95 text-sm tracking-wide">
@@ -257,10 +287,10 @@ $current_balance = $total_debit - $total_credit;
 <!-- Print/PDF Hidden Area -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #ea580c; margin: 0; font-size: 28px;">DEWAAN</h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Fertilizers & Pesticides Management System</p>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Management System</p>
             </div>
             <div style="text-align: right;">
                 <h2 style="margin: 0; color: #333;">Dealer Ledger Report</h2>
@@ -269,8 +299,8 @@ $current_balance = $total_debit - $total_credit;
         </div>
 
         <div style="display: flex; gap: 40px; margin-bottom: 30px;">
-            <div style="flex: 1; background: #fff7ed; padding: 15px; border-radius: 8px; border-left: 4px solid #ea580c;">
-                <h4 style="margin: 0 0 10px 0; color: #ea580c; text-transform: uppercase; font-size: 11px;">Dealer Details</h4>
+            <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
+                <h4 style="margin: 0 0 10px 0; color: #0f766e; text-transform: uppercase; font-size: 11px;">Dealer Details</h4>
                 <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($dealer['name']) ?></p>
                 <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($dealer['phone'] ?? '') ?></p>
                 <p style="margin: 0; color: #888; font-size: 11px;"><?= htmlspecialchars($dealer['address'] ?? '') ?></p>
@@ -284,7 +314,7 @@ $current_balance = $total_debit - $total_credit;
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
-                <tr style="background: #ea580c; color: #fff;">
+                <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
@@ -304,8 +334,8 @@ $current_balance = $total_debit - $total_credit;
             </tfoot>
         </table>
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>
@@ -530,6 +560,10 @@ $current_balance = $total_debit - $total_credit;
                     <td class="p-6">
                         <div class="text-sm font-bold text-gray-800">${t.description}</div>
                         <div class="text-[9px] text-gray-400 font-semibold tracking-wider mt-0.5">${displayTime}</div>
+                        ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
+                            <span class="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 uppercase font-black">${t.payment_type}</span>
+                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px]"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
+                        </div>` : ''}
                     </td>
                     <td class="p-6 text-center">
                         <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${t.type === 'Purchase' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}">
@@ -568,6 +602,9 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('txnDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('txnAmount').value = '';
         document.getElementById('txnDesc').value = '';
+        document.getElementById('txnPaymentType').value = 'Cash';
+        document.getElementById('existingProof').value = '';
+        document.getElementById('txnPaymentProof').value = '';
         document.getElementById('payTotalCheck').checked = false;
         
         let title = "Record Transaction";
@@ -580,14 +617,17 @@ $current_balance = $total_debit - $total_credit;
         // Handle Debt Display for Payment
         const debtDisplay = document.getElementById('modalDebtDisplay');
         const payTotalWrapper = document.getElementById('payTotalWrapper');
+        const paymentFields = document.getElementById('paymentFields');
         
         if (type == 'Payment') {
             debtDisplay.classList.remove('hidden');
             document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebtValue);
             if(payTotalWrapper) payTotalWrapper.classList.remove('hidden');
+            if(paymentFields) paymentFields.classList.remove('hidden');
         } else {
             debtDisplay.classList.add('hidden');
             if(payTotalWrapper) payTotalWrapper.classList.add('hidden');
+            if(paymentFields) paymentFields.classList.add('hidden');
         }
         
         document.getElementById('txnModal').classList.remove('hidden');
@@ -641,6 +681,8 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('txnDate').value = data.date.substring(0, 10);
         document.getElementById('txnAmount').value = (Number(data.debit) > 0) ? data.debit : data.credit;
         document.getElementById('txnDesc').value = data.description;
+        document.getElementById('txnPaymentType').value = data.payment_type || 'Cash';
+        document.getElementById('existingProof').value = data.payment_proof || '';
         document.getElementById('payTotalCheck').checked = false;
         
         const title = "Edit " + data.type;
@@ -650,6 +692,13 @@ $current_balance = $total_debit - $total_credit;
         // If editing, we might change history. Let's keep it simple and hide extra displays for Edit mode to avoid confusion, 
         // as "current debt" might change if we edit a past transaction.
         document.getElementById('modalDebtDisplay').classList.add('hidden');
+        
+        const paymentFields = document.getElementById('paymentFields');
+        if (data.type === 'Payment') {
+            if (paymentFields) paymentFields.classList.remove('hidden');
+        } else {
+            if (paymentFields) paymentFields.classList.add('hidden');
+        }
         
         document.getElementById('txnModal').classList.remove('hidden');
         document.getElementById('txnModal').classList.add('flex');

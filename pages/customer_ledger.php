@@ -24,6 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
     $date = $_POST['txn_date'];
     $notes = cleanInput($_POST['notes']);
     $type = $_POST['type'] ?? 'Payment';
+    $payment_type = $_POST['payment_type'] ?? '';
+    $payment_proof = $_POST['existing_proof'] ?? '';
+
+    // Handle File Upload
+    if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] == 0) {
+        $upload_dir = '../uploads/payments/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+        
+        $ext = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
+        $filename = 'cust_' . time() . '_' . uniqid() . '.' . $ext;
+        if (move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_dir . $filename)) { // Corrected tmp_id to tmp_name
+            $payment_proof = $filename;
+        }
+    }
 
     $data = [
         'customer_id' => $cid,
@@ -31,7 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
         'debit' => ($type == 'Debt') ? $amount : 0,
         'credit' => ($type == 'Payment') ? $amount : 0,
         'description' => ($type == 'Debt' ? "Previous Debt: " : "Payment Received: ") . $notes,
-        'date' => $date
+        'date' => $date,
+        'due_date' => $_POST['due_date'] ?? '',
+        'payment_type' => $payment_type,
+        'payment_proof' => $payment_proof
     ];
 
     if (isset($_POST['txn_id']) && !empty($_POST['txn_id'])) {
@@ -167,7 +184,8 @@ usort($ledger, function($a, $b) {
                     <th class="p-6">Products & QTY</th>
                     <th class="p-6 text-right">Debit (Sale)</th>
                     <th class="p-6 text-right">Credit (Paid)</th>
-                    <th class="p-6 w-48 font-bold">Remarks</th>
+                    <th class="p-6">Reference</th>
+                    <th class="p-6">Due Date</th>
                     <th class="p-6 text-right text-purple-600">Balance</th> 
                     <th class="p-6 text-center">Actions</th>
                 </tr>
@@ -197,7 +215,7 @@ usort($ledger, function($a, $b) {
             </div>
         </div>
         
-        <form method="POST" class="space-y-4" onsubmit="return validateTransaction()">
+        <form method="POST" class="space-y-4" onsubmit="return validateTransaction()" enctype="multipart/form-data">
             <input type="hidden" name="type" id="modalTxnType">
             <input type="hidden" name="txn_id" id="modalTxnId">
             
@@ -225,6 +243,27 @@ usort($ledger, function($a, $b) {
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (Optional)</label>
                 <textarea name="notes" id="modalTxnNotes" rows="2" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none" placeholder="Details..."></textarea>
             </div>
+
+            <div id="dueDateField" class="hidden">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date (Optional)</label>
+                <input type="date" name="due_date" id="modalDueDate" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            </div>
+            
+            <div id="paymentFields" class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Type</label>
+                    <select name="payment_type" id="modalPaymentType" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+                        <option value="Cash">Cash</option>
+                        <option value="Online">Online</option>
+                        <option value="Cheque">By Cheque</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Proof <span class="text-[9px] lowercase">(Optional)</span></label>
+                    <input type="file" name="payment_proof" id="modalPaymentProof" class="w-full p-1 border border-gray-300 rounded-lg text-[10px] focus:ring-2 focus:ring-teal-500 outline-none">
+                    <input type="hidden" name="existing_proof" id="modalExistingProof">
+                </div>
+            </div>
             
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeTxnModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-300 transition">Cancel</button>
@@ -237,10 +276,10 @@ usort($ledger, function($a, $b) {
 <!-- Printable Area (Hidden from UI, used for PDF) -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #6b21a8; margin: 0; font-size: 28px;">DEWAAN</h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Fertilizers & Pesticides Management System</p>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Management System</p>
             </div>
             <div style="text-align: right;">
                 <h2 style="margin: 0; color: #333;">Customer Ledger Report</h2>
@@ -249,8 +288,8 @@ usort($ledger, function($a, $b) {
         </div>
 
         <div style="display: flex; gap: 40px; margin-bottom: 30px;">
-            <div style="flex: 1; background: #faf5ff; padding: 15px; border-radius: 8px; border-left: 4px solid #6b21a8;">
-                <h4 style="margin: 0 0 10px 0; color: #6b21a8; text-transform: uppercase; font-size: 11px;">Customer Details</h4>
+            <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
+                <h4 style="margin: 0 0 10px 0; color: #0f766e; text-transform: uppercase; font-size: 11px;">Customer Details</h4>
                 <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($customer['name']) ?></p>
                 <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($customer['phone']) ?></p>
                 <p style="margin: 0; color: #888; font-size: 11px;"><?= htmlspecialchars($customer['address']) ?></p>
@@ -264,12 +303,14 @@ usort($ledger, function($a, $b) {
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
-                <tr style="background: #6b21a8; color: #fff;">
+                <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Sale)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Reference</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Due Date</th>
                 </tr>
             </thead>
             <tbody id="printBody">
@@ -277,14 +318,14 @@ usort($ledger, function($a, $b) {
             </tbody>
             <tfoot>
                 <tr style="background: #f9fafb; font-weight: bold;">
-                    <td colspan="3" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
-                    <td colspan="2" id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 16px;"><?= formatCurrency($total_due) ?></td>
+                    <td colspan="6" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 16px;"><?= formatCurrency($total_due) ?></td>
                 </tr>
             </tfoot>
         </table>
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">POS System Developed by Abdul Rafay - Contact: 0300-0358189</p>
-            <p style="margin: 3px 0 0 0; font-style: italic;">Disclaimer: Unauthorized use of this software without developer consent is illegal.</p>
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>
@@ -469,12 +510,12 @@ usort($ledger, function($a, $b) {
             
             if(isPrint) {
                  html += `<tr>
-                    <td colspan="4" style="${cellStyle} font-style: italic; color: #666;">Opening Balance ${dateLabel}</td>
+                    <td colspan="6" style="${cellStyle} font-style: italic; color: #666;">Opening Balance ${dateLabel}</td>
                     <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 11px; font-weight: bold;">${formatCurrency(opening)}</td>
                 </tr>`;
             } else {
                  html += `<tr class="${bgClass}">
-                    <td colspan="4" class="${cellStyle} text-xs font-bold text-gray-500 uppercase tracking-widest">Opening Balance ${dateLabel}</td>
+                    <td colspan="7" class="${cellStyle} text-xs font-bold text-gray-500 uppercase tracking-widest">Opening Balance ${dateLabel}</td>
                     <td class="${balStyle}">${formatCurrency(opening)}</td>
                     <td class="p-6"></td>
                 </tr>`;
@@ -482,7 +523,7 @@ usort($ledger, function($a, $b) {
         }
 
         if (list.length === 0 && opening === 0) {
-            html += `<tr><td colspan="${isPrint ? 5 : 6}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
+            html += `<tr><td colspan="${isPrint ? 7 : 9}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
             return html;
         }
 
@@ -494,6 +535,8 @@ usort($ledger, function($a, $b) {
             // Since it's descending, usually Sr# 1 is the latest.
             const sn = index + 1;
 
+            const dueDateDisplay = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+
             if (isPrint) {
                 html += `<tr>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
@@ -501,6 +544,8 @@ usort($ledger, function($a, $b) {
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${t.description}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #e11d48;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${t.description}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dueDateDisplay}</td>
                 </tr>`;
             } else {
                 let productsInfo = '';
@@ -543,6 +588,18 @@ usort($ledger, function($a, $b) {
                     </td>
                     <td class="p-6">
                         <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[180px]" title="${remarks}">${remarks}</div>
+                        ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
+                            <span class="text-[9px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100 uppercase font-black">${t.payment_type}</span>
+                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px]"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
+                        </div>` : ''}
+                    </td>
+                    <td class="p-6">
+                        ${t.due_date ? `
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 font-bold text-[10px]">
+                                <i class="fas fa-calendar-alt text-[10px]"></i>
+                                ${dueDateDisplay}
+                            </span>
+                        ` : '-'}
                     </td>
                     <td class="p-6 text-right font-black text-red-600 bg-red-50/20">
                         ${formatCurrency(t.current_running_balance)}
@@ -550,7 +607,7 @@ usort($ledger, function($a, $b) {
                     <td class="p-6 text-center">
                          <div class="flex justify-center items-center gap-1">
                                 ${t.type === 'Payment' ? `
-                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
+                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
                                    <i class="fas fa-edit"></i>
                                </button>
                                ` : (t.type === 'Debt' ? `
@@ -591,16 +648,26 @@ usort($ledger, function($a, $b) {
         document.getElementById('modalTxnDate').value = data.date;
         document.getElementById('modalTxnAmount').value = data.amount;
         document.getElementById('modalTxnNotes').value = data.description.replace(data.type === 'Debt' ? "Previous Debt: " : "Payment Received: ", "");
+        document.getElementById('modalPaymentType').value = data.payment_type || 'Cash';
+        document.getElementById('modalExistingProof').value = data.payment_proof || '';
+        document.getElementById('modalDueDate').value = data.due_date || '';
         document.getElementById('payInFullCheckbox').checked = false;
         
         // UI Adjustments
+        const dueDateField = document.getElementById('dueDateField');
         if (data.type === 'Payment') {
             document.getElementById('modalDebtDisplay').classList.remove('hidden');
             document.getElementById('payInFullWrapper').classList.remove('hidden');
+            document.getElementById('paymentFields').classList.remove('hidden');
+            dueDateField.classList.add('hidden');
+            document.getElementById('modalDueDate').required = false;
             document.getElementById('amountLabel').innerText = "Amount Received";
         } else {
             document.getElementById('modalDebtDisplay').classList.add('hidden');
             document.getElementById('payInFullWrapper').classList.add('hidden');
+            document.getElementById('paymentFields').classList.add('hidden');
+            dueDateField.classList.remove('hidden');
+            document.getElementById('modalDueDate').required = true;
             document.getElementById('amountLabel').innerText = "Debt Amount";
         }
         
@@ -617,6 +684,10 @@ usort($ledger, function($a, $b) {
         document.getElementById('modalTxnDate').value = '<?= date('Y-m-d') ?>';
         document.getElementById('modalTxnAmount').value = '';
         document.getElementById('modalTxnNotes').value = '';
+        document.getElementById('modalPaymentType').value = 'Cash';
+        document.getElementById('modalExistingProof').value = '';
+        document.getElementById('modalPaymentProof').value = '';
+        document.getElementById('modalDueDate').value = '';
         document.getElementById('payInFullCheckbox').checked = false;
         
         // Reset readOnly if it was set by Pay in Full
@@ -625,13 +696,20 @@ usort($ledger, function($a, $b) {
         amountInput.classList.remove('bg-gray-100');
         
         // UI Adjustments
+        const dueDateField = document.getElementById('dueDateField');
         if (type === 'Payment') {
             document.getElementById('modalDebtDisplay').classList.remove('hidden');
             document.getElementById('payInFullWrapper').classList.remove('hidden');
+            document.getElementById('paymentFields').classList.remove('hidden');
+            dueDateField.classList.add('hidden');
+            document.getElementById('modalDueDate').required = false;
             document.getElementById('amountLabel').innerText = "Amount Received";
         } else {
             document.getElementById('modalDebtDisplay').classList.add('hidden');
             document.getElementById('payInFullWrapper').classList.add('hidden');
+            document.getElementById('paymentFields').classList.add('hidden');
+            dueDateField.classList.remove('hidden');
+            document.getElementById('modalDueDate').required = true;
             document.getElementById('amountLabel').innerText = "Debt Amount";
         }
         
@@ -668,14 +746,17 @@ usort($ledger, function($a, $b) {
     
     function validateTransaction() {
         const type = document.getElementById('modalTxnType').value;
+        const dueDate = document.getElementById('modalDueDate').value;
+        
+        if (type === 'Debt' && !dueDate) {
+            showAlert("Expected payment date is mandatory for debt records.", "Error");
+            return false;
+        }
+
         if (type === 'Payment') {
             const amount = parseFloat(document.getElementById('modalTxnAmount').value) || 0;
             const currentDebt = calculateCurrentDebt();
             const errorMsg = document.getElementById('amountError');
-            
-            // If editing, we should account for the original payment amount in the currentDebt calculation 
-            // but for simplicity, we use the total current debt as a soft limit.
-            // Actually, the current logic is fine for most cases.
             
             if (amount > currentDebt + 1) { // 1 unit buffer for floats
                 errorMsg.classList.remove('hidden');

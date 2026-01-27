@@ -410,7 +410,7 @@ $chart_data = array_values($category_counts);
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100">
         <div class="flex justify-between items-center mb-6 border-b pb-2">
             <h3 class="text-xl font-bold text-gray-800">Add New Product</h3>
-            <button onclick="document.getElementById('addProductModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeAddProductModal()" class="text-gray-500 hover:text-gray-700">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -522,7 +522,7 @@ $chart_data = array_values($category_counts);
             </div>
 
                 <div class="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-                    <button type="button" onclick="document.getElementById('addProductModal').classList.add('hidden')" class="py-2.5 rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 font-bold transition">Cancel</button>
+                    <button type="button" onclick="closeAddProductModal()" class="py-2.5 rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 font-bold transition">Cancel</button>
                     <button type="submit" class="py-2.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700 font-bold shadow-lg shadow-teal-500/30 transition">Save Product</button>
                 </div>
             </form>
@@ -816,6 +816,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // AJAX Submission for Add Product
     const addProductForm = document.getElementById('addProductForm');
+    let productAdded = false; // Flag to track if any product was added
+
     if (addProductForm) {
         addProductForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -840,6 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.status === 'success') {
                     showAlert(result.message, 'Success');
+                    productAdded = true; // Mark that at least one product was added
                     // Reset form but keep some defaults
                     const keepFields = ['purchase_date', 'category', 'unit', 'dealer_id', 'action'];
                     Array.from(this.elements).forEach(el => {
@@ -863,6 +866,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Function to close modal and refresh if needed
+    window.closeAddProductModal = function() {
+        if (productAdded) {
+            window.location.reload();
+        } else {
+            document.getElementById('addProductModal').classList.add('hidden');
+        }
+    };
 });
 
 function closeRestockModal() {
