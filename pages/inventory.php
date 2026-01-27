@@ -122,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                     insertCSV('dealer_transactions', $transaction_data);
                 }
             }
+        }
 
             if ($isAjax) {
                 if ($new_product_id) {
