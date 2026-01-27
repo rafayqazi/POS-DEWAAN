@@ -46,7 +46,7 @@ $products = readCSV('products');
 $p_map = [];
 foreach ($products as $p) $p_map[$p['id']] = $p;
 
-$business_name = "POS DEWAAN";
+$business_name = "Fashion Shines POS System";
 $business_address = "Main Market Area, City Name";
 $business_phone = "0300-0358189";
 ?>

@@ -86,7 +86,7 @@ $expiring_count = count($expiring_products);
         </div>
         <div>
             <h4 class="text-lg font-bold text-teal-900">Software Update Available</h4>
-            <p class="text-teal-700/80 text-sm font-medium">A new version of DEWAAN is ready for installation. Keep your system up to date for new features.</p>
+            <p class="text-teal-700/80 text-sm font-medium">A new version of Fashion Shines POS is ready for installation. Keep your system up to date for new features.</p>
         </div>
     </div>
     <div class="flex gap-2 w-full md:w-auto">
@@ -266,7 +266,7 @@ $expiring_count = count($expiring_products);
             <i class="fas fa-server text-teal-500 mr-3"></i> System Status
          </h3>
          <div class="space-y-4">
-            <p class="text-gray-500 text-sm font-medium">Welcome back to <span class="text-teal-600 font-bold">DEWAAN</span>. Your system is running smoothly.</p>
+            <p class="text-gray-500 text-sm font-medium">Welcome back to <span class="text-teal-600 font-bold">Fashion Shines POS</span>. Your system is running smoothly.</p>
             <div class="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex items-center shadow-inner">
                 <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-teal-500 mr-4">
                     <i class="fas fa-user-shield text-sm"></i>
@@ -326,7 +326,7 @@ $expiring_count = count($expiring_products);
                 
                 <h2 class="text-[10px] font-black text-teal-600 uppercase tracking-[0.3em] mb-3">Login Successful</h2>
                 <h3 class="text-3xl font-black text-gray-800 mb-4 tracking-tight leading-tight">
-                    Welcome to <span class="text-teal-600">POS DEWAAN</span>
+                    Welcome to <span class="text-teal-600">Fashion Shines POS</span>
                 </h3>
                 
                 <p class="text-sm font-medium text-gray-500 mb-8 leading-relaxed px-4">

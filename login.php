@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - POS DEWAAN</title>
+    <title>Login - Fashion Shines POS</title>
     <script src="assets/js/tailwind.js"></script>
     <link rel="stylesheet" href="assets/css/all.min.css">
 </head>
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <i class="fas fa-leaf text-white text-2xl"></i>
                         </div>
                         <div>
-                            <h1 class="text-2xl font-bold tracking-tight">DEWAAN</h1>
+                            <h1 class="text-2xl font-bold tracking-tight">Fashion Shines</h1>
                             <p class="text-xs text-white/60 font-medium">POS System</p>
                         </div>
                     </div>
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 <!-- Footer -->
                 <div class="text-white/50 text-xs">
-                    <p>&copy; 2026 DEWAAN. Developed by <span class="text-white/80 font-semibold">Abdul Rafay</span></p>
+                    <p>&copy; 2026 Fashion Shines. Developed by <span class="text-white/80 font-semibold">Abdul Rafay</span></p>
                 </div>
             </div>
         </div>
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <i class="fas fa-leaf text-white text-lg"></i>
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold text-gray-900">DEWAAN</h1>
+                        <h1 class="text-xl font-bold text-gray-900">Fashion Shines</h1>
                         <p class="text-xs text-gray-500">POS System</p>
                     </div>
                 </div>
@@ -191,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 <!-- Footer for mobile -->
                 <div class="mt-8 lg:hidden text-center text-xs text-gray-500">
-                    <p>&copy; 2026 DEWAAN. Developed by <span class="font-semibold text-gray-700">Abdul Rafay</span></p>
+                    <p>&copy; 2026 Fashion Shines. Developed by <span class="font-semibold text-gray-700">Abdul Rafay</span></p>
                 </div>
             </div>
         </div>

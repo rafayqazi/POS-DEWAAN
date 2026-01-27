@@ -7,7 +7,7 @@ require_once 'includes/functions.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms & Conditions - DEWAAN</title>
+    <title>Terms & Conditions - Fashion Shines POS</title>
     <script src="assets/js/tailwind.js"></script>
     <script>
         tailwind.config = {
@@ -56,7 +56,7 @@ require_once 'includes/functions.php';
 <div class="max-w-5xl mx-auto space-y-8">
     <!-- Header -->
     <div class="text-center mb-12">
-        <h1 class="text-4xl font-black text-teal-800 tracking-tighter">DEWAAN</h1>
+        <h1 class="text-4xl font-black text-teal-800 tracking-tighter">Fashion Shines POS</h1>
         <p class="text-gray-500 font-bold uppercase tracking-widest text-xs mt-2">Software Terms & Legal Policy</p>
     </div>
 
@@ -83,7 +83,7 @@ require_once 'includes/functions.php';
                 <div class="legal-section">
                     <h3 class="font-bold text-gray-800 text-lg mb-2">1. Intellectual Property</h3>
                     <p class="text-gray-600 text-sm leading-relaxed">
-                        All source code, designs, and logical structures of "POS DEWAAN" are the exclusive property of <strong>Abdul Rafay (The Developer)</strong>. Under copyright law, you are granted a license to USE the software, not own its code.
+                        All source code, designs, and logical structures of "Fashion Shines POS" are the exclusive property of <strong>Abdul Rafay (The Developer)</strong>. Under copyright law, you are granted a license to USE the software, not own its code.
                     </p>
                 </div>
 

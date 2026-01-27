@@ -117,7 +117,7 @@ foreach($sales as $s) {
 
     <div id="reportContent" style="position: relative;">
         <div class="header">
-            <h1>POS DEWAAN - MANAGEMENT SYSTEM</h1>
+            <h1>Fashion Shines POS - MANAGEMENT SYSTEM</h1>
             <p><?= $report_title ?></p>
             <p>Generated on: <?= date('d M Y, h:i A') ?></p>
         </div>

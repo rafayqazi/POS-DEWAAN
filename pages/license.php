@@ -80,7 +80,7 @@ include '../includes/header.php';
                 <div class="legal-section">
                     <h3 class="font-bold text-gray-800 text-lg mb-2">1. Ownership & Copyright</h3>
                     <p class="text-gray-600 text-sm leading-relaxed">
-                        This software "POS DEWAAN" and all its source code, designs, and documentation are the intellectual property of <strong>Abdul Rafay (The Developer)</strong>. Under the <strong>Copyright Act, 1962 (Pakistan)</strong>, the developer holds all exclusive rights to this work. No part of this software may be reproduced or transmitted in any form without prior permission.
+                        This software "Fashion Shines POS" and all its source code, designs, and documentation are the intellectual property of <strong>Abdul Rafay (The Developer)</strong>. Under the <strong>Copyright Act, 1962 (Pakistan)</strong>, the developer holds all exclusive rights to this work. No part of this software may be reproduced or transmitted in any form without prior permission.
                     </p>
                 </div>
 

@@ -8,7 +8,7 @@
 // Generate a unique ID based on the absolute path of this file's parent directory
 $app_path = realpath(__DIR__ . '/../');
 $unique_id = md5($app_path);
-$session_name = 'POS_DEWAAN_' . substr($unique_id, 0, 8);
+$session_name = 'FASHION_SHINES_' . substr($unique_id, 0, 8);
 
 // Set the session name before starting
 session_name($session_name);
