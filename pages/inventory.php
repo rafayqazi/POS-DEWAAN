@@ -15,6 +15,8 @@ $message = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
+    $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+    
     if ($_POST['action'] == 'add') {
         $price_buy = (float)cleanInput($_POST['buy_price']);
         $price_sell = (float)cleanInput($_POST['sell_price']);
@@ -121,10 +123,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 }
             }
 
+            if ($isAjax) {
+                if ($new_product_id) {
+                    echo json_encode(['status' => 'success', 'message' => "Product " . cleanInput($_POST['name']) . " added successfully!"]);
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => "Error adding product."]);
+                }
+                exit;
+            }
+
             $message = "Product added successfully with Initial Stock logged!";
-        } else {
-            $error = "Error adding product.";
         }
+        
+        if ($isAjax && $error) {
+            echo json_encode(['status' => 'error', 'message' => $error]);
+            exit;
         }
     } elseif ($_POST['action'] == 'edit') {
         $id = $_POST['id'];
@@ -280,7 +293,7 @@ $chart_data = array_values($category_counts);
     #inventoryTable thead {
         position: sticky;
         top: 0;
-        z-index: 100;
+        z-index: 10;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     #inventoryTable thead th {
@@ -399,7 +412,7 @@ $chart_data = array_values($category_counts);
             </button>
         </div>
         
-        <form method="POST" action="">
+        <form method="POST" action="" id="addProductForm">
             <input type="hidden" name="action" value="add">
             <div class="space-y-3">
                 <!-- Row 1: Basic Info -->
@@ -797,6 +810,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const aPrice = document.getElementById('add_buy_price');
     if (aQty) aQty.addEventListener('input', updateAddProductTotal);
     if (aPrice) aPrice.addEventListener('input', updateAddProductTotal);
+
+    // AJAX Submission for Add Product
+    const addProductForm = document.getElementById('addProductForm');
+    if (addProductForm) {
+        addProductForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerText;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+            
+            try {
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showAlert(result.message, 'Success');
+                    // Reset form but keep some defaults
+                    const keepFields = ['purchase_date', 'category', 'unit', 'dealer_id', 'action'];
+                    Array.from(this.elements).forEach(el => {
+                        if (el.name && !keepFields.includes(el.name)) {
+                            el.value = '';
+                        }
+                    });
+                    // Reset specific displays
+                    document.getElementById('add_total_bill').innerText = 'Rs. 0';
+                    document.getElementById('add_amount_paid').value = '0';
+                    this.querySelector('input[name="name"]').focus();
+                } else {
+                    showAlert(result.message, 'Error');
+                }
+            } catch (error) {
+                showAlert('An unexpected error occurred.', 'Error');
+                console.error(error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalBtnText;
+            }
+        });
+    }
 });
 
 function closeRestockModal() {
