@@ -103,7 +103,7 @@ $products = readCSV('products');
 $categories = readCSV('categories');
 ?>
 
-<div class="h-[calc(100vh-80px)] mb-0 flex flex-col lg:flex-row gap-4">
+<div class="h-[calc(100vh-60px)] mb-0 flex flex-col lg:flex-row gap-4">
     <!-- LEFT: Product Explorer -->
     <div class="flex-1 flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <!-- Search Header -->
@@ -159,14 +159,14 @@ $categories = readCSV('categories');
         </div>
     </div>
 
-    <!-- RIGHT: Checkout Panel (Enlarged for better UX) -->
-    <div class="w-full lg:w-[480px] bg-white rounded-lg border border-gray-200 shadow-lg flex flex-col h-full overflow-hidden">
+    <!-- RIGHT: Checkout Panel (Widened and UX Enhanced) -->
+    <div class="w-full lg:w-[540px] bg-white rounded-lg border border-gray-200 shadow-xl flex flex-col h-full relative">
         <!-- Header -->
-        <div class="px-4 py-4 border-b border-gray-100 flex justify-between items-center bg-teal-50/50">
-            <h2 class="text-base font-black text-teal-800 uppercase tracking-wider flex items-center">
-                <i class="fas fa-shopping-cart mr-3"></i> Current Sale
+        <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-teal-50/30">
+            <h2 class="text-sm font-black text-teal-800 uppercase tracking-widest flex items-center">
+                <i class="fas fa-shopping-cart mr-2 text-teal-600"></i> Current Sale
             </h2>
-            <button onclick="clearCart()" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase hover:underline">Clear All</button>
+            <button onclick="clearCart()" class="text-[10px] text-red-400 hover:text-red-600 font-bold uppercase hover:underline transition-colors">Clear All</button>
         </div>
 
         <!-- Cart Table -->
@@ -175,6 +175,7 @@ $categories = readCSV('categories');
                 <thead class="bg-gray-50 sticky top-0 z-10 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <tr>
                         <th class="px-3 py-2 border-b border-gray-200">Item</th>
+                        <th class="px-2 py-2 border-b border-gray-200 w-20 text-center">Price</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-16 text-center">Qty</th>
                         <th class="px-3 py-2 border-b border-gray-200 text-right">Total</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-8"></th>
@@ -218,16 +219,42 @@ $categories = readCSV('categories');
                     <!-- Customer -->
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Customer</label>
-                        <div class="relative">
-                            <select name="customer_id" id="customerSelect" onchange="handleCustomerChange(this.value)" 
-                                    class="w-full pl-2 pr-6 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none appearance-none">
-                                <option value="">Walk-in</option>
-                                <option value="NEW" class="font-bold text-teal-600">+ New</option>
-                                <?php foreach($customers as $c): ?>
-                                    <option value="<?= $c['id'] ?>"><?= substr($c['name'], 0, 15) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <i class="fas fa-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[8px] pointer-events-none"></i>
+                        <div class="relative" id="customerDropdownContainer">
+                            <button type="button" onclick="toggleCustomerDropdown()" id="customerDropdownBtn" class="w-full px-2 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white text-left flex justify-between items-center h-[34px] shadow-sm hover:border-teal-400 transition-all">
+                                <span id="selectedCustomerLabel" class="truncate max-w-[80%]">Walk-in</span>
+                                <i class="fas fa-chevron-down text-gray-400 text-[8px]"></i>
+                            </button>
+                            
+                            <!-- Dropdown Panel -->
+                            <div id="customerDropdownPanel" class="hidden absolute z-[100] w-64 mt-1 bg-white border border-gray-200 rounded shadow-2xl overflow-hidden transform origin-top transition-all scale-95 opacity-0">
+                                <div class="p-2 border-b border-gray-100 bg-gray-50">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
+                                        <input type="text" id="customerSearchInput" autocomplete="off" oninput="filterCustomers(this.value)" placeholder="Search name..." class="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition-all">
+                                    </div>
+                                </div>
+                                <div class="max-h-60 overflow-y-auto" id="customerList">
+                                    <div onclick="selectCustomer('', 'Walk-in')" class="customer-nav-item p-2.5 text-xs hover:bg-teal-50 cursor-pointer font-bold border-b border-gray-50 flex items-center gap-2 transition-colors">
+                                        <i class="fas fa-user-alt text-[10px] text-gray-400"></i> Walk-in
+                                    </div>
+                                    <div onclick="selectCustomer('NEW', '+ New Customer')" class="customer-nav-item p-2.5 text-xs hover:bg-teal-50 cursor-pointer font-bold text-teal-600 border-b border-gray-50 flex items-center gap-2 transition-colors">
+                                        <i class="fas fa-user-plus text-[10px]"></i> + New Customer
+                                    </div>
+                                    <div class="px-2 py-1.5 bg-gray-50 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Registered Customers</div>
+                                    <?php foreach($customers as $c): ?>
+                                        <div onclick="selectCustomer('<?= $c['id'] ?>', '<?= htmlspecialchars($c['name']) ?>')" 
+                                             class="customer-item customer-nav-item p-2.5 text-xs hover:bg-teal-50 cursor-pointer border-b border-gray-50 transition-colors flex flex-col" 
+                                             data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>">
+                                            <span class="font-bold text-gray-700"><?= htmlspecialchars($c['name']) ?></span>
+                                            <span class="text-[9px] text-gray-400 font-medium"><?= htmlspecialchars($c['phone'] ?? 'No Phone') ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div id="noCustomerFound" class="hidden p-4 text-center text-gray-400 text-xs italic">No matches found...</div>
+                            </div>
+                            
+                            <!-- Hidden input for form persistence -->
+                            <input type="hidden" name="customer_id" id="customerSelect" value="">
                         </div>
                     </div>
                     
@@ -331,19 +358,27 @@ function renderCart() {
     
     emptyMsg.classList.add('hidden');
     
-    tbody.innerHTML = cart.map((item, index) => `
+    // Display newest items at the top
+    tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}) => `
         <tr class="group hover:bg-gray-50 transition-colors">
             <td class="px-3 py-2 border-b border-gray-100">
                 <div class="font-bold text-gray-800 leading-tight">${item.name}</div>
-                <div class="text-[9px] text-gray-400 mt-0.5">Rs. ${item.price} / ${item.unit}</div>
+                <div class="text-[9px] text-gray-400 mt-0.5">${item.unit}</div>
             </td>
             <td class="px-2 py-2 border-b border-gray-100 text-center">
-                <input type="number" id="qty-${index}" value="${item.qty}" min="1" max="${item.max_stock}" 
+                <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
+                       class="w-16 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
+                       oninput="updateUnitPrice(${index}, this.value)">
+            </td>
+            <td class="px-2 py-2 border-b border-gray-100 text-center">
+                <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" max="${item.max_stock}" 
                        class="w-12 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none ${item.qty >= item.max_stock ? 'text-red-600' : 'text-gray-700'}" 
                        oninput="updateQty(${index}, this.value)">
             </td>
-            <td class="px-3 py-2 border-b border-gray-100 text-right font-mono font-bold text-gray-700" id="total-${index}">
-                ${Math.round(item.total).toLocaleString()}
+            <td class="px-3 py-2 border-b border-gray-100 text-right font-mono font-bold text-gray-700">
+                <input type="number" id="total-${index}" value="${Math.round(item.total)}" 
+                       class="w-20 p-1 text-right font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none bg-gray-50 group-hover:bg-white" 
+                       oninput="updateItemTotal(${index}, this.value)">
             </td>
             <td class="px-2 py-2 border-b border-gray-100 text-right">
                 <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 transition-colors">
@@ -356,6 +391,36 @@ function renderCart() {
     updateTotals();
 }
 
+function updateUnitPrice(index, newPrice) {
+    let price = parseFloat(newPrice);
+    if (isNaN(price)) price = 0;
+    cart[index].price = price;
+    cart[index].total = cart[index].price * cart[index].qty;
+    cart[index].manualTotal = false; 
+    
+    // Update Total field in UI
+    const totalInput = document.getElementById(`total-${index}`);
+    if (totalInput) totalInput.value = Math.round(cart[index].total);
+    
+    updateTotals();
+}
+
+function updateItemTotal(index, newTotal) {
+    let total = parseFloat(newTotal);
+    if (isNaN(total)) total = 0;
+    cart[index].total = total;
+    
+    // Interlink: Update price based on total / qty
+    if (cart[index].qty > 0) {
+        cart[index].price = total / cart[index].qty;
+        const priceInput = document.getElementById(`price-${index}`);
+        if (priceInput) priceInput.value = cart[index].price.toFixed(2);
+    }
+    
+    cart[index].manualTotal = true;
+    updateTotals();
+}
+
 function updateQty(index, newQty) {
     let qty = parseFloat(newQty);
     if (isNaN(qty) || qty < 0) qty = 0;
@@ -363,13 +428,14 @@ function updateQty(index, newQty) {
     
     cart[index].qty = qty;
     cart[index].total = cart[index].qty * cart[index].price;
+    cart[index].manualTotal = false; // Reset manual flag on qty change
     
     // Update UI without full re-render
     const qtyInput = document.getElementById(`qty-${index}`);
     const totalCell = document.getElementById(`total-${index}`);
     
     if (qtyInput && qtyInput.value != qty) qtyInput.value = qty;
-    if (totalCell) totalCell.innerText = Math.round(cart[index].total).toLocaleString();
+    if (totalCell) totalCell.value = Math.round(cart[index].total);
     
     // Update color
     if (qtyInput) {
@@ -561,6 +627,125 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
 
     return true;
 };
+// --- Customer Searchable Dropdown ---
+function toggleCustomerDropdown() {
+    const panel = document.getElementById('customerDropdownPanel');
+    const isHidden = panel.classList.contains('hidden');
+    
+    if (isHidden) {
+        panel.classList.remove('hidden');
+        setTimeout(() => {
+            panel.classList.remove('scale-95', 'opacity-0');
+            panel.classList.add('scale-100', 'opacity-100');
+            document.getElementById('customerSearchInput').focus();
+        }, 10);
+    } else {
+        closeCustomerDropdown();
+    }
+}
+
+function closeCustomerDropdown() {
+    const panel = document.getElementById('customerDropdownPanel');
+    if (!panel) return;
+    panel.classList.remove('scale-100', 'opacity-100');
+    panel.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        panel.classList.add('hidden');
+    }, 200);
+}
+
+function filterCustomers(query) {
+    const q = query.toLowerCase();
+    const navItems = document.querySelectorAll('.customer-nav-item');
+    const customerItems = document.querySelectorAll('.customer-item');
+    let foundCount = 0;
+    
+    // 1. Hide/Show registered customers based on query
+    customerItems.forEach(item => {
+        const name = item.dataset.name;
+        if (name.includes(q)) {
+            item.classList.remove('hidden');
+            foundCount++;
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+
+    // 2. Hide "Walk-in" and "+ New" if searching
+    navItems.forEach(item => {
+        if (!item.classList.contains('customer-item')) {
+            if (q !== '') item.classList.add('hidden');
+            else item.classList.remove('hidden');
+        }
+    });
+    
+    // 3. Clear all highlights first
+    const activeClass = 'customer-active';
+    const highlightClasses = ['bg-teal-100', 'shadow-inner', 'ring-1', 'ring-teal-200', activeClass];
+    navItems.forEach(item => item.classList.remove(...highlightClasses));
+    
+    // 4. Highlight the first visible item
+    const visibleItems = Array.from(navItems).filter(el => !el.classList.contains('hidden'));
+    if (visibleItems.length > 0 && q !== '') {
+        visibleItems[0].classList.add(...highlightClasses);
+    }
+    
+    document.getElementById('noCustomerFound').classList.toggle('hidden', foundCount > 0 || q === '');
+}
+
+function selectCustomer(id, name) {
+    document.getElementById('customerSelect').value = id;
+    document.getElementById('selectedCustomerLabel').innerText = name;
+    handleCustomerChange(id);
+    closeCustomerDropdown();
+    // Clear search for next time
+    document.getElementById('customerSearchInput').value = '';
+    filterCustomers('');
+}
+
+// Close dropdown on click outside
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('customerDropdownContainer');
+    if (container && !container.contains(e.target)) {
+        closeCustomerDropdown();
+    }
+});
+
+// Keyboard Navigation for Customer Search
+document.getElementById('customerSearchInput').addEventListener('keydown', function(e) {
+    const activeClass = 'customer-active';
+    const highlightClasses = ['bg-teal-100', 'shadow-inner', 'ring-1', 'ring-teal-200', activeClass];
+    
+    // Get all items that are NOT hidden
+    const visibleItems = Array.from(document.querySelectorAll('.customer-nav-item')).filter(el => !el.classList.contains('hidden'));
+    let currentIndex = visibleItems.findIndex(el => el.classList.contains(activeClass));
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visibleItems.length === 0) return;
+        
+        if (currentIndex !== -1) visibleItems[currentIndex].classList.remove(...highlightClasses);
+        currentIndex = (currentIndex + 1) % visibleItems.length;
+        visibleItems[currentIndex].classList.add(...highlightClasses);
+        visibleItems[currentIndex].scrollIntoView({ block: 'nearest' });
+    } 
+    else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visibleItems.length === 0) return;
+        
+        if (currentIndex !== -1) visibleItems[currentIndex].classList.remove(...highlightClasses);
+        currentIndex = (currentIndex === -1 || currentIndex === 0) ? visibleItems.length - 1 : currentIndex - 1;
+        visibleItems[currentIndex].classList.add(...highlightClasses);
+        visibleItems[currentIndex].scrollIntoView({ block: 'nearest' });
+    } 
+    else if (e.key === 'Enter') {
+        e.preventDefault();
+        const activeItem = visibleItems[currentIndex] || document.querySelector('.' + activeClass);
+        if (activeItem) {
+            activeItem.click();
+        }
+    }
+});
 </script>
 
 <?php if ($message): ?>
