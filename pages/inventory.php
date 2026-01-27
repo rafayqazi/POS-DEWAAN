@@ -4,13 +4,6 @@ require_once '../includes/functions.php';
 
 requireLogin();
 
-$pageTitle = "Inventory Management";
-include '../includes/header.php';
-?>
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<?php
 $message = '';
 $error = '';
 
@@ -125,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         }
 
             if ($isAjax) {
+                header('Content-Type: application/json');
                 if ($new_product_id) {
                     echo json_encode(['status' => 'success', 'message' => "Product " . cleanInput($_POST['name']) . " added successfully!"]);
                 } else {
@@ -137,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         }
         
         if ($isAjax && $error) {
+            header('Content-Type: application/json');
             echo json_encode(['status' => 'error', 'message' => $error]);
             exit;
         }
@@ -164,6 +159,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     }
 }
 
+$pageTitle = "Inventory Management";
+include '../includes/header.php';
+?>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<?php
 $products = readCSV('products');
 $units = readCSV('units');
 $categories = readCSV('categories');
