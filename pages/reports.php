@@ -38,25 +38,41 @@ foreach($sales as $s) {
     });
     
     foreach($current_sale_items as $item) {
+        $qty = (float)$item['quantity'];
+        $returned_qty = (float)($item['returned_qty'] ?? 0);
+        $net_qty = $qty - $returned_qty;
+        
+        if ($net_qty <= 0) continue;
+
         // PRIORITY: 
         // 1. avg_buy_price (The accurate AVCO cost at time of sale)
         // 2. buy_price (The cost recorded at sale - fallback)
         // 3. Current Product AVCO (If historic data missing)
         
         $unit_cost = 0;
-        if (isset($item['avg_buy_price']) && $item['avg_buy_price'] !== '') {
+        if (isset($item['avg_buy_price']) && (float)$item['avg_buy_price'] > 0) {
             $unit_cost = (float)$item['avg_buy_price'];
-        } elseif (isset($item['buy_price']) && $item['buy_price'] !== '') {
+        } elseif (isset($item['buy_price']) && (float)$item['buy_price'] > 0) {
             $unit_cost = (float)$item['buy_price'];
         } elseif (isset($products_map[$item['product_id']])) {
-            // Fallback for very old data
             $p = $products_map[$item['product_id']];
-            $unit_cost = isset($p['avg_buy_price']) ? (float)$p['avg_buy_price'] : (float)$p['buy_price'];
+            $unit_cost = (isset($p['avg_buy_price']) && (float)$p['avg_buy_price'] > 0) ? (float)$p['avg_buy_price'] : (float)($p['buy_price'] ?? 0);
         }
-        $cost = $unit_cost * (float)$item['quantity'];
-        $profit = (float)$item['total_price'] - $cost;
-        if ($is_today) $profit_today += $profit;
-        if ($is_month) $profit_month += $profit;
+        
+        $cost = $unit_cost * $net_qty;
+        // Adjust total_price per item for the partial quantity?
+        // Actually, item['total_price'] is for the original quantity? 
+        // Let's check sale_items.csv structure again. 
+        // id,sale_id,product_id,quantity,price_per_unit,total_price,buy_price,avg_buy_price,returned_qty
+        // total_price = quantity * price_per_unit.
+        // So for net profit, we should use: net_qty * price_per_unit - net_qty * unit_cost.
+        
+        $price_per_unit = (float)$item['price_per_unit'];
+        $item_revenue = $price_per_unit * $net_qty;
+        $item_profit = $item_revenue - $cost;
+
+        if ($is_today) $profit_today += $item_profit;
+        if ($is_month) $profit_month += $item_profit;
     }
     
     $total_sales_amount += $amount;

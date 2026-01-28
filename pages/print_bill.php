@@ -177,6 +177,12 @@ $business_phone = "0300-0358189";
                 <span>Balance:</span>
                 <span>Rs. <?= number_format($balance) ?></span>
             </div>
+            <?php if ($balance > 0.01 && !empty($sale['due_date'])): ?>
+            <div class="total-row" style="margin-top: 5px; color: #ef4444; font-weight: bold;">
+                <span>Recovery Date:</span>
+                <span><?= date('d-M-Y', strtotime($sale['due_date'])) ?></span>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="footer">

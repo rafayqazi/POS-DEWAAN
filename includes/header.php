@@ -87,6 +87,12 @@
                                     <span class="sidebar-text">Check Inventory</span>
                                 </a>
                             </li>
+                            <li>
+                                <a href="<?= $base ?>pages/return_product.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_product.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Product">
+                                    <i class="fas fa-undo mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Return Product</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <!-- Dropdown for Restock Management -->

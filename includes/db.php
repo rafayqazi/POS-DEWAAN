@@ -439,12 +439,11 @@ if (file_exists($salesPath)) {
         $headers = fgetcsv($fp_mig);
         fclose($fp_mig);
         
-        if ($headers && !in_array('remarks', $headers)) {
+        if ($headers && !in_array('due_date', $headers)) {
             $data = readCSV('sales');
             foreach ($data as &$s) {
-                if (!isset($s['remarks'])) {
-                    $s['remarks'] = '';
-                }
+                if (!isset($s['remarks'])) $s['remarks'] = '';
+                if (!isset($s['due_date'])) $s['due_date'] = '';
             }
             $newHeaders = array_merge($headers, ['remarks', 'due_date']);
             $newHeaders = array_unique($newHeaders);
@@ -489,6 +488,23 @@ foreach (['customer_transactions', 'dealer_transactions'] as $tbl) {
                 $newHeaders = array_merge($headers, ['payment_type', 'payment_proof']);
                 writeCSV($tbl, $data, array_unique($newHeaders));
             }
+        }
+    }
+}
+
+// ----------------------------------------------------
+// AUTO-MIGRATION: Add returned_qty to sale_items.csv
+// ----------------------------------------------------
+$saleItemsPath = getCSVPath('sale_items');
+if (file_exists($saleItemsPath)) {
+    $fp_mig = fopen($saleItemsPath, 'r');
+    if ($fp_mig) {
+        $headers = fgetcsv($fp_mig);
+        fclose($fp_mig);
+        if ($headers && !in_array('returned_qty', $headers)) {
+            $data = readCSV('sale_items');
+            $newHeaders = array_merge($headers, ['returned_qty']);
+            writeCSV('sale_items', $data, array_unique($newHeaders));
         }
     }
 }

@@ -54,6 +54,7 @@ $period_sales = array_filter($all_sales, function($s) use ($start_date, $end_dat
 
 $revenue = 0;
 $cost_of_goods = 0;
+$gross_profit = 0;
 $paid_at_sale = 0;
 $product_qty_sales = [];
 $customer_revenue = [];
@@ -68,21 +69,31 @@ foreach($period_sales as $s) {
     });
     
     foreach($items as $item) {
-        // Calculate Cost (following AVCO logic from reports.php)
+        $qty = (float)$item['quantity'];
+        $returned_qty = (float)($item['returned_qty'] ?? 0);
+        $net_qty = $qty - $returned_qty;
+        
+        if ($net_qty <= 0) continue;
+
         $unit_cost = 0;
-        if (isset($item['avg_buy_price']) && $item['avg_buy_price'] !== '') {
+        if (isset($item['avg_buy_price']) && (float)$item['avg_buy_price'] > 0) {
             $unit_cost = (float)$item['avg_buy_price'];
-        } elseif (isset($item['buy_price']) && $item['buy_price'] !== '') {
+        } elseif (isset($item['buy_price']) && (float)$item['buy_price'] > 0) {
             $unit_cost = (float)$item['buy_price'];
         } elseif (isset($p_map[$item['product_id']])) {
             $p = $p_map[$item['product_id']];
-            $unit_cost = isset($p['avg_buy_price']) ? (float)$p['avg_buy_price'] : (float)$p['buy_price'];
+            $unit_cost = (isset($p['avg_buy_price']) && (float)$p['avg_buy_price'] > 0) ? (float)$p['avg_buy_price'] : (float)($p['buy_price'] ?? 0);
         }
-        $cost_of_goods += $unit_cost * (float)$item['quantity'];
+        
+        $price_per_unit = (float)$item['price_per_unit'];
+        $item_revenue = $price_per_unit * $net_qty;
+        $item_cost = $unit_cost * $net_qty;
+        
+        $gross_profit += ($item_revenue - $item_cost);
         
         // Product Performance
         $pid = $item['product_id'];
-        $product_qty_sales[$pid] = ($product_qty_sales[$pid] ?? 0) + (float)$item['quantity'];
+        $product_qty_sales[$pid] = ($product_qty_sales[$pid] ?? 0) + $net_qty;
     }
 
     // Customer Performance
@@ -90,7 +101,7 @@ foreach($period_sales as $s) {
     $customer_revenue[$cid] = ($customer_revenue[$cid] ?? 0) + (float)$s['total_amount'];
 }
 
-$gross_profit = $revenue - $cost_of_goods;
+$cost_of_goods = $revenue - $gross_profit;
 
 // 2. Process Customer Recoveries (Ledger Payments)
 $period_ledger_payments = array_filter($all_customer_txns, function($tx) use ($start_date, $end_date) {
@@ -142,13 +153,18 @@ $top_customers = $customer_revenue;
         .report-header p { margin: 5px 0 0 0; color: #64748b; font-weight: bold; }
         
         .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-        .metric-card { padding: 25px; border-radius: 20px; border: 1px solid #f1f5f9; background: #f8fafc; }
-        .metric-label { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; display: block; }
-        .metric-value { font-size: 24px; font-weight: 900; color: #0f172a; }
-        .metric-profit { background: #f0fdf4; border-color: #bbf7d0; color: #15803d !important; }
-        .metric-loss { background: #fef2f2; border-color: #fecaca; color: #b91c1c !important; }
+        .metric-card { padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0; background: #f8fafc; }
+        .metric-label { font-size: 14px; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        .metric-label small { font-size: 13px; color: #334155; display: block; margin-top: 2px; text-transform: none; font-weight: 600; }
+        .metric-value { font-size: 28px; font-weight: 900; color: #020617; }
+        .metric-profit { background: #f0fdf4; border-color: #86efac; color: #14532d !important; }
+        .metric-profit .metric-label { color: #14532d; }
+        .metric-profit .metric-label small { color: #166534; }
+        .metric-loss { background: #fef2f2; border-color: #fca5a5; color: #7f1d1d !important; }
+        .metric-loss .metric-label { color: #7f1d1d; }
+        .metric-loss .metric-label small { color: #991b1b; }
 
-        .section-title { font-size: 14px; font-weight: 900; color: #0f172a; text-transform: uppercase; border-left: 4px solid #0d9488; padding-left: 15px; margin-bottom: 20px; margin-top: 40px; }
+        .section-title { font-size: 16px; font-weight: 900; color: #0f172a; text-transform: uppercase; border-left: 5px solid #0d9488; padding-left: 15px; margin-bottom: 25px; margin-top: 45px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px 15px; text-align: left; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
@@ -183,28 +199,28 @@ $top_customers = $customer_revenue;
     <div class="section-title">Financial Performance Overview</div>
     <div class="metric-grid">
         <div class="metric-card">
-            <span class="metric-label">Total Revenue (Sales)</span>
+            <span class="metric-label">Total Revenue (Sales)<br><small>(Total Sale)</small></span>
             <div class="metric-value"><?= formatCurrency($revenue) ?></div>
         </div>
         <div class="metric-card">
-            <span class="metric-label">Cost of Goods Sold</span>
+            <span class="metric-label">Cost of Goods Sold<br><small>(Samaan ki Asli qeemat key hisab se)</small></span>
             <div class="metric-value text-red-500"><?= formatCurrency($cost_of_goods) ?></div>
         </div>
         <div class="metric-card metric-profit">
-            <span class="metric-label" style="color:rgba(21, 128, 61, 0.6)">Gross Profit</span>
-            <div class="metric-value" style="color:#15803d"><?= formatCurrency($gross_profit) ?></div>
+            <span class="metric-label">Gross Profit<br><small>(Kharchy se phele profit)</small></span>
+            <div class="metric-value"><?= formatCurrency($gross_profit) ?></div>
         </div>
         <div class="metric-card">
-            <span class="metric-label">Total Expenses</span>
+            <span class="metric-label">Total Expenses<br><small>(Kul Akhrajaat)</small></span>
             <div class="metric-value text-red-500"><?= formatCurrency($expenses_amount) ?></div>
         </div>
         <div class="metric-card <?= $net_profit >= 0 ? 'metric-profit' : 'metric-loss' ?>">
-            <span class="metric-label" style="opacity: 0.6">Net Profit</span>
+            <span class="metric-label">Net Profit<br><small>(Expense nikal kr profit)</small></span>
             <div class="metric-value"><?= formatCurrency($net_profit) ?></div>
         </div>
-        <div class="metric-card">
-            <span class="metric-label">Total Recovery</span>
-            <div class="metric-value text-teal-600"><?= formatCurrency($total_cash_inflow) ?></div>
+        <div class="metric-card" style="background: #f0fdfa; border-color: #5eead4;">
+            <span class="metric-label" style="color: #0f766e;">Total Recovery (Ledger)<br><small>(Customer se recovery)</small></span>
+            <div class="metric-value" style="color: #0d9488;"><?= formatCurrency($recovery_amount) ?></div>
         </div>
     </div>
 
@@ -245,27 +261,43 @@ $top_customers = $customer_revenue;
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px;">
+    <div style="margin-top: 40px;">
         <div>
             <div class="section-title">Product Performance (Sold Qty)</div>
             <table>
                 <thead>
                     <tr>
                         <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Unit</th>
                         <th class="text-right">Qty</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach($top_products as $pid => $qty): ?>
+                    <?php 
+                    $total_qty = 0;
+                    foreach($top_products as $pid => $qty): 
+                        $total_qty += $qty;
+                        $p_data = $p_map[$pid] ?? [];
+                    ?>
                     <tr>
-                        <td><?= htmlspecialchars($p_map[$pid]['name'] ?? 'Unknown Item') ?></td>
+                        <td><?= htmlspecialchars($p_data['name'] ?? 'Unknown Item') ?></td>
+                        <td><?= htmlspecialchars($p_data['category'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($p_data['unit'] ?? '-') ?></td>
                         <td class="text-right font-black"><?= $qty ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
+                <tfoot>
+                    <tr style="background: #f8fafc;">
+                        <td colspan="3" class="font-black" style="color: #0f766e;">TOTAL QUANTITY</td>
+                        <td class="text-right font-black" style="color: #0f766e;"><?= $total_qty ?></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
-        <div>
+
+        <div style="margin-top: 40px;">
             <div class="section-title">Customer Performance (Revenue)</div>
             <table>
                 <thead>
@@ -275,13 +307,23 @@ $top_customers = $customer_revenue;
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach($top_customers as $cid => $amt): ?>
+                    <?php 
+                    $total_cust_rev = 0;
+                    foreach($top_customers as $cid => $amt): 
+                        $total_cust_rev += $amt;
+                    ?>
                     <tr>
                         <td><?= $cid === 'Walk-in' ? 'Walk-in Customer' : htmlspecialchars($c_map[$cid] ?? 'Unknown') ?></td>
                         <td class="text-right font-black"><?= formatCurrency($amt) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
+                <tfoot>
+                    <tr style="background: #f8fafc;">
+                        <td class="font-black" style="color: #0d9488;">TOTAL REVENUE</td>
+                        <td class="text-right font-black" style="color: #0d9488;"><?= formatCurrency($total_cust_rev) ?></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
