@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     $total_amount = (float)$_POST['total_amount'];
     $payment_method = $_POST['payment_method'];
     $remarks = cleanInput($_POST['remarks']);
+    $discount = (float)($_POST['discount'] ?? 0);
 
     // 1. Load Old Data
     $all_sale_items = readCSV('sale_items');
@@ -66,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     if ($sale) {
         $sale['total_amount'] = $total_amount;
         $sale['paid_amount'] = $paid_amount;
+        $sale['discount'] = $discount;
         $sale['payment_method'] = $payment_method;
         $sale['remarks'] = $remarks;
         $sale['due_date'] = $due_date;

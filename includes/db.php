@@ -444,10 +444,18 @@ if (file_exists($salesPath)) {
             foreach ($data as &$s) {
                 if (!isset($s['remarks'])) $s['remarks'] = '';
                 if (!isset($s['due_date'])) $s['due_date'] = '';
+                if (!isset($s['discount'])) $s['discount'] = '0';
             }
-            $newHeaders = array_merge($headers, ['remarks', 'due_date']);
+            $newHeaders = array_merge($headers, ['remarks', 'due_date', 'discount']);
             $newHeaders = array_unique($newHeaders);
             writeCSV('sales', $data, $newHeaders);
+        } elseif ($headers && !in_array('discount', $headers)) {
+            $data = readCSV('sales');
+            foreach ($data as &$s) {
+                if (!isset($s['discount'])) $s['discount'] = '0';
+            }
+            $newHeaders = array_merge($headers, ['discount']);
+            writeCSV('sales', $data, array_unique($newHeaders));
         }
     }
 }

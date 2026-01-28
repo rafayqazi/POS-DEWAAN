@@ -90,6 +90,12 @@ include '../includes/header.php';
                     <span id="subtotal" class="font-bold text-gray-700">Rs. 0</span>
                 </div>
                 <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-tight">Discount Amount</span>
+                    <div class="text-right">
+                        <input type="number" id="discount_input" name="discount" value="<?= $sale['discount'] ?? 0 ?>" oninput="calculateTotals()" placeholder="Discount Rs..." class="w-32 bg-gray-50 border border-gray-100 rounded-lg p-2 text-right text-sm font-black text-red-600 focus:ring-2 focus:ring-red-500 outline-none transition-all">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                     <span class="text-xs font-black text-gray-800 uppercase tracking-tight">Manual Grand Total</span>
                     <div class="text-right">
                         <input type="number" id="grand_total_input" oninput="handleManualTotal(this.value)" placeholder="Override Total..." class="w-32 bg-gray-50 border border-gray-100 rounded-lg p-2 text-right text-sm font-black text-teal-600 focus:ring-2 focus:ring-teal-500 outline-none transition-all">
@@ -234,14 +240,19 @@ function renderProducts() {
 }
 
 function addToCart(id, name, price, unit, buyPrice = 0, stock = 9999) {
-    const existing = cart.find(i => i.id == id);
-    if (existing) {
+    const existingIndex = cart.findIndex(i => i.id == id);
+    if (existingIndex !== -1) {
+        const existing = cart[existingIndex];
         if (existing.qty + 1 > existing.max_stock) {
             showAlert(`Only ${existing.max_stock} units available.`, 'Inventory Alert');
             return;
         }
         existing.qty++;
         existing.total = existing.qty * existing.price;
+        
+        // Move to end so it appears at top of reversed list
+        cart.splice(existingIndex, 1);
+        cart.push(existing);
     } else {
         if (stock < 0.01) { showAlert("Out of stock!", 'Empty Shelf'); return; }
         cart.push({ id, name, price, unit, qty: 1, total: price, buy_price: buyPrice, max_stock: parseFloat(stock) });
@@ -332,12 +343,16 @@ function calculateTotals() {
     
     // 2. Determine Final Total (Manual vs Calculated)
     const gtInput = document.getElementById('grand_total_input');
-    let finalTotal = subtotal;
+    const discountInput = document.getElementById('discount_input');
+    const discount = parseFloat(discountInput.value) || 0;
+    let totalAfterDiscount = Math.max(0, subtotal - discount);
+    
+    let finalTotal = totalAfterDiscount;
 
     if (gtInput.dataset.manual && gtInput.value !== "") {
         finalTotal = parseFloat(gtInput.value) || 0;
     } else {
-        gtInput.value = subtotal; // Sync manual field with calculation if not overriding
+        gtInput.value = Math.round(totalAfterDiscount); // Sync manual field with calculation if not overriding
     }
     
     // 3. Sync Hidden Input and Final Label
@@ -427,8 +442,13 @@ function renderCart(fullRedraw = true) {
     let html = '';
     let subtotal = 0;
     
-    cart.forEach(item => {
-        subtotal += item.total;
+    // Reverse the cart items for display, so newest are on top
+    const displayCart = [...cart].reverse();
+    
+    // Calculate subtotal from original cart to ensure accuracy
+    cart.forEach(item => subtotal += item.total);
+    
+    displayCart.forEach(item => {
         html += `
             <tr class="group hover:bg-gray-50/50 transition">
                 <td class="py-3">

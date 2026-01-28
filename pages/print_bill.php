@@ -160,12 +160,21 @@ $business_phone = "0300-0358189";
                 <span>Total QTY:</span>
                 <span><?= $total_qty ?></span>
             </div>
+            <?php 
+                $subtotal = (float)$sale['total_amount'] + (float)($sale['discount'] ?? 0);
+            ?>
             <div class="total-row">
                 <span>Sub-Total:</span>
-                <span>Rs. <?= number_format($sale['total_amount']) ?></span>
+                <span>Rs. <?= number_format($subtotal) ?></span>
             </div>
+            <?php if (!empty($sale['discount']) && $sale['discount'] > 0): ?>
+            <div class="total-row" style="color: #ef4444;">
+                <span>Discount:</span>
+                <span>- Rs. <?= number_format($sale['discount']) ?></span>
+            </div>
+            <?php endif; ?>
             <div class="total-row grand-total">
-                <span>Grand Total:</span>
+                <span>Net Total:</span>
                 <span>Rs. <?= number_format($sale['total_amount']) ?></span>
             </div>
             <div class="total-row">

@@ -182,11 +182,16 @@ $top_customers = $customer_revenue;
             .no-print { display: none; }
         }
     </style>
+    <!-- Tailwind for Modal -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
     <div class="no-print" style="margin-bottom: 30px; text-align: center;">
         <button onclick="window.print()" style="background: #0d9488; color: white; padding: 12px 25px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">Print Report / Save PDF</button>
+        <button onclick="emailReport()" style="background: #ef4444; color: white; padding: 12px 25px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-left: 10px;">Email Report</button>
         <button onclick="window.close()" style="background: #64748b; color: white; padding: 12px 25px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-left: 10px;">Close Window</button>
     </div>
 
@@ -334,5 +339,108 @@ $top_customers = $customer_revenue;
         <p style="margin: 20px 0 0 0; font-weight: bold; background: #f8fafc; padding: 10px; border-radius: 10px;">Software by Abdul Rafay | WhatsApp: 03000358189</p>
     </div>
 
+    <!-- Email Modal -->
+    <div id="emailModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden flex items-center justify-center z-[100] no-print">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 border border-gray-100 transform transition-all scale-95 opacity-0 animate-[modal-in_0.3s_ease-out_forwards]">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mb-6">
+                    <svg class="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-black text-gray-800 mb-2">Email Report</h3>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Enter Recipient Details</p>
+                
+                <div class="w-full space-y-4">
+                    <div class="relative group">
+                        <label class="absolute -top-2.5 left-4 px-2 bg-white text-[10px] font-black text-teal-600 uppercase tracking-widest transition-all">Email Address</label>
+                        <input type="email" id="recipientEmail" placeholder="example@gmail.com" 
+                               class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-sm font-bold text-gray-700 focus:border-teal-500 focus:bg-white outline-none transition-all shadow-sm">
+                    </div>
+                    
+                    <div class="p-3 bg-blue-50 border border-blue-100 rounded-xl text-left">
+                        <p class="text-[9px] font-bold text-blue-600 uppercase flex items-center gap-1.5 mb-1">
+                            <i class="fas fa-info-circle"></i> Important Note
+                        </p>
+                        <p class="text-[10px] text-blue-700 leading-relaxed">
+                            The report will download as a PDF. Please <b>manually attach</b> it from your 'Downloads' folder into the Gmail window that opens.
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="closeEmailModal()" class="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-2xl hover:bg-gray-200 transition-all active:scale-95 text-xs uppercase tracking-widest">Cancel</button>
+                        <button onclick="processEmailReport()" id="sendBtn" class="flex-[2] py-4 bg-teal-600 text-white font-black rounded-2xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-900/20 active:scale-95 text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+                            <span>Ready to Send</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes modal-in {
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+
+    <script>
+    function emailReport() {
+        const modal = document.getElementById('emailModal');
+        modal.classList.remove('hidden');
+        document.getElementById('recipientEmail').focus();
+    }
+
+    function closeEmailModal() {
+        document.getElementById('emailModal').classList.add('hidden');
+    }
+
+    async function processEmailReport() {
+        const email = document.getElementById('recipientEmail').value;
+        if (!email) {
+            alert("Please enter a valid email address.");
+            return;
+        }
+
+        const btn = document.getElementById('sendBtn');
+        const originalContent = btn.innerHTML;
+        
+        btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Generating...</span>`;
+        btn.disabled = true;
+
+        const element = document.body;
+        const opt = {
+            margin:       0.5,
+            filename:     'Business_Report_<?= date('Y-m-d') ?>.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        try {
+            // Generate and Download PDF
+            await html2pdf().set(opt).from(element).save();
+
+            // Open Gmail
+            const subject = encodeURIComponent("Business Summary Report - Fashion Shines (<?= $display_range ?>)");
+            const body = encodeURIComponent("Assalam-o-Alaikum,\n\nPlease find attached (or attach) the Business Summary Report for the period: <?= $display_range ?>.\n\n[REMINDER: Please attach the PDF file that was just downloaded to your device].\n\nGenerated by POS DEWAAN.");
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}&body=${body}`;
+            
+            setTimeout(() => {
+                window.open(gmailUrl, '_blank');
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                closeEmailModal();
+            }, 1000);
+
+        } catch (error) {
+            console.error('PDF Error:', error);
+            alert("Error generating PDF. Please try printing to PDF instead.");
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }
+    }
+    </script>
 </body>
 </html>

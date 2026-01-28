@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
             'customer_id' => $customer_id,
             'total_amount' => $_POST['total_amount'],
             'paid_amount' => $_POST['paid_amount'],
+            'discount' => $_POST['discount'] ?? 0,
             'payment_method' => $_POST['payment_method'],
             'remarks' => cleanInput($_POST['remarks'] ?? ''),
             'due_date' => $_POST['due_date'] ?? '',
@@ -176,8 +177,8 @@ $categories = readCSV('categories');
                 <thead class="bg-gray-50 sticky top-0 z-10 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <tr>
                         <th class="px-3 py-2 border-b border-gray-200">Item</th>
-                        <th class="px-2 py-2 border-b border-gray-200 w-20 text-center">Price</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-16 text-center">Qty</th>
+                        <th class="px-2 py-2 border-b border-gray-200 w-20 text-center">Price</th>
                         <th class="px-3 py-2 border-b border-gray-200 text-right">Total</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-8"></th>
                     </tr>
@@ -195,6 +196,14 @@ $categories = readCSV('categories');
         <!-- Checkout Footer (Compact) -->
         <div class="border-t border-gray-200 bg-gray-50/30 p-3 space-y-2.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
             
+            <!-- Discount -->
+            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Discount (Rs.)</span>
+                <input type="number" id="discountInput" value="0"
+                       class="w-28 bg-transparent border-none p-0 text-lg font-black text-red-600 text-right focus:ring-0 outline-none" 
+                       oninput="updateTotals()" min="0">
+            </div>
+
             <!-- Grand Total -->
             <div class="flex justify-between items-center bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-xl px-3 py-2 shadow-inner">
                 <span class="text-[10px] font-black text-teal-800 uppercase tracking-widest">Grand Total</span>
@@ -215,6 +224,7 @@ $categories = readCSV('categories');
                 <input type="hidden" name="checkout" value="1">
                 <input type="hidden" name="cart_data" id="cartData">
                 <input type="hidden" name="total_amount" id="inputTotal">
+                <input type="hidden" name="discount" id="inputDiscount">
 
                 <div class="grid grid-cols-2 gap-2">
                     <!-- Sale Date -->
@@ -376,14 +386,14 @@ function renderCart() {
                 <div class="text-[9px] text-gray-400 mt-0.5">${item.unit}</div>
             </td>
             <td class="px-2 py-2 border-b border-gray-100 text-center">
-                <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
-                       class="w-16 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
-                       oninput="updateUnitPrice(${index}, this.value)">
-            </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
                 <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" max="${item.max_stock}" 
                        class="w-12 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none ${item.qty >= item.max_stock ? 'text-red-600' : 'text-gray-700'}" 
                        oninput="updateQty(${index}, this.value)">
+            </td>
+            <td class="px-2 py-2 border-b border-gray-100 text-center">
+                <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
+                       class="w-16 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
+                       oninput="updateUnitPrice(${index}, this.value)">
             </td>
             <td class="px-3 py-2 border-b border-gray-100 text-right font-mono font-bold text-gray-700">
                 <input type="number" id="total-${index}" value="${Math.round(item.total)}" 
@@ -463,8 +473,10 @@ function updateQty(index, newQty) {
 }
 
 function updateTotals() {
-    let total = cart.reduce((sum, item) => sum + item.total, 0);
-    total = Math.round(total);
+    const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+    const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+    let total = Math.max(0, Math.round(subtotal - discount));
+    
     const grandTotalInput = document.getElementById('grandTotal');
     
     if (!grandTotalInput.dataset.manualEdit || grandTotalInput.value == '') {
@@ -474,6 +486,7 @@ function updateTotals() {
     
     const currentTotal = parseInt(grandTotalInput.value) || total;
     document.getElementById('inputTotal').value = currentTotal;
+    document.getElementById('inputDiscount').value = discount;
     document.getElementById('cartData').value = JSON.stringify(cart);
     
     if (document.getElementById('paymentMethod').value === 'Cash') {
