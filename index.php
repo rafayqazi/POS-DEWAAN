@@ -47,33 +47,59 @@ $expiring_count = count($expiring_products);
 $rec_notify_days = (int)getSetting('recovery_notify_days', '7');
 $rec_threshold = date('Y-m-d', strtotime("+$rec_notify_days days"));
 $today_d = date('Y-m-d');
-$pending_recoveries = [];
-
-// Get customer balances to ensure we only notify for people who still owe money
 $all_txns = readCSV('customer_transactions');
 $cust_map = [];
 foreach($customers as $c) $cust_map[$c['id']] = $c['name'];
 
 $balances = [];
+$customer_due_dates = []; // Store only earliest due date per customer
 foreach ($all_txns as $tx) {
     if(!isset($balances[$tx['customer_id']])) $balances[$tx['customer_id']] = 0;
     $balances[$tx['customer_id']] += (float)$tx['debit'] - (float)$tx['credit'];
-}
-
-$due_customers = [];
-foreach ($all_txns as $tx) {
-    if (!empty($tx['due_date']) && $tx['due_date'] <= $rec_threshold) {
-        // Only if customer still owes more than 10 units (noise reduction)
-        if (($balances[$tx['customer_id']] ?? 0) > 1) {
-            $due_customers[$tx['customer_id']] = [
-                'name' => $cust_map[$tx['customer_id']] ?? 'Unknown',
-                'date' => $tx['due_date'],
-                'balance' => $balances[$tx['customer_id']]
-            ];
+    
+    if (!empty($tx['due_date'])) {
+        if (!isset($customer_due_dates[$tx['customer_id']]) || $tx['due_date'] < $customer_due_dates[$tx['customer_id']]) {
+            $customer_due_dates[$tx['customer_id']] = $tx['due_date'];
         }
     }
 }
-$recovery_alert_count = count($due_customers);
+
+$due_customers_alert = []; // Those within the notification window
+$all_debtors = [];        // Everyone who owes money
+foreach ($balances as $cid => $bal) {
+    if ($bal > 1) { // Customer owes money
+        $name = $cust_map[$cid] ?? 'Unknown';
+        $due_date = $customer_due_dates[$cid] ?? '';
+        
+        $debtor_data = [
+            'id' => $cid,
+            'name' => $name,
+            'balance' => $bal,
+            'due_date' => $due_date
+        ];
+        
+        $all_debtors[] = $debtor_data;
+        
+        // Add to alert list if due date is within threshold
+        if (!empty($due_date) && $due_date <= $rec_threshold) {
+            $due_customers_alert[] = $debtor_data;
+        }
+    }
+}
+
+// 4. Sort all_debtors by Due Date (Closest first)
+usort($all_debtors, function($a, $b) {
+    // If both have no due date, maintain relative order
+    if (empty($a['due_date']) && empty($b['due_date'])) return 0;
+    // Put "No Due Date" at the end
+    if (empty($a['due_date'])) return 1;
+    if (empty($b['due_date'])) return -1;
+    
+    // Both have dates, sort ascending
+    return strtotime($a['due_date']) - strtotime($b['due_date']);
+});
+
+$recovery_alert_count = count($due_customers_alert);
 ?>
 
 <?php if ($low_stock > 0): ?>
@@ -122,8 +148,8 @@ $recovery_alert_count = count($due_customers);
                 <?php if ($recovery_alert_count <= 3): ?>
                     <?php 
                     $msgs = [];
-                    foreach($due_customers as $dc) {
-                        $diff = strtotime($dc['date']) - strtotime(date('Y-m-d'));
+                    foreach($due_customers_alert as $dc) {
+                        $diff = strtotime($dc['due_date']) - strtotime(date('Y-m-d'));
                         $days = round($diff / (60 * 60 * 24));
                         $day_text = ($days == 0) ? "today" : (($days < 0) ? abs($days) . " days overdue" : $days . " days left");
                         $msgs[] = "<strong>" . htmlspecialchars($dc['name']) . "</strong> ($day_text)";
@@ -137,9 +163,9 @@ $recovery_alert_count = count($due_customers);
         </div>
     </div>
     <div class="flex gap-2 w-full md:w-auto">
-        <a href="pages/customers.php" class="px-8 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
+        <button onclick="openDebtorsModal()" class="px-8 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition shadow-lg shadow-orange-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center">
             View Debtors
-        </a>
+        </button>
     </div>
 </div>
 <?php endif; ?>
@@ -498,6 +524,127 @@ async function startSeamlessUpdate() {
         alert("Update Failed: " + error.message);
     }
 }
+
+function openDebtorsModal() {
+    const modal = document.getElementById('debtorsModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+        modal.querySelector('.modal-content').classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeDebtorsModal() {
+    const modal = document.getElementById('debtorsModal');
+    modal.querySelector('.modal-content').classList.remove('scale-100', 'opacity-100');
+    modal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+}
+</script>
+
+<!-- Debtors Modal -->
+<div id="debtorsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[1000] items-center justify-center p-4">
+    <div class="modal-content bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl transform transition-all scale-95 opacity-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="p-8 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-orange-50 to-white">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-orange-600 text-white rounded-2xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-hand-holding-usd text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-gray-800 tracking-tight">Active Debtors</h3>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-orange-600">Total: <?= count($all_debtors) ?> Customers</p>
+                </div>
+            </div>
+            <button onclick="closeDebtorsModal()" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-8 bg-gray-50/30">
+            <div class="overflow-x-auto bg-white rounded-3xl border border-gray-100 shadow-sm">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <th class="px-6 py-4">Customer Name</th>
+                            <th class="px-6 py-4 text-center">Remaining Balance</th>
+                            <th class="px-6 py-4 text-center">Earliest Due Date</th>
+                            <th class="px-6 py-4 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <?php foreach($all_debtors as $d): ?>
+                            <?php 
+                                $days = null;
+                                $status_class = "bg-gray-100 text-gray-500";
+                                $status_text = "No Due Date";
+                                
+                                if (!empty($d['due_date'])) {
+                                    $diff = strtotime($d['due_date']) - strtotime(date('Y-m-d'));
+                                    $days = round($diff / (60 * 60 * 24));
+                                    
+                                    if ($days < 0) {
+                                        $status_class = "bg-red-100 text-red-600";
+                                        $status_text = abs($days) . " days overdue";
+                                    } elseif ($days == 0) {
+                                        $status_class = "bg-orange-100 text-orange-600";
+                                        $status_text = "Due Today";
+                                    } else {
+                                        $status_class = "bg-teal-100 text-teal-600";
+                                        $status_text = $days . " days left";
+                                    }
+                                }
+                            ?>
+                            <tr onclick="window.location.href='pages/customer_ledger.php?id=<?= $d['id'] ?>'" class="hover:bg-teal-50/50 cursor-pointer transition-colors group">
+                                <td class="px-6 py-5">
+                                    <div class="font-bold text-gray-800"><?= htmlspecialchars($d['name']) ?></div>
+                                    <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wide">ID: <?= $d['id'] ?></div>
+                                </td>
+                                <td class="px-6 py-5 text-center">
+                                    <div class="text-sm font-black text-gray-800"><?= formatCurrency($d['balance']) ?></div>
+                                </td>
+                                <td class="px-6 py-5 text-center">
+                                    <div class="text-xs font-bold text-gray-600">
+                                        <?= !empty($d['due_date']) ? date('M d, Y', strtotime($d['due_date'])) : '<span class="text-gray-300 italic">Not Set</span>' ?>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-5 text-right">
+                                    <span class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider <?= $status_class ?>">
+                                        <?= $status_text ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        
+                        <?php if (empty($all_debtors)): ?>
+                            <tr>
+                                <td colspan="4" class="px-6 py-12 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-16 h-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mb-4">
+                                            <i class="fas fa-check-circle text-2xl"></i>
+                                        </div>
+                                        <p class="text-gray-500 font-medium">No outstanding debts found.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-8 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <p class="text-[10px] font-bold text-gray-400 italic">Only transactions with a balance >= 1 are listed here.</p>
+            <a href="pages/customer_ledger.php" class="px-6 py-2 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-900 transition active:scale-95">Open Ledgers</a>
+        </div>
+    </div>
+</div>
 </script>
 
 <?php 

@@ -385,6 +385,7 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                     <th class="p-4 text-right">Total Amount</th>
                     <th class="p-4 text-right">Paid</th>
                     <th class="p-4">Payment Method</th>
+                    <th class="p-4">Remarks</th>
                     <th class="p-4 text-center">Status</th>
                     <th class="p-4 text-center">Actions</th>
                 </tr>
@@ -400,18 +401,18 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                             <td class="p-4 text-gray-700 font-medium"><?= date('d M Y, h:i A', strtotime($s['sale_date'])) ?></td>
                             <td class="p-4">
                                 <div class="font-bold text-gray-800">
-                                    <?= isset($c_map[$s['customer_id']]) ? htmlspecialchars($c_map[$s['customer_id']]) : '<span class="text-gray-400 font-normal italic">Walk-in Customer</span>' ?>
+                                    <?= isset($c_map[$s['customer_id']]) ? '<a href="customer_ledger.php?id='.$s['customer_id'].'" class="text-teal-600 hover:underline transition-all">' . htmlspecialchars($c_map[$s['customer_id']]) . '</a>' : '<span class="text-gray-400 font-normal italic">Walk-in Customer</span>' ?>
                                 </div>
                             </td>
-                            <td class="p-4">
-                                <div class="space-y-1">
+                            <td class="p-4 align-top">
+                                <div class="space-y-1 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
                                     <?php 
                                     $items = $grouped_items[$s['id']] ?? [];
                                     foreach($items as $item):
                                         $p_name = $p_name_map[$item['product_id']] ?? 'Unknown';
                                     ?>
-                                        <div class="flex justify-between gap-4 text-[11px]">
-                                            <span class="font-bold text-gray-600 truncate max-w-[120px]" title="<?= htmlspecialchars($p_name) ?>"><?= htmlspecialchars($p_name) ?></span>
+                                        <div class="flex justify-between gap-4 text-[11px] border-b border-gray-50 pb-1 last:border-0 mb-1">
+                                            <span class="font-bold text-gray-600 truncate max-w-[150px]" title="<?= htmlspecialchars($p_name) ?>"><?= htmlspecialchars($p_name) ?></span>
                                             <span class="text-teal-600 font-black whitespace-nowrap">x <?= (float)$item['quantity'] ?></span>
                                         </div>
                                     <?php endforeach; ?>
@@ -427,6 +428,11 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                                 <span class="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-medium border border-gray-200 uppercase">
                                     <?= $s['payment_method'] ?>
                                 </span>
+                            </td>
+                            <td class="p-4">
+                                <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[150px]" title="<?= htmlspecialchars($s['remarks'] ?? '') ?>">
+                                    <?= htmlspecialchars($s['remarks'] ?? '') ?>
+                                </div>
                             </td>
                              <td class="p-4 text-center">
                                 <?php 
@@ -455,14 +461,17 @@ $stats['profit_data'] = array_column($chart_data, 'p');
                                 <?php endif; ?>
                             </td>
                             <td class="p-4 text-center">
-                                <a href="print_bill.php?id=<?= $s['id'] ?>" target="_blank"
-                                   class="text-teal-400 hover:text-teal-600 transition p-2" title="Print Bill">
-                                    <i class="fas fa-print"></i>
-                                </a>
-                                <button type="button" onclick="confirmDelete('../actions/delete_sale.php?id=<?= $s['id'] ?>')" 
-                                   class="text-red-400 hover:text-red-600 transition p-2" title="Delete Sale">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <div class="flex items-center justify-center gap-3">
+                                    <a href="edit_sale.php?id=<?= $s['id'] ?>" class="text-blue-500 hover:text-blue-700 transition" title="Edit Sale">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="print_bill.php?id=<?= $s['id'] ?>" target="_blank" class="text-teal-600 hover:text-teal-800 transition" title="Print Bill">
+                                        <i class="fas fa-print"></i>
+                                    </a>
+                                    <a href="#" onclick="return confirmDelete('../actions/delete_sale.php?id=<?= $s['id'] ?>')" class="text-red-500 hover:text-red-700 transition" title="Delete Sale">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>

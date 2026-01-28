@@ -173,11 +173,8 @@ $current_balance = $total_debit - $total_credit;
     
     <div class="flex gap-3">
         <!-- ... Buttons ... -->
-        <button onclick="downloadPDF()" class="bg-red-500 text-white px-5 py-3 rounded-xl hover:bg-red-600 shadow-lg shadow-red-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-file-pdf mr-2"></i> PDF
-        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-print mr-2"></i> PRINT
+            <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
         <button onclick="openModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-plus mr-1"></i> PAYMENT
@@ -340,7 +337,7 @@ $current_balance = $total_debit - $total_credit;
     </div>
 </div>
 
-<script src="../assets/js/html2pdf.bundle.min.js"></script>
+
 <script>
     // Pass PHP data to JS
     const allTxns = <?= json_encode($list) ?>;
@@ -715,39 +712,7 @@ $current_balance = $total_debit - $total_credit;
         }, "Confirm Delete");
     }
 
-    function downloadPDF() {
-        const element = document.getElementById('printableArea');
-        const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '800px'; 
-        container.style.zIndex = '-9999';
-        container.style.background = 'white';
 
-        const clone = element.cloneNode(true);
-        clone.classList.remove('hidden');
-        clone.style.display = 'block';
-        
-        container.appendChild(clone);
-        document.body.appendChild(container);
-
-        const opt = {
-            margin:       0.3,
-            filename:     'Ledger_<?= str_replace(' ', '_', $dealer['name']) ?>.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        html2pdf().set(opt).from(clone).save().then(() => {
-            document.body.removeChild(container);
-        }).catch(err => {
-            console.error('PDF Error:', err);
-            document.body.removeChild(container);
-            alert('Could not generate PDF. Please use the Print option instead.');
-        });
-    }
 
     function printReport() {
         const element = document.getElementById('printableArea');

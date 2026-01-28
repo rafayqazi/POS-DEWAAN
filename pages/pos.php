@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
     if (!$transaction_success) {
         $message = "ERROR: " . (!empty($error_items) ? "Stock limit exceeded for: " . implode(', ', $error_items) : "Database transaction failed.");
     } else if ($items) {
+        $sale_date = !empty($_POST['sale_date']) ? $_POST['sale_date'] . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
         $sale_id = insertCSV('sales', [
             'customer_id' => $customer_id,
             'total_amount' => $_POST['total_amount'],
@@ -58,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
             'payment_method' => $_POST['payment_method'],
             'remarks' => cleanInput($_POST['remarks'] ?? ''),
             'due_date' => $_POST['due_date'] ?? '',
-            'sale_date' => date('Y-m-d H:i:s')
+            'sale_date' => $sale_date
         ]);
 
         if (!empty($customer_id)) {
@@ -68,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 'debit' => $_POST['total_amount'],
                 'credit' => $_POST['paid_amount'],
                 'description' => "Sale #$sale_id",
-                'date' => date('Y-m-d'),
+                'date' => !empty($_POST['sale_date']) ? $_POST['sale_date'] : date('Y-m-d'),
                 'created_at' => date('Y-m-d H:i:s'),
                 'sale_id' => $sale_id,
                 'due_date' => $_POST['due_date'] ?? ''
@@ -214,6 +215,15 @@ $categories = readCSV('categories');
                 <input type="hidden" name="checkout" value="1">
                 <input type="hidden" name="cart_data" id="cartData">
                 <input type="hidden" name="total_amount" id="inputTotal">
+
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Sale Date -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sale Date</label>
+                        <input type="date" name="sale_date" id="sale_date" value="<?= date('Y-m-d') ?>" 
+                               class="w-full px-2 py-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none h-[34px] shadow-sm">
+                    </div>
+                </div>
 
                 <div class="grid grid-cols-2 gap-2">
                     <!-- Customer -->

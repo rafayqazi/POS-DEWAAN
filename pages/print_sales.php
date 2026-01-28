@@ -65,7 +65,8 @@ foreach($sales as $s) {
     <meta charset="UTF-8">
     <title><?= $report_title ?></title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 40px; }
+        @page { size: auto; margin: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; padding: 1.5cm; }
         .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #0d9488; padding-bottom: 20px; }
         .header h1 { margin: 0; color: #0d9488; font-size: 24px; }
         .header p { margin: 5px 0; color: #666; font-size: 14px; }
@@ -95,7 +96,7 @@ foreach($sales as $s) {
         .badge-due { background-color: #fee2e2; color: #991b1b; }
 
         @media print {
-            body { margin: 0; }
+            body { margin: 0; padding: 1.5cm; }
             .no-print { display: none; }
             .summary-box { border: 1px solid #ccc; }
         }
@@ -104,11 +105,8 @@ foreach($sales as $s) {
 <body>
 
     <div class="no-print" style="margin-bottom: 20px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
-        <button onclick="downloadPDF()" style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; items-center: center;">
-            <i class="fas fa-file-pdf" style="margin-right: 8px;"></i> Download PDF
-        </button>
         <button onclick="window.print()" style="background: #0d9488; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-            <i class="fas fa-print" style="margin-right: 8px;"></i> Print Report
+            <i class="fas fa-print" style="margin-right: 8px;"></i> Print / Save PDF
         </button>
         <button onclick="window.close()" style="background: #e2e8f0; color: #475569; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
             Close
@@ -174,20 +172,7 @@ foreach($sales as $s) {
 
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script>
-        function downloadPDF() {
-            const element = document.getElementById('reportContent');
-            const opt = {
-                margin:       [0.5, 0.5, 0.5, 0.5],
-                filename:     '<?= str_replace(' ', '_', strtolower($report_title)) ?>.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
-            };
-            html2pdf().set(opt).from(element).save();
-        }
-    </script>
+
 
     <script>
         // Auto trigger print dialog on load if not already printing

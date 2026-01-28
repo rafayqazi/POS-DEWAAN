@@ -58,7 +58,7 @@ usort($restocks, function($a, $b) {
         
         <div class="flex gap-2">
             <button onclick="printReport()" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md font-bold text-sm h-[38px] flex items-center">
-                <i class="fas fa-print mr-2"></i> Print Report
+                <i class="fas fa-print mr-2"></i> Print / Save PDF
             </button>
             <a href="restock_history.php" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm h-[38px] flex items-center">Reset</a>
         </div>

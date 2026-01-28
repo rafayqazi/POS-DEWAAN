@@ -98,7 +98,7 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
     </div>
     <div class="flex gap-3 w-full md:w-auto">
         <button onclick="printReport()" class="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95">
-            <i class="fas fa-print mr-2"></i> Print Report
+            <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
         <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="w-full md:w-auto bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
             <i class="fas fa-user-plus mr-2"></i> Add Customer

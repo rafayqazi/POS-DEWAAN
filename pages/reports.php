@@ -131,11 +131,31 @@ $total_recovered = $total_paid_at_sale + $total_customer_payments;
 
 $total_recovered = $total_paid_at_sale + $total_customer_payments;
 
+// Report Ranges Configuration
+$report_ranges = [
+    'today' => 'Today',
+    'week' => 'Last 7 Days',
+    'month' => 'Last 30 Days',
+    'custom' => 'Custom Range'
+];
+
 ?>
+
+<!-- Header with Print Action -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-2xl font-black text-gray-800 tracking-tight">Financial Reports</h1>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Real-time business performance analytics</p>
+    </div>
+    <div class="flex gap-3">
+        <button onclick="openGeneralReportModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-2xl shadow-lg shadow-teal-900/10 transition flex items-center gap-2 font-bold text-sm">
+            <i class="fas fa-print"></i> Print / Save PDF
+        </button>
+    </div>
+</div>
 
 <!-- Summary Cards Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Sales Cards -->
     <a href="sales_history.php?date=<?= date('Y-m-d') ?>" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-teal-500 hover:shadow-lg transition transform hover:-translate-y-1">
          <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Today)</h3>
          <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_today) ?></p>
@@ -278,7 +298,7 @@ $total_recovered = $total_paid_at_sale + $total_customer_payments;
             </div>
             <div class="flex items-center gap-4">
                 <button onclick="printRecoveryReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
-                    <i class="fas fa-print"></i> Print Report
+                    <i class="fas fa-print"></i> Print / Save PDF
                 </button>
                 <button onclick="document.getElementById('recoveryModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
                     <i class="fas fa-times text-xl"></i>
@@ -516,6 +536,62 @@ function showRecoveryDetails() {
     document.getElementById('recoveryFromDate').value = '';
     document.getElementById('recoveryToDate').value = '';
     filterRecovery('all');
+}
+</script>
+
+
+<!-- General Report Selection Modal -->
+<div id="generalReportModal" class="fixed inset-0 bg-black/60 hidden z-[60] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+        <div class="p-6 bg-teal-600 text-white flex justify-between items-center">
+            <h3 class="font-bold">Select Report Period</h3>
+            <button onclick="closeGeneralReportModal()" class="text-white/80 hover:text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="print_general_report.php" target="_blank" method="GET" class="p-8 space-y-6">
+            <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">Time Period</label>
+                <select name="range" id="reportRangeSelect" onchange="toggleReportCustomDates()" class="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-teal-500/20">
+                    <?php foreach($report_ranges as $val => $label): ?>
+                    <option value="<?= $val ?>"><?= $label ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div id="reportCustomRange" class="hidden grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">From</label>
+                    <input type="date" name="from" class="w-full bg-gray-50 border border-gray-100 p-2.5 rounded-xl text-xs font-bold text-gray-700">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-2">To</label>
+                    <input type="date" name="to" class="w-full bg-gray-50 border border-gray-100 p-2.5 rounded-xl text-xs font-bold text-gray-700">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-black py-4 rounded-2xl shadow-lg transition active:scale-95 uppercase tracking-widest text-xs">
+                Generate Full Report
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openGeneralReportModal() {
+    document.getElementById('generalReportModal').classList.remove('hidden');
+    toggleReportCustomDates();
+}
+function closeGeneralReportModal() {
+    document.getElementById('generalReportModal').classList.add('hidden');
+}
+function toggleReportCustomDates() {
+    const rangeSelect = document.getElementById('reportRangeSelect');
+    const customRangeDiv = document.getElementById('reportCustomRange');
+    
+    if (rangeSelect.value === 'custom') {
+        customRangeDiv.style.display = 'grid';
+    } else {
+        customRangeDiv.style.display = 'none';
+    }
 }
 </script>
 

@@ -153,11 +153,8 @@ usort($ledger, function($a, $b) {
     </div>
     
     <div class="flex gap-3">
-        <button onclick="downloadPDF()" class="bg-red-500 text-white px-5 py-3 rounded-xl hover:bg-red-600 shadow-lg shadow-red-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-file-pdf mr-2"></i> PDF
-        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-print mr-2"></i> PRINT
+            <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
         <button onclick="openTxnModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-hand-holding-usd mr-2"></i> RECEIVE PAYMENT
@@ -313,7 +310,7 @@ usort($ledger, function($a, $b) {
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Due Date</th>
                 </tr>
             </thead>
-            <tbody id="printBody">
+            <tbody id="printBody" style="vertical-align: top;">
                 <!-- JS Populated -->
             </tbody>
             <tfoot>
@@ -330,7 +327,7 @@ usort($ledger, function($a, $b) {
     </div>
 </div>
 
-<script src="../assets/js/html2pdf.bundle.min.js"></script>
+
 <script>
     // Pass PHP data to JS
     const allTxns = <?= json_encode($ledger) ?>;
@@ -560,9 +557,9 @@ usort($ledger, function($a, $b) {
                     if (items.length > 0) {
                         productsInfo = items.map(item => {
                             const pName = productsMap[item.product_id] || 'Unknown Product';
-                            return `<div class="flex justify-between gap-4 text-xs">
-                                        <span class="font-bold text-gray-700">${pName}</span>
-                                        <span class="text-teal-600 font-black">x ${item.quantity}</span>
+                            return `<div class="flex items-start justify-between gap-2 text-[11px] mb-1.5 border-b border-gray-50 pb-1 last:border-0">
+                                        <span class="font-bold text-gray-700 flex-1 leading-tight">${pName}</span>
+                                        <span class="text-teal-600 font-black whitespace-nowrap">x ${item.quantity}</span>
                                     </div>`;
                         }).join('');
                     } else {
@@ -573,27 +570,27 @@ usort($ledger, function($a, $b) {
                 }
 
                 html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0 group">
-                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
-                    <td class="p-6">
+                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic align-top">${sn}</td>
+                    <td class="p-6 align-top">
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
                     </td>
-                    <td class="p-6">
-                        <div class="space-y-1 max-w-xs">${productsInfo}</div>
+                    <td class="p-6 align-top">
+                        <div class="space-y-1 max-w-xs max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">${productsInfo}</div>
                     </td>
-                    <td class="p-6 text-right font-black text-gray-700">
+                    <td class="p-6 text-right font-black text-gray-700 align-top">
                         ${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '<span class="text-gray-200">-</span>'}
                     </td>
-                    <td class="p-6 text-right font-black text-emerald-600">
+                    <td class="p-6 text-right font-black text-emerald-600 align-top">
                         ${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '<span class="text-gray-200">-</span>'}
                     </td>
-                    <td class="p-6">
+                    <td class="p-6 align-top">
                         <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[180px]" title="${remarks}">${remarks}</div>
                         ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
                             <span class="text-[9px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100 uppercase font-black">${t.payment_type}</span>
                             ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px]"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
                         </div>` : ''}
                     </td>
-                    <td class="p-6">
+                    <td class="p-6 align-top">
                         ${t.due_date ? `
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 font-bold text-[10px]">
                                 <i class="fas fa-calendar-alt text-[10px]"></i>
@@ -601,10 +598,10 @@ usort($ledger, function($a, $b) {
                             </span>
                         ` : '-'}
                     </td>
-                    <td class="p-6 text-right font-black text-red-600 bg-red-50/20">
+                    <td class="p-6 text-right font-black text-red-600 bg-red-50/20 align-top">
                         ${formatCurrency(t.current_running_balance)}
                     </td>
-                    <td class="p-6 text-center">
+                    <td class="p-6 text-center align-top">
                          <div class="flex justify-center items-center gap-1">
                                 ${t.type === 'Payment' ? `
                                <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
@@ -621,6 +618,9 @@ usort($ledger, function($a, $b) {
                                </button>
                                
                                ${t.type === 'Sale' ? `
+                               <a href="print_bill.php?id=${t.sale_id}" target="_blank" class="w-8 h-8 flex items-center justify-center text-teal-500 hover:bg-teal-50 rounded-lg transition" title="Print Bill">
+                                   <i class="fas fa-print"></i>
+                               </a>
                                <button onclick="revertSale('${t.id}', '${t.sale_id}')" class="w-8 h-8 flex items-center justify-center text-orange-500 hover:bg-orange-50 rounded-lg transition" title="Revert Sale (Restore Inventory)">
                                    <i class="fas fa-undo"></i>
                                </button>
@@ -781,39 +781,7 @@ usort($ledger, function($a, $b) {
         });
     }
 
-    function downloadPDF() {
-        const element = document.getElementById('printableArea');
-        const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '800px'; 
-        container.style.zIndex = '-9999';
-        container.style.background = 'white';
 
-        const clone = element.cloneNode(true);
-        clone.classList.remove('hidden');
-        clone.style.display = 'block';
-        
-        container.appendChild(clone);
-        document.body.appendChild(container);
-
-        const opt = {
-            margin:       0.3,
-            filename:     'Ledger_<?= str_replace(' ', '_', $customer['name'] ?? 'Customer') ?>.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        html2pdf().set(opt).from(clone).save().then(() => {
-            document.body.removeChild(container);
-        }).catch(err => {
-            console.error('PDF Error:', err);
-            document.body.removeChild(container);
-            alert('Could not generate PDF. Please use the Print option instead.');
-        });
-    }
 
     function printReport() {
         const element = document.getElementById('printableArea');

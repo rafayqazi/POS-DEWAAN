@@ -57,6 +57,7 @@ $business_phone = "0300-0358189";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt #<?= $sale_id ?></title>
     <style>
+        @page { size: auto; margin: 0; }
         body { font-family: 'Courier New', Courier, monospace; color: #000; margin: 0; padding: 20px; background: #f3f4f6; }
         .receipt-container { background: #fff; width: 350px; margin: 0 auto; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
         .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 15px; }
@@ -146,6 +147,19 @@ $business_phone = "0300-0358189";
         <div class="divider"></div>
 
         <div class="totals-container">
+            <?php 
+                $total_items = count($items);
+                $total_qty = 0;
+                foreach($items as $item) $total_qty += (float)$item['quantity'];
+            ?>
+            <div class="total-row">
+                <span>Total Items:</span>
+                <span><?= $total_items ?></span>
+            </div>
+            <div class="total-row">
+                <span>Total QTY:</span>
+                <span><?= $total_qty ?></span>
+            </div>
             <div class="total-row">
                 <span>Sub-Total:</span>
                 <span>Rs. <?= number_format($sale['total_amount']) ?></span>
@@ -172,19 +186,6 @@ $business_phone = "0300-0358189";
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script>
-        function downloadPDF() {
-            const element = document.getElementById('receiptContent');
-            const opt = {
-                margin:       0.2,
-                filename:     'receipt_<?= $sale_id ?>.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'in', format: [4, 6], orientation: 'portrait' }
-            };
-            html2pdf().set(opt).from(element).save();
-        }
-    </script>
+
 </body>
 </html>

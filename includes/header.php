@@ -65,11 +65,29 @@
                             <span class="font-bold ml-4 sidebar-text">Dashboard</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="<?= $base ?>pages/inventory.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Inventory">
-                            <i class="fas fa-boxes w-6 text-xl"></i>
-                            <span class="font-medium ml-4 sidebar-text">Inventory</span>
-                        </a>
+                    <!-- Dropdown for Inventory -->
+                    <li class="relative">
+                        <button onclick="toggleDropdown('inventoryDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Inventory">
+                            <div class="flex items-center">
+                                <i class="fas fa-boxes w-6 text-xl text-teal-300"></i>
+                                <span class="font-medium ml-4 sidebar-text">Inventory</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="inventoryDropdownIcon"></i>
+                        </button>
+                        <ul id="inventoryDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
+                            <li>
+                                <a href="<?= $base ?>pages/inventory.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Add Inventory">
+                                    <i class="fas fa-plus-circle mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Add Inventory</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="<?= $base ?>pages/check_inventory.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'check_inventory.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Check Inventory">
+                                    <i class="fas fa-search mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Check Inventory</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <!-- Dropdown for Restock Management -->
                     <li class="relative">
@@ -300,6 +318,15 @@
                 if(dropdown) {
                     dropdown.classList.remove('hidden');
                     const icon = document.getElementById('restockDropdownIcon');
+                    if(icon) icon.classList.add('rotate-180');
+                }
+            }
+            if (['inventory.php', 'check_inventory.php'].includes(currentFile)) {
+                // Ensure dropdown is visible if we are on a child page
+                const dropdown = document.getElementById('inventoryDropdown');
+                if(dropdown) {
+                    dropdown.classList.remove('hidden');
+                    const icon = document.getElementById('inventoryDropdownIcon');
                     if(icon) icon.classList.add('rotate-180');
                 }
             }
