@@ -15,6 +15,7 @@ if (!$update_status['available'] || !$update_status['overdue']) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Locked - Update Required</title>
+    <link rel="icon" type="image/png" href="../<?= getSetting('business_favicon', 'assets/img/favicon.png') ?>">
     <script src="../assets/js/tailwind.js"></script>
     <link rel="stylesheet" href="../assets/css/all.min.css">
     <style>
@@ -51,7 +52,7 @@ if (!$update_status['available'] || !$update_status['overdue']) {
         </div>
 
         <div class="mt-12">
-            <p class="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Fashion Shines POS Security Shield</p>
+            <p class="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]"><?= getSetting('business_name', 'Fashion Shines') ?> Security Shield</p>
         </div>
     </div>
 

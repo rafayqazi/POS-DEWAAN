@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fashion Shines POS</title>
+    <title><?= getSetting('business_name', 'Fashion Shines POS') ?></title>
     <?php $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : ''; ?>
-    <link rel="icon" type="image/png" href="<?= $base ?>assets/img/favicon.png">
+    <link rel="icon" type="image/png" href="<?= $base . getSetting('business_favicon', 'assets/img/favicon.png') . '?v=' . time() ?>">
     <script src="<?= $base ?>assets/js/tailwind.js"></script>
     <script>
         tailwind.config = {
@@ -61,7 +61,7 @@
         <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white shadow-2xl flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative border-r border-teal-800/50" id="sidebar">
             <div class="p-6 flex items-center justify-between border-b border-teal-800 h-24 bg-teal-900/20">
                 <div class="sidebar-text truncate">
-                    <h1 class="text-2xl font-bold tracking-tight text-accent logo-text">Fashion Shines</h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-accent logo-text"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
                     <p class="text-[10px] text-teal-400 font-medium uppercase tracking-[0.2em]">Management System</p>
                 </div>
                 <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-teal-800 transition-all text-teal-400 hover:text-white outline-none ring-1 ring-teal-800 hover:ring-teal-600">

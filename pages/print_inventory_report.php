@@ -102,7 +102,7 @@ foreach ($products as $p) {
 <head>
     <meta charset="UTF-8">
     <title>Inventory Movement Report - <?= $display_range ?></title>
-    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+    <link rel="icon" type="image/png" href="../<?= getSetting('business_favicon', 'assets/img/favicon.png') ?>">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff; margin: 0; padding: 1.5cm; color: #1e293b; }
@@ -147,7 +147,7 @@ foreach ($products as $p) {
     </div>
 
     <div class="report-header">
-        <h1>Fashion Shines</h1>
+        <h1><?= getSetting('business_name', 'Fashion Shines') ?></h1>
         <p>Inventory Movement & Stock Position Report</p>
         <span style="font-size: 11px; color: #94a3b8; margin-top: 8px; display: block;">Report Period: <b><?= $display_range ?></b></span>
     </div>

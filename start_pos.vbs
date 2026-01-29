@@ -20,6 +20,13 @@ End If
 ' Wait for services to fully initialize
 WScript.Sleep 3000
 
+' Get the current script's directory and folder name
+Dim fso, scriptPath, scriptDir, folderName
+Set fso = CreateObject("Scripting.FileSystemObject")
+scriptPath = WScript.ScriptFullName
+scriptDir = fso.GetParentFolderName(scriptPath)
+folderName = fso.GetFileName(scriptDir)
+
 ' Find Chrome path
 Dim chromePath
 chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -28,13 +35,13 @@ If Not CreateObject("Scripting.FileSystemObject").FileExists(chromePath) Then
 End If
 
 ' Open the application in Chrome app mode
-WshShell.Run """" & chromePath & """ --app=http://localhost/POS-DEWAAN/login.php --start-maximized", 1, False
+WshShell.Run """" & chromePath & """ --app=http://localhost/" & folderName & "/login.php --start-maximized", 1, False
 
 ' Wait for Chrome to start
 WScript.Sleep 3000
 
 ' Start the monitoring script that will stop XAMPP when app closes
-WshShell.Run "wscript.exe ""C:\xampp\htdocs\POS-DEWAAN\stop_xampp_on_close.vbs""", 0, False
+WshShell.Run "wscript.exe """ & scriptDir & "\stop_xampp_on_close.vbs""", 0, False
 
 Set colApache = Nothing
 Set colMySQL = Nothing

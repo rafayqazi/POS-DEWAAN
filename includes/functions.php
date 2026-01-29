@@ -127,7 +127,7 @@ function getUpdateStatus($force_fetch = false) {
         }
         
         $status['first_detected'] = (int)$first_detected;
-        $status['deadline'] = $status['first_detected'] + 86400; // 24 hours later
+        $status['deadline'] = $status['first_detected'] + 60; // 1 minute later
         $status['overdue'] = ($current_time > $status['deadline']);
         $status['time_left'] = max(0, $status['deadline'] - $current_time);
     } else {

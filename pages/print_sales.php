@@ -64,7 +64,7 @@ foreach($sales as $s) {
 <head>
     <meta charset="UTF-8">
     <title><?= $report_title ?></title>
-    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+    <link rel="icon" type="image/png" href="../<?= getSetting('business_favicon', 'assets/img/favicon.png') ?>">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; padding: 1.5cm; }
@@ -116,7 +116,7 @@ foreach($sales as $s) {
 
     <div id="reportContent" style="position: relative;">
         <div class="header">
-            <h1>Fashion Shines - MANAGEMENT SYSTEM</h1>
+            <h1><?= getSetting('business_name', 'Fashion Shines') ?> - MANAGEMENT SYSTEM</h1>
             <p><?= $report_title ?></p>
             <p>Generated on: <?= date('d M Y, h:i A') ?></p>
         </div>

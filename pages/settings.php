@@ -96,9 +96,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif ($action == 'update_general_settings') {
         $expiry_days = $_POST['expiry_notify_days'] ?? '7';
         $recovery_days = $_POST['recovery_notify_days'] ?? '7';
+        $business_name = cleanInput($_POST['business_name']);
+        
         updateSetting('expiry_notify_days', $expiry_days);
         updateSetting('recovery_notify_days', $recovery_days);
-        $message = "General settings updated successfully.";
+        if ($business_name) updateSetting('business_name', $business_name);
+        
+        // Handle Favicon Upload
+        if (isset($_FILES['business_favicon']) && $_FILES['business_favicon']['error'] == 0) {
+            $allowed = ['jpg', 'jpeg', 'png', 'ico'];
+            $filename = $_FILES['business_favicon']['name'];
+            $filetmp = $_FILES['business_favicon']['tmp_name'];
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            if (in_array($ext, $allowed)) {
+                // Ensure directory exists
+                if (!is_dir('../uploads/settings')) mkdir('../uploads/settings', 0777, true);
+                
+                $new_name = 'favicon_' . time() . '.' . $ext;
+                $dest = '../uploads/settings/' . $new_name;
+                
+                if (move_uploaded_file($filetmp, $dest)) {
+                    updateSetting('business_favicon', 'uploads/settings/' . $new_name);
+                } else {
+                    $error = "Failed to upload favicon.";
+                }
+            } else {
+                $error = "Invalid file type. Only JPG, PNG, and ICO are allowed.";
+            }
+        }
+        
+        if (!$error) $message = "General settings updated successfully.";
     }
 }
 
@@ -228,42 +256,78 @@ $categories = readCSV('categories');
     <!-- General Settings Tab -->
     <div id="content-general" class="tab-content hidden bg-white rounded-b-2xl shadow-xl p-8 border border-t-0 border-gray-100 mb-8 min-h-[400px]">
         <div class="max-w-2xl">
-            <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
-                <span class="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mr-3">
-                    <i class="fas fa-bell text-sm"></i>
-                </span>
-                Notification Settings
-            </h2>
-            <form method="POST" class="space-y-6">
-                <input type="hidden" name="action" value="update_general_settings">
-                <div>
-                    <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Expiry Notification Period</label>
-                    <p class="text-gray-500 text-xs mb-4">Set how many days before expiry you want to be notified on the dashboard.</p>
-                    <?php $current_expiry = getSetting('expiry_notify_days', '7'); ?>
-                    <select name="expiry_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
-                        <option value="7" <?= $current_expiry == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
-                        <option value="15" <?= $current_expiry == '15' ? 'selected' : '' ?>>15 Days</option>
-                        <option value="30" <?= $current_expiry == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
-                    </select>
-                </div>
+            <!-- Business Configuration Section -->
+            <div class="mb-10 pb-8 border-b border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3">
+                        <i class="fas fa-building text-sm"></i>
+                    </span>
+                    Business Configuration
+                </h2>
+                <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <input type="hidden" name="action" value="update_general_settings">
+                    
+                    <!-- Business Name -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Business Name</label>
+                        <p class="text-gray-500 text-xs mb-4">This name will be displayed across the entire system (Header, Footer, Reports).</p>
+                        <?php $current_name = getSetting('business_name', 'Fashion Shines POS'); ?>
+                        <input type="text" name="business_name" value="<?= htmlspecialchars($current_name) ?>" 
+                               class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white" 
+                               placeholder="e.g. My Awesome Shop">
+                    </div>
 
-                <div>
-                    <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Customer Recovery Notification Period</label>
-                    <p class="text-gray-500 text-xs mb-4">Set how many days before a payment is due you want to be notified on the dashboard.</p>
-                    <?php $current_recovery = getSetting('recovery_notify_days', '7'); ?>
-                    <select name="recovery_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
-                        <option value="7" <?= $current_recovery == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
-                        <option value="15" <?= $current_recovery == '15' ? 'selected' : '' ?>>15 Days</option>
-                        <option value="30" <?= $current_recovery == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
-                    </select>
-                </div>
-                
-                <div class="pt-6 border-t border-gray-100">
-                    <button type="submit" class="bg-primary text-white font-bold py-3 px-8 rounded-xl hover:bg-secondary transition shadow-md transform active:scale-95 flex items-center">
-                        <i class="fas fa-save mr-2"></i> Save General Settings
-                    </button>
-                </div>
-            </form>
+                    <!-- Favicon Upload -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Business Logo / Favicon</label>
+                        <p class="text-gray-500 text-xs mb-4">Upload a square image (PNG, JPG, ICO) to be used as the browser icon and logo.</p>
+                        <div class="flex items-center gap-4">
+                            <?php $current_favicon = getSetting('business_favicon', 'assets/img/logo.png'); ?>
+                            <div class="w-16 h-16 rounded-xl border border-gray-200 p-2 bg-white shadow-sm flex items-center justify-center">
+                                <img src="../<?= $current_favicon . '?v=' . time() ?>" alt="Current Favicon" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <input type="file" name="business_favicon" accept=".png, .jpg, .jpeg, .ico"
+                                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <hr class="my-6 border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Notification Preferences</h3>
+                    </div>
+
+                    <!-- Existing Notification Settings (Wrapped in the same form) -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Expiry Notification Period</label>
+                        <p class="text-gray-500 text-xs mb-4">Set how many days before expiry you want to be notified on the dashboard.</p>
+                        <?php $current_expiry = getSetting('expiry_notify_days', '7'); ?>
+                        <select name="expiry_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
+                            <option value="7" <?= $current_expiry == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
+                            <option value="15" <?= $current_expiry == '15' ? 'selected' : '' ?>>15 Days</option>
+                            <option value="30" <?= $current_expiry == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
+                        </select>
+                    </div>
+    
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Customer Recovery Notification Period</label>
+                        <p class="text-gray-500 text-xs mb-4">Set how many days before a payment is due you want to be notified on the dashboard.</p>
+                        <?php $current_recovery = getSetting('recovery_notify_days', '7'); ?>
+                        <select name="recovery_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
+                            <option value="7" <?= $current_recovery == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
+                            <option value="15" <?= $current_recovery == '15' ? 'selected' : '' ?>>15 Days</option>
+                            <option value="30" <?= $current_recovery == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="pt-6 border-t border-gray-100">
+                        <button type="submit" class="bg-primary text-white font-bold py-3 px-8 rounded-xl hover:bg-secondary transition shadow-md transform active:scale-95 flex items-center">
+                            <i class="fas fa-save mr-2"></i> Save All Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Remove the old form since we merged it -->
         </div>
     </div>
 </div>

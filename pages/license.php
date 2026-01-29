@@ -40,7 +40,7 @@ include '../includes/header.php';
         <div class="relative group">
             <div class="absolute -inset-1 bg-gradient-to-r from-teal-500 to-accent rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
             <div class="relative">
-                <img src="../developer.jpg" alt="Developer" class="w-40 h-40 rounded-full object-cover object-top border-4 border-white shadow-2xl">
+                <img src="../assets/img/developer.jpg" alt="Developer" class="w-40 h-40 rounded-full object-cover object-top border-4 border-white shadow-2xl">
                 <div class="absolute bottom-1 right-2 bg-accent text-white w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
                     <i class="fas fa-check-circle text-lg"></i>
                 </div>
@@ -80,7 +80,7 @@ include '../includes/header.php';
                 <div class="legal-section">
                     <h3 class="font-bold text-gray-800 text-lg mb-2">1. Ownership & Copyright</h3>
                     <p class="text-gray-600 text-sm leading-relaxed">
-                        This software "Fashion Shines POS" and all its source code, designs, and documentation are the intellectual property of <strong>Abdul Rafay (The Developer)</strong>. Under the <strong>Copyright Act, 1962 (Pakistan)</strong>, the developer holds all exclusive rights to this work. No part of this software may be reproduced or transmitted in any form without prior permission.
+                        This software "<?= getSetting('business_name', 'Fashion Shines POS') ?>" and all its source code, designs, and documentation are the intellectual property of <strong>Abdul Rafay (The Developer)</strong>. Under the <strong>Copyright Act, 1962 (Pakistan)</strong>, the developer holds all exclusive rights to this work. No part of this software may be reproduced or transmitted in any form without prior permission.
                     </p>
                 </div>
 
