@@ -1,7 +1,7 @@
 @echo off
 
-REM Get the name of current directory
-for %%I in ("%CD%") do set "FolderName=%%~nxI"
+REM Get the name of current directory using script location
+for %%I in ("%~dp0.") do set "FolderName=%%~nxI"
 
 REM Check if Apache is running
 tasklist /FI "IMAGENAME eq httpd.exe" 2>NUL | find /I /N "httpd.exe">NUL
