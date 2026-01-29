@@ -102,7 +102,7 @@ if (!$update_status['available'] || !$update_status['overdue']) {
             if(data.status === 'success') {
                 bar.style.width = "100%";
                 status.innerText = "Unlock Successful! Restarting...";
-                setTimeout(() => window.location.href = '../index.php', 2000);
+                setTimeout(() => window.location.href = '../logout.php', 2000);
             } else {
                 throw new Error(data.message);
             }

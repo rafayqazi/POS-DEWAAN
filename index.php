@@ -103,7 +103,12 @@ $recovery_alert_count = count($due_customers_alert);
 $dismissed = $_SESSION['dismissed_alerts'] ?? [];
 
 // Final Update Status check for lockdown & countdown
-$update_status = getUpdateStatus();
+// Skip check if we just completed an update (to avoid git cache timing issues)
+if (isset($_GET['updated']) && $_GET['updated'] == '1') {
+    $update_status = ['available' => false, 'overdue' => false, 'time_left' => 0];
+} else {
+    $update_status = getUpdateStatus();
+}
 $_SESSION['update_overdue'] = $update_status['available'] && $update_status['overdue'];
 ?>
 
@@ -578,8 +583,8 @@ async function startSeamlessUpdate() {
         
         if (data.status === 'success') {
             bar.style.width = "100%";
-            status.innerText = "SUCCESS! RELOADING...";
-            setTimeout(() => window.location.reload(), 1500);
+            status.innerText = "SUCCESS! Signing out for security...";
+            setTimeout(() => window.location.href = 'logout.php', 1500);
         } else {
             throw new Error(data.message);
         }
