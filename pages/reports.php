@@ -502,6 +502,7 @@ function printRecoveryReport() {
         <html>
         <head>
             <title>Recovery Report</title>
+            <link rel="icon" type="image/png" href="../assets/img/favicon.png">
             <style>
                 body { font-family: sans-serif; padding: 40px; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }

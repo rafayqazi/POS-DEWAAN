@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fashion Shines POS</title>
     <?php $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : ''; ?>
+    <link rel="icon" type="image/png" href="<?= $base ?>assets/img/favicon.png">
     <script src="<?= $base ?>assets/js/tailwind.js"></script>
     <script>
         tailwind.config = {
@@ -19,9 +20,9 @@
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="<?= $base ?>assets/vendor/inter-font/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= $base ?>assets/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="<?= $base ?>assets/vendor/chartjs/chart.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .glass {
@@ -42,6 +43,17 @@
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
 <?php if (isset($_SESSION['user_id'])): ?>
+    <?php
+    // Global Lockdown Check
+    $current_page = basename($_SERVER['PHP_SELF']);
+    if ($current_page !== 'lockdown.php') {
+        $update_status = getUpdateStatus();
+        if ($update_status['available'] && $update_status['overdue']) {
+            $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : '';
+            redirect($base . 'pages/lockdown.php');
+        }
+    }
+    ?>
     <div class="flex flex-1 h-screen overflow-hidden">
         <!-- Sidebar -->
         <!-- Sidebar -->

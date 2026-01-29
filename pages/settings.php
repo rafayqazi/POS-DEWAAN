@@ -84,6 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         ob_clean();
         header('Content-Type: application/json');
         if ($result['success']) {
+            // Clear the update detection timestamp
+            $u_id = findSettingId('update_first_detected');
+            if ($u_id) deleteCSV('settings', $u_id);
+            
             echo json_encode(['status' => 'success', 'message' => "Update installed successfully from " . $result['branch'] . " branch!"]);
         } else {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);

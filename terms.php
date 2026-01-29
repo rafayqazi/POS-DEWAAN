@@ -8,6 +8,7 @@ require_once 'includes/functions.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms & Conditions - Fashion Shines POS</title>
+    <link rel="icon" type="image/png" href="assets/img/favicon.png">
     <script src="assets/js/tailwind.js"></script>
     <script>
         tailwind.config = {
@@ -22,7 +23,7 @@ require_once 'includes/functions.php';
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="assets/vendor/inter-font/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }

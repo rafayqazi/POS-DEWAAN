@@ -100,11 +100,36 @@ usort($all_debtors, function($a, $b) {
 });
 
 $recovery_alert_count = count($due_customers_alert);
+$dismissed = $_SESSION['dismissed_alerts'] ?? [];
+
+// Final Update Status check for lockdown & countdown
+$update_status = getUpdateStatus();
+$_SESSION['update_overdue'] = $update_status['available'] && $update_status['overdue'];
 ?>
 
-<?php if ($low_stock > 0): ?>
-<div class="mb-6 p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group animate-pulse shadow-sm shadow-red-500/5 gap-4">
+<script>
+async function dismissAlert(alertId, element) {
+    try {
+        const response = await fetch('actions/dismiss_alert.php', {
+            method: 'POST',
+            body: new URLSearchParams({ 'alert_id': alertId })
+        });
+        if (response.ok) {
+            element.closest('.alert-card').remove();
+        }
+    } catch (e) {
+        console.error("Failed to dismiss alert", e);
+    }
+}
+</script>
+
+<?php if ($low_stock > 0 && !in_array('low_stock', $dismissed)): ?>
+<div class="alert-card mb-6 p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group animate-pulse shadow-sm shadow-red-500/5 gap-4 relative">
+    <button onclick="dismissAlert('low_stock', this)" class="absolute top-4 right-6 text-red-300 hover:text-red-500 transition-colors">
+        <i class="fas fa-times"></i>
+    </button>
     <div class="flex items-center gap-6">
+
         <div class="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform shrink-0">
             <i class="fas fa-exclamation-triangle text-xl"></i>
         </div>
@@ -119,9 +144,13 @@ $recovery_alert_count = count($due_customers_alert);
 </div>
 <?php endif; ?>
 
-<?php if ($expiring_count > 0): ?>
-<div class="mb-6 p-6 bg-amber-50 border border-amber-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-amber-500/5 gap-4">
+<?php if ($expiring_count > 0 && !in_array('expiry', $dismissed)): ?>
+<div class="alert-card mb-6 p-6 bg-amber-50 border border-amber-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-amber-500/5 gap-4 relative">
+    <button onclick="dismissAlert('expiry', this)" class="absolute top-4 right-6 text-amber-300 hover:text-amber-500 transition-colors">
+        <i class="fas fa-times"></i>
+    </button>
     <div class="flex items-center gap-6">
+
         <div class="w-14 h-14 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:-rotate-12 transition-transform shrink-0">
             <i class="fas fa-calendar-times text-xl"></i>
         </div>
@@ -136,9 +165,13 @@ $recovery_alert_count = count($due_customers_alert);
 </div>
 <?php endif; ?>
 
-<?php if ($recovery_alert_count > 0): ?>
-<div class="mb-6 p-6 bg-orange-50 border border-orange-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-orange-500/5 gap-4">
+<?php if ($recovery_alert_count > 0 && !in_array('recovery', $dismissed)): ?>
+<div class="alert-card mb-6 p-6 bg-orange-50 border border-orange-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-orange-500/5 gap-4 relative">
+    <button onclick="dismissAlert('recovery', this)" class="absolute top-4 right-6 text-orange-300 hover:text-orange-500 transition-colors">
+        <i class="fas fa-times"></i>
+    </button>
     <div class="flex items-center gap-6">
+
         <div class="w-14 h-14 bg-orange-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform shrink-0">
             <i class="fas fa-hand-holding-usd text-xl"></i>
         </div>
@@ -178,18 +211,42 @@ $recovery_alert_count = count($due_customers_alert);
         </div>
         <div>
             <h4 class="text-lg font-bold text-teal-900">Software Update Available</h4>
-            <p class="text-teal-700/80 text-sm font-medium">A new version of Fashion Shines POS is ready for installation. Keep your system up to date for new features.</p>
+            <p class="text-teal-700/80 text-sm font-medium">A new version of Fashion Shines POS is ready. Update within the next <strong id="updateCountdown" class="text-teal-900 font-black">--:--:--</strong> to avoid system lockout.</p>
         </div>
     </div>
     <div class="flex gap-2 w-full md:w-auto">
         <button onclick="startSeamlessUpdate()" class="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95 text-sm uppercase tracking-wide w-full md:w-auto text-center flex items-center justify-center gap-2">
             <i class="fas fa-cloud-download-alt"></i> Update Now
         </button>
-        <button onclick="this.parentElement.parentElement.remove()" class="p-3 text-teal-400 hover:text-teal-600 transition">
-            <i class="fas fa-times"></i>
-        </button>
     </div>
 </div>
+
+<script>
+function startUpdateCountdown(timeLeft) {
+    const timer = document.getElementById('updateCountdown');
+    if (!timer) return;
+
+    function update() {
+        if (timeLeft <= 0) {
+            timer.innerText = "OVERDUE";
+            window.location.reload();
+            return;
+        }
+        
+        const hours = Math.floor(timeLeft / 3600);
+        const mins = Math.floor((timeLeft % 3600) / 60);
+        const secs = timeLeft % 60;
+        
+        timer.innerText = `${hours}h ${mins}m ${secs}s`;
+        timeLeft--;
+        setTimeout(update, 1000);
+    }
+    update();
+}
+document.addEventListener('DOMContentLoaded', () => {
+    startUpdateCountdown(<?= $update_status['time_left'] ?? 0 ?>);
+});
+</script>
 <?php endif; ?>
 
 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">

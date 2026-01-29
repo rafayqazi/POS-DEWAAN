@@ -56,6 +56,7 @@ $business_phone = "0300-0358189";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt #<?= $sale_id ?></title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Courier New', Courier, monospace; color: #000; margin: 0; padding: 20px; background: #f3f4f6; }

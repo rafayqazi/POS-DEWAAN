@@ -145,11 +145,12 @@ $top_customers = $customer_revenue;
 <head>
     <meta charset="UTF-8">
     <title>Overall Financial Report - <?= $display_range ?></title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff; margin: 0; padding: 1.5cm; color: #1e293b; }
         .report-header { text-align: center; border-bottom: 3px solid #0d9488; padding-bottom: 20px; margin-bottom: 40px; }
-        .report-header h1 { margin: 0; color: #0f766e; text-transform: uppercase; letter-spacing: 2px; }
+        .report-header h1 { margin: 0; color: #0d9488; text-transform: uppercase; letter-spacing: 5px; font-size: 42px; font-weight: 900; line-height: 1; }
         .report-header p { margin: 5px 0 0 0; color: #64748b; font-weight: bold; }
         
         .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
@@ -183,9 +184,9 @@ $top_customers = $customer_revenue;
         }
     </style>
     <!-- Tailwind for Modal -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../assets/js/tailwind.js"></script>
     <!-- PDF Generation Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="../assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 

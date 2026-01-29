@@ -102,6 +102,7 @@ foreach ($products as $p) {
 <head>
     <meta charset="UTF-8">
     <title>Inventory Movement Report - <?= $display_range ?></title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff; margin: 0; padding: 1.5cm; color: #1e293b; }

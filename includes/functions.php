@@ -23,7 +23,14 @@ function formatCurrency($amount) {
     return 'Rs. ' . number_format($amount, 0); // No decimals for simplicity unless needed
 }
 
-function getUpdateStatus() {
+function getUpdateStatus($force_fetch = false) {
+    // 0. Use session cache if available and not forced
+    if (!$force_fetch && isset($_SESSION['last_update_check']) && (time() - $_SESSION['last_update_check'] < 3600)) {
+        if (isset($_SESSION['cached_update_status'])) {
+            return $_SESSION['cached_update_status'];
+        }
+    }
+
     $status = ['available' => false, 'count' => 0, 'branch' => '', 'local' => '', 'remote' => '', 'error' => ''];
     
     // 1. Identify current branch
@@ -38,6 +45,8 @@ function getUpdateStatus() {
     exec('git fetch origin ' . $status['branch'] . ' 2>&1', $out, $ret);
     if ($ret !== 0) {
         $status['error'] = "Fetch failed: " . implode(" ", $out);
+        // If fetch fails, we still return the basic status (maybe we are offline)
+        // But we won't cache an error status as "success" for long
         return $status;
     }
     
@@ -51,6 +60,24 @@ function getUpdateStatus() {
     exec("git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
     $status['count'] = (int)($out_c[0] ?? 0);
     $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
+    
+    // 5. Track Detection Time for Grace Period
+    if ($status['available']) {
+        $first_detected = getSetting('update_first_detected', '');
+        if (empty($first_detected)) {
+            $first_detected = time();
+            updateSetting('update_first_detected', $first_detected);
+        }
+        
+        $status['first_detected'] = (int)$first_detected;
+        $status['deadline'] = $status['first_detected'] + 86400; // 24 hours later
+        $status['overdue'] = (time() > $status['deadline']);
+        $status['time_left'] = max(0, $status['deadline'] - time());
+    }
+    
+    // Cache the result
+    $_SESSION['last_update_check'] = time();
+    $_SESSION['cached_update_status'] = $status;
     
     return $status;
 }

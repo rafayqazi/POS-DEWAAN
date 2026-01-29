@@ -278,16 +278,24 @@ function findCSV($table, $id) {
 /**
  * Get a setting value by key
  */
+/**
+ * Get a setting value by key with static caching
+ */
 function getSetting($key, $default = '') {
-    $settings = readCSV('settings');
-    foreach ($settings as $s) {
+    static $settings_cache = null;
+    
+    if ($settings_cache === null) {
+        $settings_cache = readCSV('settings');
+    }
+    
+    foreach ($settings_cache as $s) {
         if ($s['key'] == $key) return $s['value'];
     }
     return $default;
 }
 
 /**
- * Update or insert a setting
+ * Update or insert a setting and invalidate cache
  */
 function updateSetting($key, $value) {
     if (findSettingId($key)) {
@@ -378,142 +386,135 @@ if (!file_exists(getCSVPath('categories'))) {
     insertCSV('categories', ['name' => 'Other']);
 }
 
-// ----------------------------------------------------
-// AUTO-MIGRATION: Fix missing headers in restocks.csv
-// ----------------------------------------------------
-$restockPath = getCSVPath('restocks');
-if (file_exists($restockPath)) {
-    $fp_mig = fopen($restockPath, 'r');
-    if ($fp_mig) {
-        $headers = fgetcsv($fp_mig);
-        fclose($fp_mig);
-        
-        // Check if expiry_date is missing
-        if ($headers && !in_array('expiry_date', $headers)) {
-            // Perform Migration
-            $data = readCSV('restocks'); // Reads data with old headers
-            $newHeaders = array_merge($headers, ['expiry_date', 'remarks']);
-            
-            // Clean duplicates if any (e.g. if partial run)
-            $newHeaders = array_unique($newHeaders);
-            
-            // Write back with new headers (helper fills missing keys with empty string)
-            writeCSV('restocks', $data, $newHeaders);
-        }
-    }
-}
+/**
+ * Execute all DB migrations only if needed
+ */
+function runMigrations() {
+    $current_version = (int)getSetting('db_schema_version', '0');
+    $latest_version = 1;
 
-// ----------------------------------------------------
-// AUTO-MIGRATION: Fix headers in dealers.csv
-// ----------------------------------------------------
-$dealerPath = getCSVPath('dealers');
-if (file_exists($dealerPath)) {
-    $fp_mig = fopen($dealerPath, 'r');
-    if ($fp_mig) {
-        $headers = fgetcsv($fp_mig);
-        fclose($fp_mig);
-        
-        if ($headers && !in_array('phone', $headers)) {
-            $data = readCSV('dealers');
-            foreach ($data as &$d) {
-                if (isset($d['contact'])) {
-                    $d['phone'] = $d['contact'];
-                    unset($d['contact']);
-                }
-                if (!isset($d['address'])) {
-                    $d['address'] = '';
-                }
-            }
-            writeCSV('dealers', $data, ['id', 'name', 'phone', 'address', 'created_at']);
-        }
+    if ($current_version >= $latest_version) {
+        return; // Already up to date
     }
-}
 
-// ----------------------------------------------------
-// AUTO-MIGRATION: Fix headers in sales.csv
-// ----------------------------------------------------
-$salesPath = getCSVPath('sales');
-if (file_exists($salesPath)) {
-    $fp_mig = fopen($salesPath, 'r');
-    if ($fp_mig) {
-        $headers = fgetcsv($fp_mig);
-        fclose($fp_mig);
-        
-        if ($headers && !in_array('due_date', $headers)) {
-            $data = readCSV('sales');
-            foreach ($data as &$s) {
-                if (!isset($s['remarks'])) $s['remarks'] = '';
-                if (!isset($s['due_date'])) $s['due_date'] = '';
-                if (!isset($s['discount'])) $s['discount'] = '0';
-            }
-            $newHeaders = array_merge($headers, ['remarks', 'due_date', 'discount']);
-            $newHeaders = array_unique($newHeaders);
-            writeCSV('sales', $data, $newHeaders);
-        } elseif ($headers && !in_array('discount', $headers)) {
-            $data = readCSV('sales');
-            foreach ($data as &$s) {
-                if (!isset($s['discount'])) $s['discount'] = '0';
-            }
-            $newHeaders = array_merge($headers, ['discount']);
-            writeCSV('sales', $data, array_unique($newHeaders));
-        }
-    }
-}
-
-// ----------------------------------------------------
-// AUTO-MIGRATION: Add due_date to customer_transactions.csv
-// ----------------------------------------------------
-$custTxnPath = getCSVPath('customer_transactions');
-if (file_exists($custTxnPath)) {
-    $fp_mig = fopen($custTxnPath, 'r');
-    if ($fp_mig) {
-        $headers = fgetcsv($fp_mig);
-        fclose($fp_mig);
-        if ($headers && !in_array('due_date', $headers)) {
-            $data = readCSV('customer_transactions');
-            $newHeaders = array_merge($headers, ['due_date']);
-            writeCSV('customer_transactions', $data, array_unique($newHeaders));
-        }
-    }
-}
-
-// ----------------------------------------------------
-// AUTO-MIGRATION: Payment Fields for Transactions
-// ----------------------------------------------------
-foreach (['customer_transactions', 'dealer_transactions'] as $tbl) {
-    $p = getCSVPath($tbl);
-    if (file_exists($p)) {
-        $fp_mig = fopen($p, 'r');
+    // ----------------------------------------------------
+    // MIGRATION 1: All legacy header fixes
+    // ----------------------------------------------------
+    
+    // Fix missing headers in restocks.csv
+    $restockPath = getCSVPath('restocks');
+    if (file_exists($restockPath)) {
+        $fp_mig = fopen($restockPath, 'r');
         if ($fp_mig) {
             $headers = fgetcsv($fp_mig);
             fclose($fp_mig);
-            if ($headers && !in_array('payment_type', $headers)) {
-                $data = readCSV($tbl);
-                foreach ($data as &$row) {
-                    $row['payment_type'] = (isset($row['type']) && $row['type'] == 'Payment') ? 'Cash' : '';
-                    $row['payment_proof'] = '';
-                }
-                $newHeaders = array_merge($headers, ['payment_type', 'payment_proof']);
-                writeCSV($tbl, $data, array_unique($newHeaders));
+            if ($headers && !in_array('expiry_date', $headers)) {
+                $data = readCSV('restocks');
+                $newHeaders = array_merge($headers, ['expiry_date', 'remarks']);
+                writeCSV('restocks', $data, array_unique($newHeaders));
             }
         }
     }
-}
 
-// ----------------------------------------------------
-// AUTO-MIGRATION: Add returned_qty to sale_items.csv
-// ----------------------------------------------------
-$saleItemsPath = getCSVPath('sale_items');
-if (file_exists($saleItemsPath)) {
-    $fp_mig = fopen($saleItemsPath, 'r');
-    if ($fp_mig) {
-        $headers = fgetcsv($fp_mig);
-        fclose($fp_mig);
-        if ($headers && !in_array('returned_qty', $headers)) {
-            $data = readCSV('sale_items');
-            $newHeaders = array_merge($headers, ['returned_qty']);
-            writeCSV('sale_items', $data, array_unique($newHeaders));
+    // Fix headers in dealers.csv
+    $dealerPath = getCSVPath('dealers');
+    if (file_exists($dealerPath)) {
+        $fp_mig = fopen($dealerPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('phone', $headers)) {
+                $data = readCSV('dealers');
+                foreach ($data as &$d) {
+                    if (isset($d['contact'])) {
+                        $d['phone'] = $d['contact'];
+                        unset($d['contact']);
+                    }
+                    if (!isset($d['address'])) {
+                        $d['address'] = '';
+                    }
+                }
+                writeCSV('dealers', $data, ['id', 'name', 'phone', 'address', 'created_at']);
+            }
         }
     }
+
+    // Fix headers in sales.csv
+    $salesPath = getCSVPath('sales');
+    if (file_exists($salesPath)) {
+        $fp_mig = fopen($salesPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && (!in_array('due_date', $headers) || !in_array('discount', $headers))) {
+                $data = readCSV('sales');
+                foreach ($data as &$s) {
+                    if (!isset($s['remarks'])) $s['remarks'] = '';
+                    if (!isset($s['due_date'])) $s['due_date'] = '';
+                    if (!isset($s['discount'])) $s['discount'] = '0';
+                }
+                $newHeaders = array_merge($headers, ['remarks', 'due_date', 'discount']);
+                writeCSV('sales', $data, array_unique($newHeaders));
+            }
+        }
+    }
+
+    // Add due_date to customer_transactions.csv
+    $custTxnPath = getCSVPath('customer_transactions');
+    if (file_exists($custTxnPath)) {
+        $fp_mig = fopen($custTxnPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('due_date', $headers)) {
+                $data = readCSV('customer_transactions');
+                $newHeaders = array_merge($headers, ['due_date']);
+                writeCSV('customer_transactions', $data, array_unique($newHeaders));
+            }
+        }
+    }
+
+    // Payment Fields for Transactions
+    foreach (['customer_transactions', 'dealer_transactions'] as $tbl) {
+        $p = getCSVPath($tbl);
+        if (file_exists($p)) {
+            $fp_mig = fopen($p, 'r');
+            if ($fp_mig) {
+                $headers = fgetcsv($fp_mig);
+                fclose($fp_mig);
+                if ($headers && !in_array('payment_type', $headers)) {
+                    $data = readCSV($tbl);
+                    foreach ($data as &$row) {
+                        $row['payment_type'] = (isset($row['type']) && $row['type'] == 'Payment') ? 'Cash' : '';
+                        $row['payment_proof'] = '';
+                    }
+                    $newHeaders = array_merge($headers, ['payment_type', 'payment_proof']);
+                    writeCSV($tbl, $data, array_unique($newHeaders));
+                }
+            }
+        }
+    }
+
+    // Add returned_qty to sale_items.csv
+    $saleItemsPath = getCSVPath('sale_items');
+    if (file_exists($saleItemsPath)) {
+        $fp_mig = fopen($saleItemsPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('returned_qty', $headers)) {
+                $data = readCSV('sale_items');
+                $newHeaders = array_merge($headers, ['returned_qty']);
+                writeCSV('sale_items', $data, array_unique($newHeaders));
+            }
+        }
+    }
+
+    // Mark migration as done
+    updateSetting('db_schema_version', $latest_version);
 }
+
+// Run Migrations (only runs if version < latest)
+runMigrations();
+
 ?>

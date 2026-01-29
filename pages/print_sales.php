@@ -64,6 +64,7 @@ foreach($sales as $s) {
 <head>
     <meta charset="UTF-8">
     <title><?= $report_title ?></title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <style>
         @page { size: auto; margin: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; padding: 1.5cm; }
@@ -171,7 +172,7 @@ foreach($sales as $s) {
     </div>
 
     <!-- FontAwesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/all.min.css">
 
 
     <script>

@@ -267,7 +267,7 @@ echo '</main></div>';
     function printReport() {
         const content = document.getElementById('printableArea').innerHTML;
         const printWindow = window.open('', '_blank');
-        printWindow.document.write('<html><head><title>Restock Report</title><style>body { font-family: sans-serif; }</style></head><body>');
+        printWindow.document.write('<html><head><title>Restock Report</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; }</style></head><body>');
         printWindow.document.write(content);
         printWindow.document.write('</body></html>');
         printWindow.document.close();

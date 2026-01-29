@@ -163,7 +163,7 @@ $pageTitle = "Inventory Management";
 include '../includes/header.php';
 ?>
 <!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="../assets/vendor/chartjs/chart.min.js"></script>
 
 <?php
 $products = readCSV('products');

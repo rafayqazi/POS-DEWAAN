@@ -136,7 +136,7 @@ $stats['profit_data'] = array_column($chart_data, 'p');
 ?>
 
 <!-- PDF Download Script -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="../assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
     function downloadPDF() {
         const element = document.getElementById('salesTableContainer');
