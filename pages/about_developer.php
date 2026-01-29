@@ -72,8 +72,8 @@ include '../includes/header.php';
     <!-- Header Section with Profile -->
     <div class="profile-card mb-8 text-white p-8 shadow-2xl">
         <div class="flex flex-col md:flex-row items-center gap-8">
-            <div class="w-32 h-32 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-6xl font-bold">
-                AR
+            <div class="w-32 h-32 rounded-full border-4 border-white/20 shadow-lg overflow-hidden flex items-center justify-center bg-white">
+                <img src="../assets/img/developer.jpg" alt="Abdul Rafay" class="w-full h-full object-cover">
             </div>
             <div class="flex-1 text-center md:text-left">
                 <h1 class="text-4xl font-bold mb-2">Abdul Rafay</h1>
