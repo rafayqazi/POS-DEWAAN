@@ -1,7 +1,10 @@
 @echo off
 
-REM Get the name of current directory using script location
-for %%I in ("%~dp0.") do set "FolderName=%%~nxI"
+REM Get the path relative to htdocs
+set "fullPath=%~dp0"
+set "fullPath=%fullPath:~0,-1%"
+set "relPath=%fullPath:*htdocs\=%"
+set "FolderName=%relPath:\=/%"
 
 REM Check if Apache is running
 tasklist /FI "IMAGENAME eq httpd.exe" 2>NUL | find /I /N "httpd.exe">NUL

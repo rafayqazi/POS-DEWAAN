@@ -1,12 +1,19 @@
 Set WshShell = CreateObject("WScript.Shell")
 Set objWMIService = GetObject("winmgmts:\\.\root\cimv2")
 
-' Get the name of current directory
-Dim fso, scriptPath, scriptDir, folderName
+' Get the name of current directory relative to htdocs
+Dim fso, scriptPath, scriptDir, folderName, pos, relPath
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptPath = WScript.ScriptFullName
 scriptDir = fso.GetParentFolderName(scriptPath)
-folderName = fso.GetFolder(scriptDir).Name
+
+pos = InStr(1, scriptDir, "\htdocs\", vbTextCompare)
+If pos > 0 Then
+    relPath = Mid(scriptDir, pos + 8)
+    folderName = Replace(relPath, "\", "/")
+Else
+    folderName = fso.GetFolder(scriptDir).Name
+End If
 
 ' Monitor Chrome process for POS application
 Do

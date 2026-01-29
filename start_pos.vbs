@@ -20,13 +20,19 @@ End If
 ' Wait for services to fully initialize
 WScript.Sleep 3000
 
-' Get the current script's directory and folder name
-Dim fso, scriptPath, scriptDir, folderName
+' Get the current script's directory and folder name relative to htdocs
+Dim fso, scriptPath, scriptDir, folderName, pos, relPath
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptPath = WScript.ScriptFullName
 scriptDir = fso.GetParentFolderName(scriptPath)
-Set objFolder = fso.GetFolder(scriptDir)
-folderName = objFolder.Name
+
+pos = InStr(1, scriptDir, "\htdocs\", vbTextCompare)
+If pos > 0 Then
+    relPath = Mid(scriptDir, pos + 8)
+    folderName = Replace(relPath, "\", "/")
+Else
+    folderName = fso.GetFolder(scriptDir).Name
+End If
 
 ' Find Chrome path
 Dim chromePath
