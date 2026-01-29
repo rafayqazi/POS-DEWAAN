@@ -23,47 +23,63 @@ function formatCurrency($amount) {
     return 'Rs. ' . number_format($amount, 0); // No decimals for simplicity unless needed
 }
 
+// function getSetting() and updateSetting() removed as they are defined in includes/db.php
+
 function getUpdateStatus($force_fetch = false) {
+    $status = null;
+
     // 0. Use session cache if available and not forced
     if (!$force_fetch && isset($_SESSION['last_update_check']) && (time() - $_SESSION['last_update_check'] < 3600)) {
         if (isset($_SESSION['cached_update_status'])) {
-            return $_SESSION['cached_update_status'];
+            $status = $_SESSION['cached_update_status'];
         }
     }
 
-    $status = ['available' => false, 'count' => 0, 'branch' => '', 'local' => '', 'remote' => '', 'error' => ''];
-    
-    // 1. Identify current branch
-    exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b, $ret_b);
-    if ($ret_b !== 0) {
-        $status['error'] = "Could not identify branch: " . implode(" ", $out_b);
-        return $status;
+    if ($status === null) {
+        $status = ['available' => false, 'count' => 0, 'branch' => '', 'local' => '', 'remote' => '', 'error' => ''];
+        
+        // 1. Identify current branch
+        exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b, $ret_b);
+        if ($ret_b !== 0) {
+            $status['error'] = "Could not identify branch: " . implode(" ", $out_b);
+            // Return defaults on error
+        } else {
+            $status['branch'] = trim($out_b[0] ?? 'master');
+            
+            // 2. Explicit Fetch from origin
+            exec('git fetch origin ' . $status['branch'] . ' 2>&1', $out, $ret);
+            if ($ret !== 0) {
+                $status['error'] = "Fetch failed: " . implode(" ", $out);
+                // If fetch fails, we still return the basic status (maybe we are offline)
+                // But we won't cache an error status as "success" for long
+                // We continue to try and get hashes, but available will likely be false
+            }
+            
+            // 3. Hashes & Count
+            exec('git rev-parse HEAD 2>&1', $out_l);
+            exec("git rev-parse origin/" . $status['branch'] . " 2>&1", $out_r);
+            $status['local'] = substr(trim($out_l[0] ?? ''), 0, 7);
+            $status['remote'] = substr(trim($out_r[0] ?? ''), 0, 7);
+            
+            // 4. Count behind
+            exec("git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
+            $status['count'] = (int)($out_c[0] ?? 0);
+            $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
+            
+            // Cache the GIT part of the result
+            $_SESSION['last_update_check'] = time();
+            $_SESSION['cached_update_status'] = $status;
+        }
     }
-    $status['branch'] = trim($out_b[0] ?? 'master');
     
-    // 2. Explicit Fetch from origin
-    exec('git fetch origin ' . $status['branch'] . ' 2>&1', $out, $ret);
-    if ($ret !== 0) {
-        $status['error'] = "Fetch failed: " . implode(" ", $out);
-        // If fetch fails, we still return the basic status (maybe we are offline)
-        // But we won't cache an error status as "success" for long
-        return $status;
-    }
-    
-    // 3. Hashes & Count
-    exec('git rev-parse HEAD 2>&1', $out_l);
-    exec("git rev-parse origin/" . $status['branch'] . " 2>&1", $out_r);
-    $status['local'] = substr(trim($out_l[0] ?? ''), 0, 7);
-    $status['remote'] = substr(trim($out_r[0] ?? ''), 0, 7);
-    
-    // 4. Count behind
-    exec("git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
-    $status['count'] = (int)($out_c[0] ?? 0);
-    $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
-    
-    // 5. Track Detection Time for Grace Period
+    // 5. Track Detection Time for Grace Period (ALWAYS RUN THIS)
+    // Checks "available" from the status (whether cached or fresh)
     if ($status['available']) {
-        $first_detected = getSetting('update_first_detected', '');
+        // Bypass static cache for this critical read to ensure we see updates
+        $all_settings = readCSV('settings');
+        $first_detected = '';
+        foreach($all_settings as $s) { if($s['key'] == 'update_first_detected') $first_detected = $s['value']; }
+        
         if (empty($first_detected)) {
             $first_detected = time();
             updateSetting('update_first_detected', $first_detected);
@@ -73,11 +89,13 @@ function getUpdateStatus($force_fetch = false) {
         $status['deadline'] = $status['first_detected'] + 86400; // 24 hours later
         $status['overdue'] = (time() > $status['deadline']);
         $status['time_left'] = max(0, $status['deadline'] - time());
+    } else {
+        // Ensure keys exist to avoid undefined index errors
+        $status['first_detected'] = 0;
+        $status['deadline'] = 0;
+        $status['overdue'] = false;
+        $status['time_left'] = 0;
     }
-    
-    // Cache the result
-    $_SESSION['last_update_check'] = time();
-    $_SESSION['cached_update_status'] = $status;
     
     return $status;
 }

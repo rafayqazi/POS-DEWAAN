@@ -125,7 +125,7 @@ async function dismissAlert(alertId, element) {
 
 <?php if ($low_stock > 0 && !in_array('low_stock', $dismissed)): ?>
 <div class="alert-card mb-6 p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group animate-pulse shadow-sm shadow-red-500/5 gap-4 relative">
-    <button onclick="dismissAlert('low_stock', this)" class="absolute top-4 right-6 text-red-300 hover:text-red-500 transition-colors">
+    <button onclick="dismissAlert('low_stock', this)" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white rounded-full text-red-400 hover:text-white hover:bg-red-500 shadow-sm transition-all text-lg cursor-pointer z-10">
         <i class="fas fa-times"></i>
     </button>
     <div class="flex items-center gap-6">
@@ -146,7 +146,7 @@ async function dismissAlert(alertId, element) {
 
 <?php if ($expiring_count > 0 && !in_array('expiry', $dismissed)): ?>
 <div class="alert-card mb-6 p-6 bg-amber-50 border border-amber-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-amber-500/5 gap-4 relative">
-    <button onclick="dismissAlert('expiry', this)" class="absolute top-4 right-6 text-amber-300 hover:text-amber-500 transition-colors">
+    <button onclick="dismissAlert('expiry', this)" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white rounded-full text-amber-400 hover:text-white hover:bg-amber-500 shadow-sm transition-all text-lg cursor-pointer z-10">
         <i class="fas fa-times"></i>
     </button>
     <div class="flex items-center gap-6">
@@ -167,7 +167,7 @@ async function dismissAlert(alertId, element) {
 
 <?php if ($recovery_alert_count > 0 && !in_array('recovery', $dismissed)): ?>
 <div class="alert-card mb-6 p-6 bg-orange-50 border border-orange-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-orange-500/5 gap-4 relative">
-    <button onclick="dismissAlert('recovery', this)" class="absolute top-4 right-6 text-orange-300 hover:text-orange-500 transition-colors">
+    <button onclick="dismissAlert('recovery', this)" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white rounded-full text-orange-400 hover:text-white hover:bg-orange-500 shadow-sm transition-all text-lg cursor-pointer z-10">
         <i class="fas fa-times"></i>
     </button>
     <div class="flex items-center gap-6">
@@ -203,7 +203,8 @@ async function dismissAlert(alertId, element) {
 </div>
 <?php endif; ?>
 
-<?php if (isset($_SESSION['update_available']) && $_SESSION['update_available']): ?>
+
+<?php if (isset($update_status['available']) && $update_status['available']): ?>
 <div class="mb-8 p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-teal-500/5 gap-4 border-l-8 border-l-teal-500">
     <div class="flex items-center gap-6">
         <div class="w-14 h-14 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform shrink-0">
@@ -227,9 +228,15 @@ function startUpdateCountdown(timeLeft) {
     if (!timer) return;
 
     function update() {
+        // Only trigger reload if explicitly overdue AND we are sure valid timeLeft was passed
         if (timeLeft <= 0) {
             timer.innerText = "OVERDUE";
-            window.location.reload();
+            // Check if we are already in a refresh loop before reloading
+            // Simple prevention: only reload if page was loaded > 5 sec ago?
+            // Better: trust the PHP logic. If PHP rendered this, it means it thinks it's NOT overdue.
+            // So if JS thinks it IS overdue, it just means time passed.
+            // Reloading is correct, but let's add a small delay to prevent rapid-fire loops if timestamps are skewed.
+            setTimeout(() => window.location.reload(), 1000);
             return;
         }
         
@@ -244,7 +251,9 @@ function startUpdateCountdown(timeLeft) {
     update();
 }
 document.addEventListener('DOMContentLoaded', () => {
-    startUpdateCountdown(<?= $update_status['time_left'] ?? 0 ?>);
+    // Ensure we pass a number, default to a high number if missing to prevent instant loop
+    // But logically, if available is true, time_left must be set.
+    startUpdateCountdown(<?= isset($update_status['time_left']) ? (int)$update_status['time_left'] : 0 ?>);
 });
 </script>
 <?php endif; ?>
