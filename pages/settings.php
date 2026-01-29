@@ -88,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $u_id = findSettingId('update_first_detected');
             if ($u_id) deleteCSV('settings', $u_id);
             
+            // Force re-check on next page load
+            $_SESSION['check_updates'] = true;
+            
             echo json_encode(['status' => 'success', 'message' => "Update installed successfully from " . $result['branch'] . " branch!"]);
         } else {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);
