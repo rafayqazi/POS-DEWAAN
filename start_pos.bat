@@ -1,5 +1,8 @@
 @echo off
 
+REM Get the name of current directory
+for %%I in ("%CD%") do set "FolderName=%%~nxI"
+
 REM Check if Apache is running
 tasklist /FI "IMAGENAME eq httpd.exe" 2>NUL | find /I /N "httpd.exe">NUL
 if "%ERRORLEVEL%"=="0" (
@@ -26,7 +29,7 @@ REM Wait a bit more for services to fully initialize
 timeout /t 2 /nobreak >nul
 
 REM Open the application in app mode (looks like desktop software)
-start "" chrome --app=http://localhost/POS-DEWAAN/login.php --start-maximized
+start "" chrome --app=http://localhost/%FolderName%/login.php --start-maximized
 
 REM Exit immediately
 exit

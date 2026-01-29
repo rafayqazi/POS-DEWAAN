@@ -25,7 +25,7 @@ Dim fso, scriptPath, scriptDir, folderName
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptPath = WScript.ScriptFullName
 scriptDir = fso.GetParentFolderName(scriptPath)
-folderName = fso.GetFileName(scriptDir)
+folderName = fso.GetBaseName(scriptDir)
 
 ' Find Chrome path
 Dim chromePath
