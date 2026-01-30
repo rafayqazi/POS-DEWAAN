@@ -371,10 +371,10 @@ $chart_data = array_values($category_counts);
                             <td class="p-4 text-right font-mono font-bold text-gray-700 bg-gray-50/50"><?= formatCurrency($stock_val) ?></td>
                             <td class="p-4 text-center">
                                 <div class="flex justify-center space-x-2">
-                                    <button onclick='openRestockModal(<?= json_encode($product) ?>)' class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Restock">
+                                    <button onclick='openRestockModal(<?= htmlspecialchars(json_encode($product), ENT_QUOTES, "UTF-8") ?>)' class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Restock">
                                         <i class="fas fa-plus-circle text-xs"></i>
                                     </button>
-                                    <button onclick='openEditModal(<?= json_encode($product) ?>)' class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Edit">
+                                    <button onclick='openEditModal(<?= htmlspecialchars(json_encode($product), ENT_QUOTES, "UTF-8") ?>)' class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Edit">
                                         <i class="fas fa-edit text-xs"></i>
                                     </button>
                                     <button onclick="confirmDelete(<?= $product['id'] ?>)" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition flex items-center justify-center shadow-sm" title="Delete">
