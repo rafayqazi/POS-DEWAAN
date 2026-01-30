@@ -6,7 +6,13 @@ requireLogin();
 
 if (!isset($_GET['id'])) redirect('customers.php');
 $cid = $_GET['id'];
+
+// RBAC Check: Ensure Customer only views their own ledger
+if (isRole('Customer') && $cid !== ($_SESSION['related_id'] ?? '')) {
+    die("Unauthorized access to this ledger.");
+}
 $customer = findCSV('customers', $cid);
+if (!$customer) die("Customer not found.");
 
 // Handle Date Filtering
 $from_date = $_GET['from'] ?? '';
@@ -156,12 +162,14 @@ usort($ledger, function($a, $b) {
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
+        <?php if (isRole('Admin')): ?>
         <button onclick="openTxnModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-hand-holding-usd mr-2"></i> RECEIVE PAYMENT
         </button>
         <button onclick="openTxnModal('Debt')" class="bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-red-900/10 font-bold text-xs h-[46px] hover:bg-red-600 transition active:scale-95">
             <i class="fas fa-file-invoice-dollar mr-2"></i> OUTSTANDING DEBT
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -335,6 +343,7 @@ usort($ledger, function($a, $b) {
     const saleItemsMap = <?= json_encode($sale_items_grouped) ?>;
     const productsMap = <?= json_encode($products_map) ?>;
     const initialBalance = <?= $total_due ?>;
+    const canEdit = <?= json_encode(isRole('Admin')) ?>;
 
     // Helper for currency formatting
     const formatCurrency = (amount) => {
@@ -602,6 +611,7 @@ usort($ledger, function($a, $b) {
                         ${formatCurrency(t.current_running_balance)}
                     </td>
                     <td class="p-6 text-center align-top">
+                         ${canEdit ? `
                          <div class="flex justify-center items-center gap-1">
                                 ${t.type === 'Payment' ? `
                                <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
@@ -630,6 +640,15 @@ usort($ledger, function($a, $b) {
                                    <i class="fas fa-trash"></i>
                                </button>
                          </div>
+                         ` : `
+                         <div class="flex justify-center items-center gap-1">
+                                ${t.type === 'Sale' ? `
+                               <a href="print_bill.php?id=${t.sale_id}" target="_blank" class="w-8 h-8 flex items-center justify-center text-teal-500 hover:bg-teal-50 rounded-lg transition" title="Print Bill">
+                                   <i class="fas fa-print"></i>
+                               </a>
+                               ` : '-'}
+                         </div>
+                         `}
                     </td>
                 </tr>`;
             }

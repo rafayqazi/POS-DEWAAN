@@ -23,6 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (password_verify($password, $u['password'])) {
                     $_SESSION['user_id'] = $u['id'];
                     $_SESSION['username'] = $u['username'];
+                    $_SESSION['user_role'] = $u['role'] ?? 'Admin';
+                    $_SESSION['related_id'] = $u['related_id'] ?? '';
                     $_SESSION['check_updates'] = true; 
                     $_SESSION['show_welcome'] = true; 
                     redirect('index.php');

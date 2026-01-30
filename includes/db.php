@@ -391,7 +391,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 1;
+    $latest_version = 3;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -510,8 +510,47 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 2: User Roles and Related IDs
+    // ----------------------------------------------------
+    $userPath = getCSVPath('users');
+    if (file_exists($userPath)) {
+        $fp_mig = fopen($userPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('role', $headers)) {
+                $data = readCSV('users');
+                foreach ($data as &$u) {
+                    if (!isset($u['role'])) $u['role'] = 'Admin';
+                    if (!isset($u['related_id'])) $u['related_id'] = '';
+                }
+                writeCSV('users', $data, ['id', 'username', 'password', 'role', 'related_id', 'created_at']);
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // MIGRATION 3: Plain Password for Admin visibility
+    // ----------------------------------------------------
+    $userPath = getCSVPath('users');
+    if (file_exists($userPath)) {
+        $fp_mig = fopen($userPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('plain_password', $headers)) {
+                $data = readCSV('users');
+                foreach ($data as &$u) {
+                    if (!isset($u['plain_password'])) $u['plain_password'] = ''; 
+                }
+                writeCSV('users', $data, ['id', 'username', 'password', 'role', 'related_id', 'created_at', 'plain_password']);
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', $latest_version);
+    updateSetting('db_schema_version', '3');
 }
 
 // Run Migrations (only runs if version < latest)

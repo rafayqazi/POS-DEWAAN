@@ -34,6 +34,31 @@ Else
     folderName = fso.GetFolder(scriptDir).Name
 End If
 
+' Create/Update Desktop Shortcut
+Dim desktopPath, shortcut
+desktopPath = WshShell.SpecialFolders("Desktop")
+Set shortcut = WshShell.CreateShortcut(desktopPath & "\Fashion Shines POS.lnk")
+shortcut.TargetPath = "wscript.exe"
+shortcut.Arguments = """" & scriptPath & """"
+shortcut.WorkingDirectory = scriptDir
+shortcut.Description = "Launch Fashion Shines POS System"
+
+' Set the icon - checking for custom ico file
+Dim iconPath
+iconPath = scriptDir & "\assets\img\logo.ico"
+If Not fso.FileExists(iconPath) Then
+    iconPath = scriptDir & "\assets\img\favicon.ico"
+End If
+
+If fso.FileExists(iconPath) Then
+    shortcut.IconLocation = iconPath
+Else
+    ' Fallback to a professional system icon if custom ico is missing
+    shortcut.IconLocation = "imageres.dll, 185" 
+End If
+
+shortcut.Save
+
 ' Find Chrome path
 Dim chromePath
 chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"

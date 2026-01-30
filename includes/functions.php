@@ -166,4 +166,186 @@ function runUpdate() {
     return ['success' => ($return_var === 0), 'message' => $message, 'branch' => $branch];
 }
 
+// --- RBAC Helpers ---
+
+function isRole($role) {
+    if (!isset($_SESSION['user_role'])) return false;
+    if (is_array($role)) return in_array($_SESSION['user_role'], $role);
+    return $_SESSION['user_role'] === $role;
+}
+
+function hasPermission($action) {
+    $role = $_SESSION['user_role'] ?? '';
+    
+    if ($role === 'Admin') return true;
+    
+    switch ($action) {
+        case 'view_dashboard':
+        case 'view_inventory':
+        case 'view_ledger':
+        case 'view_reports':
+            return in_array($role, ['Admin', 'Viewer', 'Customer', 'Dealer']);
+        
+        case 'add_sale':
+        case 'edit_sale':
+        case 'delete_sale':
+        case 'add_product':
+        case 'edit_product':
+        case 'delete_product':
+        case 'add_restock':
+        case 'manage_users':
+        case 'update_settings':
+        case 'manage_customers':
+        case 'manage_dealers':
+        case 'manage_business':
+            return $role === 'Admin';
+            
+        case 'view_sensitive_stats':
+        case 'view_business_alerts':
+            return in_array($role, ['Admin', 'Viewer']);
+            
+        case 'download_records':
+            return in_array($role, ['Admin', 'Viewer']);
+            
+        default:
+            return false;
+    }
+}
+
+function requirePermission($action) {
+    requireLogin();
+    if (!hasPermission($action)) {
+        die("Unauthorized access. You do not have permission to perform this action.");
+    }
+}
+
+function getUserRelatedId() {
+    return $_SESSION['related_id'] ?? null;
+}
+
+/**
+ * Filter data based on user role
+ */
+function filterDataByRole($table, $data) {
+    $role = $_SESSION['user_role'] ?? 'Admin';
+    $related_id = getUserRelatedId();
+    
+    if ($role === 'Admin' || $role === 'Viewer') return $data;
+    
+    if ($role === 'Customer' && $related_id) {
+        if ($table === 'sales' || $table === 'customer_transactions') {
+            return array_filter($data, function($item) use ($related_id) {
+                return isset($item['customer_id']) && $item['customer_id'] == $related_id;
+            });
+        }
+        if ($table === 'customers') {
+            return array_filter($data, function($item) use ($related_id) {
+                return isset($item['id']) && $item['id'] == $related_id;
+            });
+        }
+    }
+    
+    if ($role === 'Dealer' && $related_id) {
+        if ($table === 'restocks' || $table === 'dealer_transactions') {
+            return array_filter($data, function($item) use ($related_id) {
+                return isset($item['dealer_id']) && $item['dealer_id'] == $related_id;
+            });
+        }
+        if ($table === 'dealers') {
+            return array_filter($data, function($item) use ($related_id) {
+                return isset($item['id']) && $item['id'] == $related_id;
+            });
+        }
+    }
+    
+    // For other tables or if no related_id, return empty if not Admin/Viewer
+    if (in_array($table, ['sales', 'customer_transactions', 'restocks', 'dealer_transactions', 'expenses', 'users', 'settings'])) {
+         return [];
+    }
+    
+    return $data;
+}
+
+
+/**
+ * Consolidated Notification Helper
+ */
+function getGlobalNotifications() {
+    $notifications = [];
+    
+    // Use the unified permission helper
+    if (hasPermission('view_business_alerts')) {
+        $all_products = readCSV('products');
+        
+        // 1. Low Stock Check
+        $dismissed = $_SESSION['dismissed_alerts'] ?? [];
+        $low_stock_count = 0;
+        foreach ($all_products as $p) {
+            if (isset($p['stock_quantity']) && $p['stock_quantity'] < 10) {
+                $low_stock_count++;
+            }
+        }
+        if ($low_stock_count > 0 && !in_array('stock', $dismissed)) {
+            $notifications[] = [
+                'type' => 'stock',
+                'title' => 'Critical Stock Warning',
+                'message' => "{$low_stock_count} items are running low.",
+                'icon' => 'fas fa-exclamation-triangle',
+                'color' => 'bg-red-500',
+                'link' => 'pages/inventory.php?filter=low'
+            ];
+        }
+
+        // 2. Expiry Check
+        $notify_days = (int)getSetting('expiry_notify_days', '7');
+        $expiry_threshold = date('Y-m-d', strtotime("+$notify_days days"));
+        $expiring_count = 0;
+        foreach ($all_products as $p) {
+            if (!empty($p['expiry_date']) && $p['expiry_date'] <= $expiry_threshold && $p['expiry_date'] >= date('Y-m-d')) {
+                $expiring_count++;
+            }
+        }
+        if ($expiring_count > 0 && !in_array('expiry', $dismissed)) {
+            $notifications[] = [
+                'type' => 'expiry',
+                'title' => 'Expiry Alert',
+                'message' => "{$expiring_count} items expiring soon.",
+                'icon' => 'fas fa-calendar-times',
+                'color' => 'bg-amber-500',
+                'link' => 'pages/inventory.php'
+            ];
+        }
+
+        // 3. Debt Recovery Logic
+        $all_txns = readCSV('customer_transactions');
+        $debt_map = [];
+        foreach($all_txns as $t) {
+            $cid = $t['customer_id'];
+            $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
+        }
+
+        $rec_notify_days = (int)getSetting('recovery_notify_days', '7');
+        $rec_threshold = date('Y-m-d', strtotime("+$rec_notify_days days"));
+        $due_count = 0;
+        foreach ($all_txns as $tx) {
+            if (!empty($tx['due_date']) && ($debt_map[$tx['customer_id']] ?? 0) > 1) {
+                if ($tx['due_date'] <= $rec_threshold) {
+                    $due_count++;
+                }
+            }
+        }
+        if ($due_count > 0 && !in_array('debt', $dismissed)) {
+            $notifications[] = [
+                'type' => 'debt',
+                'title' => 'Debt Recovery Due',
+                'message' => "{$due_count} payments are pending.",
+                'icon' => 'fas fa-file-invoice-dollar',
+                'color' => 'bg-blue-500',
+                'link' => 'pages/customers.php'
+            ];
+        }
+    }
+
+    return $notifications;
+}
 ?>

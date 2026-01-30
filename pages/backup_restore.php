@@ -3,6 +3,7 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 requireLogin();
+if (!hasPermission('manage_users')) die("Unauthorized Access");
 
 $pageTitle = "Backup & Restore";
 include '../includes/header.php';

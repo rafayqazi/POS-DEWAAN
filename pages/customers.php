@@ -6,6 +6,7 @@ requireLogin();
 
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add') {
+    requirePermission('manage_customers');
     insertCSV('customers', [
         'name' => cleanInput($_POST['name']),
         'phone' => cleanInput($_POST['phone']),
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'edit') {
+    requirePermission('manage_customers');
     $id = $_POST['id'];
     $data = [
         'name' => cleanInput($_POST['name']),
@@ -100,9 +102,11 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
         <button onclick="printReport()" class="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
+        <?php if (hasPermission('manage_customers')): ?>
         <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="w-full md:w-auto bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 shadow-lg flex items-center justify-center transition transform hover:scale-105 active:scale-95">
             <i class="fas fa-user-plus mr-2"></i> Add Customer
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -149,6 +153,8 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
                                 <?php endif; ?>
                             </div>
                         </div>
+
+                        <?php if (hasPermission('manage_customers')): ?>
                         <div class="flex flex-col gap-2">
                             <button onclick="event.stopPropagation(); editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
                                 <i class="fas fa-edit"></i>
@@ -157,6 +163,7 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">

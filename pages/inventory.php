@@ -3,6 +3,7 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 requireLogin();
+if (!hasPermission('add_product')) die("Unauthorized Access");
 
 $message = '';
 $error = '';

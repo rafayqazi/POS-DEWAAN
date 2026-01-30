@@ -38,12 +38,28 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
+        @keyframes swing {
+            0% { transform: rotate(0); }
+            10% { transform: rotate(10deg); }
+            30% { transform: rotate(-10deg); }
+            45% { transform: rotate(5deg); }
+            55% { transform: rotate(-5deg); }
+            65% { transform: rotate(2deg); }
+            75% { transform: rotate(-2deg); }
+            100% { transform: rotate(0); }
+        }
+        .animate-swing {
+            animation: swing 2s ease infinite;
+            transform-origin: top center;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
 <?php if (isset($_SESSION['user_id'])): ?>
     <?php
+    $global_notifications = getGlobalNotifications();
+    $notif_count = count($global_notifications);
     // Global Lockdown Check
     $current_page = basename($_SERVER['PHP_SELF']);
     if ($current_page !== 'lockdown.php') {
@@ -77,6 +93,7 @@
                             <span class="font-bold ml-4 sidebar-text">Dashboard</span>
                         </a>
                     </li>
+                    <?php if (isRole(['Admin', 'Viewer'])): ?>
                     <!-- Dropdown for Inventory -->
                     <li class="relative">
                         <button onclick="toggleDropdown('inventoryDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Inventory">
@@ -87,26 +104,32 @@
                             <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="inventoryDropdownIcon"></i>
                         </button>
                         <ul id="inventoryDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
+                            <?php if (hasPermission('add_product')): ?>
                             <li>
                                 <a href="<?= $base ?>pages/inventory.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Add Inventory">
                                     <i class="fas fa-plus-circle mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Add Inventory</span>
                                 </a>
                             </li>
+                            <?php endif; ?>
                             <li>
                                 <a href="<?= $base ?>pages/check_inventory.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'check_inventory.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Check Inventory">
                                     <i class="fas fa-search mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Check Inventory</span>
                                 </a>
                             </li>
+                            <?php if (hasPermission('add_sale')): ?>
                             <li>
                                 <a href="<?= $base ?>pages/return_product.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_product.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Product">
                                     <i class="fas fa-undo mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Return Product</span>
                                 </a>
                             </li>
+                            <?php endif; ?>
                         </ul>
                     </li>
+                    <?php endif; ?>
+                    <?php if (isRole(['Admin', 'Viewer', 'Dealer'])): ?>
                     <!-- Dropdown for Restock Management -->
                     <li class="relative">
                         <button onclick="toggleDropdown('restockDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Inventory Restock">
@@ -117,12 +140,14 @@
                             <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="restockDropdownIcon"></i>
                         </button>
                         <ul id="restockDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
+                            <?php if (hasPermission('add_restock')): ?>
                             <li>
                                 <a href="<?= $base ?>pages/quick_restock.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'quick_restock.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Quick Restock">
                                     <i class="fas fa-plus-square mr-3 text-[10px]"></i>
                                     <span class="sidebar-text">Quick Restock</span>
                                 </a>
                             </li>
+                            <?php endif; ?>
                             <li>
                                 <a href="<?= $base ?>pages/restock_history.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'restock_history.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Restock History">
                                     <i class="fas fa-history mr-3 text-[10px]"></i>
@@ -131,12 +156,16 @@
                             </li>
                         </ul>
                     </li>
+                    <?php endif; ?>
+                    <?php if (hasPermission('add_sale')): ?>
                     <li>
                         <a href="<?= $base ?>pages/pos.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'pos.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="POS / Sale">
                             <i class="fas fa-cash-register w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">POS / Sale</span>
                         </a>
                     </li>
+                    <?php endif; ?>
+                    <?php if (isRole(['Admin', 'Viewer'])): ?>
                     <li>
                         <a href="<?= $base ?>pages/customers.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Customers">
                             <i class="fas fa-users w-6 text-xl"></i>
@@ -161,6 +190,32 @@
                             <span class="font-medium ml-4 sidebar-text">Reports</span>
                         </a>
                     </li>
+                    <?php endif; ?>
+
+                    <?php if (isRole('Customer')): ?>
+                    <li>
+                        <a href="<?= $base ?>pages/customer_ledger.php?id=<?= $_SESSION['related_id'] ?? '' ?>" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'customer_ledger.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="My Ledger">
+                            <i class="fas fa-file-invoice-dollar w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">My Ledger</span>
+                        </a>
+                    </li>
+                     <li>
+                        <a href="<?= $base ?>pages/sales_history.php?customer_id=<?= $_SESSION['related_id'] ?? '' ?>" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'sales_history.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Sales History">
+                            <i class="fas fa-history w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">Sales History</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
+                    <?php if (isRole('Dealer')): ?>
+                    <li>
+                        <a href="<?= $base ?>pages/dealer_ledger.php?id=<?= $_SESSION['related_id'] ?? '' ?>" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'dealer_ledger.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="My Ledger">
+                            <i class="fas fa-file-invoice-dollar w-6 text-xl"></i>
+                            <span class="font-medium ml-4 sidebar-text">My Ledger</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <?php if (isRole('Admin')): ?>
                     <!-- Dropdown for Product Setup -->
                     <li class="relative">
                         <button onclick="toggleDropdown('setupDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Product Setup">
@@ -185,18 +240,21 @@
                             </li>
                         </ul>
                     </li>
+                    <?php endif; ?>
                     <li>
                         <a href="<?= $base ?>pages/settings.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Settings">
                             <i class="fas fa-cog w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Settings</span>
                         </a>
                     </li>
+                    <?php if (isRole('Admin')): ?>
                     <li>
                         <a href="<?= $base ?>pages/backup_restore.php" class="flex items-center px-6 py-4 hover:bg-teal-800 transition-colors <?= basename($_SERVER['PHP_SELF']) == 'backup_restore.php' ? 'bg-teal-800 border-r-4 border-accent' : '' ?>" title="Backup & Restore">
                             <i class="fas fa-database w-6 text-xl"></i>
                             <span class="font-medium ml-4 sidebar-text">Backup/Restore</span>
                         </a>
                     </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
 
@@ -210,13 +268,110 @@
 
         <!-- Main Content -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-8 relative">
-            <!-- Mobile Toggle Button -->
-            <button onclick="toggleSidebarMobile()" class="md:hidden fixed top-4 right-4 z-40 bg-teal-700 text-white p-2 rounded-lg shadow-lg">
-                <i class="fas fa-bars"></i>
-            </button>
 
             <!-- Overlay for mobile -->
             <div id="sidebarOverlay" onclick="toggleSidebarMobile()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden glass"></div>
+
+            <!-- Top Navigation Bar -->
+            <div class="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 md:px-8 py-3 flex items-center justify-between shadow-sm mb-6">
+                <!-- Mobile Menu and Search Placeholder -->
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebarMobile()" class="md:hidden p-2 text-gray-400 hover:text-teal-600 transition-colors">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
+                    <div class="hidden md:flex items-center bg-gray-50 rounded-xl px-4 py-2 border border-gray-100 group focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                        <i class="fas fa-search text-gray-400 mr-2 group-focus-within:text-teal-500"></i>
+                        <input type="text" placeholder="Search..." class="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-700 w-48">
+                    </div>
+                </div>
+
+                <!-- Account Actions and Notifications -->
+                <div class="flex items-center gap-3 md:gap-6">
+                    <!-- Notification Bell -->
+                    <div class="relative">
+                        <button onclick="toggleDropdown('notificationDropdown')" class="w-10 h-10 flex items-center justify-center bg-gray-50 rounded-xl text-gray-500 hover:bg-teal-50 hover:text-teal-600 transition-all border border-gray-100 group relative">
+                            <i class="fas fa-bell <?= $notif_count > 0 ? 'animate-swing' : '' ?>"></i>
+                            <?php if ($notif_count > 0): ?>
+                                <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                                    <?= $notif_count ?>
+                                </span>
+                            <?php endif; ?>
+                        </button>
+                        
+                        <!-- Notification Dropdown -->
+                        <div id="notificationDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 hidden overflow-hidden transform origin-top-right transition-all z-50">
+                            <div class="p-4 border-b border-gray-50 flex items-center justify-between">
+                                <h4 class="font-bold text-gray-800">Notifications</h4>
+                                <span class="text-[10px] font-black uppercase tracking-widest text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">New (<?= $notif_count ?>)</span>
+                            </div>
+                            <div class="max-h-96 overflow-y-auto">
+                                <?php if ($notif_count > 0): ?>
+                                    <?php foreach ($global_notifications as $notif): ?>
+                                        <a href="<?= $base . $notif['link'] ?>" class="flex items-start gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-none">
+                                            <div class="w-10 h-10 <?= $notif['color'] ?> text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-<?= str_replace('bg-', '', $notif['color']) ?>/20">
+                                                <i class="<?= $notif['icon'] ?>"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-bold text-gray-800"><?= $notif['title'] ?></p>
+                                                <p class="text-xs text-gray-500 mt-1"><?= $notif['message'] ?></p>
+                                            </div>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div class="p-8 text-center">
+                                        <div class="w-16 h-16 bg-gray-50 text-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <i class="fas fa-bell-slash text-2xl"></i>
+                                        </div>
+                                        <p class="text-gray-400 text-sm font-medium">All caught up!</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($notif_count > 0): ?>
+                                <div class="p-3 bg-gray-50 text-center">
+                                    <button onclick="clearAllNotifications()" class="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-teal-600 transition-colors">Clear All</button>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="h-8 w-[1px] bg-gray-100 hidden md:block"></div>
+
+                    <!-- User Information -->
+                    <div class="relative">
+                        <button onclick="toggleDropdown('userProfileDropdown')" class="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100">
+                            <div class="w-8 h-8 md:w-10 md:h-10 bg-teal-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-lg shadow-teal-500/20">
+                                <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
+                            </div>
+                            <div class="hidden md:block text-left">
+                                <p class="text-xs font-black text-gray-800 tracking-tight leading-none"><?= $_SESSION['username'] ?></p>
+                                <p class="text-[10px] font-medium text-teal-600 mt-1 uppercase tracking-wider"><?= $_SESSION['user_role'] ?></p>
+                            </div>
+                            <i class="fas fa-chevron-down text-[10px] text-gray-400 ml-1 hidden md:block" id="userProfileDropdownIcon"></i>
+                        </button>
+
+                        <!-- User Dropdown -->
+                        <div id="userProfileDropdown" class="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 hidden overflow-hidden transition-all z-50">
+                            <div class="p-4 border-b border-gray-50 md:hidden">
+                                <p class="text-sm font-bold text-gray-800"><?= $_SESSION['username'] ?></p>
+                                <p class="text-xs text-teal-600 font-medium lowercase italic"><?= $_SESSION['user_role'] ?></p>
+                            </div>
+                            <div class="p-2">
+                                <a href="<?= $base ?>pages/settings.php" class="flex items-center gap-3 px-4 py-3 text-sm text-gray-600 font-bold hover:bg-teal-50 hover:text-teal-700 rounded-xl transition-all">
+                                    <i class="fas fa-user-circle text-gray-400"></i> My Profile
+                                </a>
+                                <a href="<?= $base ?>pages/settings.php" class="flex items-center gap-3 px-4 py-3 text-sm text-gray-600 font-bold hover:bg-teal-50 hover:text-teal-700 rounded-xl transition-all">
+                                    <i class="fas fa-cog text-gray-400"></i> Settings
+                                </a>
+                                <div class="h-[1px] bg-gray-50 my-2"></div>
+                                <a href="<?= $base ?>logout.php" class="flex items-center gap-3 px-4 py-3 text-sm text-red-600 font-bold hover:bg-red-50 rounded-xl transition-all">
+                                    <i class="fas fa-power-off text-red-300"></i> Sign Out
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Update Notification Banner -->
             <div id="globalUpdateBanner" class="hidden mb-6 p-4 bg-orange-600 text-white rounded-2xl flex flex-col md:flex-row items-center justify-between shadow-xl animate-bounce-short z-30">
@@ -462,6 +617,20 @@
                 alert('Update error: ' + err.message);
                 btn.disabled = false;
                 btn.innerText = 'Try Again';
+            }
+        }
+
+        async function clearAllNotifications() {
+            try {
+                const base = '<?= $base ?>';
+                const response = await fetch(base + 'actions/clear_all_notifications.php', {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    location.reload(); 
+                }
+            } catch (e) {
+                console.error("Failed to clear notifications", e);
             }
         }
     </script>

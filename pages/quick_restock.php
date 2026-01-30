@@ -2,6 +2,7 @@
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 requireLogin();
+if (!hasPermission('add_restock')) die("Unauthorized Access");
 
 include '../includes/header.php';
 

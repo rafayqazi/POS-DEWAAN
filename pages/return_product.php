@@ -3,6 +3,7 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 requireLogin();
+if (!hasPermission('add_sale')) die("Unauthorized Access");
 $pageTitle = "Product Returns";
 include '../includes/header.php';
 

@@ -3,6 +3,7 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 requireLogin();
+if (!hasPermission('update_settings')) die("Unauthorized Access");
 $message = '';
 $error = '';
 
@@ -130,6 +131,65 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         if (!$error) $message = "General settings updated successfully.";
+    } elseif ($action == 'add_user') {
+        requirePermission('manage_users');
+        $username = cleanInput($_POST['username']);
+        $password = $_POST['password'];
+        $role = $_POST['role'] ?? 'Viewer';
+        $related_id = $_POST['related_id'] ?? '';
+
+        if (!$username || !$password) {
+            $error = "Username and password are required.";
+        } else {
+            // Check if username exists
+            $users = readCSV('users');
+            $exists = false;
+            foreach ($users as $u) {
+                if ($u['username'] == $username) {
+                    $exists = true;
+                    break;
+                }
+            }
+
+            if ($exists) {
+                $error = "Username already exists.";
+            } else {
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                insertCSV('users', [
+                    'username' => $username,
+                    'password' => $hash,
+                    'role' => $role,
+                    'related_id' => $related_id,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'plain_password' => $password
+                ]);
+                $message = "User '$username' added successfully.";
+            }
+        }
+    } elseif ($action == 'admin_update_password') {
+        requirePermission('manage_users');
+        $id = $_POST['id'];
+        $new_password = $_POST['new_password'];
+        
+        if (!$new_password) {
+            $error = "Password cannot be empty.";
+        } else {
+            $hash = password_hash($new_password, PASSWORD_DEFAULT);
+            updateCSV('users', $id, [
+                'password' => $hash,
+                'plain_password' => $new_password
+            ]);
+            $message = "User password updated successfully.";
+        }
+    } elseif ($action == 'delete_user') {
+        requirePermission('manage_users');
+        $id = $_POST['id'];
+        if ($id == $_SESSION['user_id']) {
+            $error = "You cannot delete your own account.";
+        } else {
+            deleteCSV('users', $id);
+            $message = "User deleted.";
+        }
     }
 }
 
@@ -154,6 +214,11 @@ $categories = readCSV('categories');
         <button onclick="switchTab('security')" id="tab-security" class="tab-btn px-8 py-4 font-bold text-gray-500 hover:text-primary transition-colors border-b-2 border-transparent focus:outline-none relative whitespace-nowrap active-tab">
             <i class="fas fa-user-shield mr-2"></i> Security
         </button>
+        <?php if (hasPermission('manage_users')): ?>
+        <button onclick="switchTab('users')" id="tab-users" class="tab-btn px-8 py-4 font-bold text-gray-500 hover:text-primary transition-colors border-b-2 border-transparent focus:outline-none relative whitespace-nowrap">
+            <i class="fas fa-users mr-2"></i> Users
+        </button>
+        <?php endif; ?>
         <button onclick="switchTab('updates')" id="tab-updates" class="tab-btn px-8 py-4 font-bold text-gray-500 hover:text-primary transition-colors border-b-2 border-transparent focus:outline-none relative whitespace-nowrap">
             <i class="fas fa-cloud-download-alt mr-2"></i> Updates
         </button>
@@ -161,6 +226,12 @@ $categories = readCSV('categories');
             <i class="fas fa-cogs mr-2"></i> General
         </button>
     </div>
+
+    <?php 
+    $users = readCSV('users');
+    $all_customers = readCSV('customers');
+    $all_dealers = readCSV('dealers');
+    ?>
 
     <!-- Messages -->
     <?php if($message): ?><div class="mt-4 bg-green-100 text-green-700 p-4 rounded-xl shadow-sm border-l-4 border-green-500 animate-fade-in"><i class="fas fa-check-circle mr-2"></i><?= $message ?></div><?php endif; ?>
@@ -209,6 +280,157 @@ $categories = readCSV('categories');
             </form>
         </div>
     </div>
+
+    <!-- Users Tab -->
+    <?php if (hasPermission('manage_users')): ?>
+    <div id="content-users" class="tab-content hidden bg-white rounded-b-2xl shadow-xl p-8 border border-t-0 border-gray-100 mb-8 min-h-[400px]">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Add User Form -->
+            <div class="lg:col-span-1 border-r border-gray-100 pr-8">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="w-10 h-10 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center mr-3">
+                        <i class="fas fa-user-plus text-sm"></i>
+                    </span>
+                    Add New User
+                </h2>
+                <form method="POST" id="addUserForm" class="space-y-4">
+                    <input type="hidden" name="action" value="add_user">
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-1 text-xs uppercase tracking-wider">Username</label>
+                        <input type="text" name="username" id="usernameInput" required placeholder="Login ID"
+                               class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary transition outline-none shadow-sm bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-1 text-xs uppercase tracking-wider">Password</label>
+                        <input type="password" name="password" required placeholder="••••••••"
+                               class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary transition outline-none shadow-sm bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-1 text-xs uppercase tracking-wider">User Role</label>
+                        <select name="role" id="roleSelect" onchange="toggleRoleFields()" required
+                                class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary transition outline-none shadow-sm bg-gray-50">
+                            <option value="Admin">Admin (Full Access)</option>
+                            <option value="Viewer" selected>Viewer (View & Download Only)</option>
+                            <option value="Customer">Customer (View Own Data Only)</option>
+                            <option value="Dealer">Dealer (View Own Data Only)</option>
+                        </select>
+                    </div>
+
+                    <!-- Role-specific description -->
+                    <div id="roleDesc" class="p-3 rounded-lg bg-blue-50 text-blue-700 text-xs italic">
+                        Viewers can see records and download reports but cannot edit or delete anything.
+                    </div>
+
+                    <!-- Relation selection (Hidden initially) -->
+                    <div id="customerField" class="hidden">
+                        <label class="block text-gray-700 font-bold mb-1 text-xs uppercase tracking-wider">Select Customer</label>
+                        <select name="related_id_customer" onchange="autoFetchUsername(this)" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary transition outline-none shadow-sm bg-gray-50">
+                            <option value="">-- Select Customer --</option>
+                            <?php foreach ($all_customers as $c): ?>
+                                <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div id="dealerField" class="hidden">
+                        <label class="block text-gray-700 font-bold mb-1 text-xs uppercase tracking-wider">Select Dealer</label>
+                        <select name="related_id_dealer" onchange="autoFetchUsername(this)" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary transition outline-none shadow-sm bg-gray-50">
+                            <option value="">-- Select Dealer --</option>
+                            <?php foreach ($all_dealers as $d): ?>
+                                <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <input type="hidden" name="related_id" id="related_id_final" value="">
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-secondary transition shadow-md flex items-center justify-center">
+                            <i class="fas fa-plus-circle mr-2"></i> Create User
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Users List -->
+            <div class="lg:col-span-2">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3">
+                        <i class="fas fa-user-friends text-sm"></i>
+                    </span>
+                    System Users
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-gray-400 text-xs uppercase tracking-widest border-b border-gray-100">
+                                <th class="pb-4 pl-4 font-extrabold">Username</th>
+                                <th class="pb-4 font-extrabold">Password</th>
+                                <th class="pb-4 font-extrabold">Role</th>
+                                <th class="pb-4 font-extrabold">Linked Entity</th>
+                                <th class="pb-4 pr-4 font-extrabold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                            <?php foreach ($users as $u): ?>
+                            <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                                <td class="py-4 pl-4 font-bold text-gray-700">
+                                    <?= htmlspecialchars($u['username']) ?>
+                                    <?php if($u['id'] == $_SESSION['user_id']): ?>
+                                        <span class="ml-2 text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">YOU</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="py-4 font-mono text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <span id="pass-<?= $u['id'] ?>" class="hidden"><?= htmlspecialchars($u['plain_password'] ?? '********') ?></span>
+                                        <span id="stars-<?= $u['id'] ?>">********</span>
+                                        <button onclick="togglePass(<?= $u['id'] ?>)" class="text-gray-400 hover:text-primary transition">
+                                            <i class="fas fa-eye" id="eye-<?= $u['id'] ?>"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="py-4 font-medium">
+                                    <span class="px-2 py-1 rounded-lg text-xs 
+                                        <?= ($u['role'] ?? 'Admin') == 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700' ?>">
+                                        <?= htmlspecialchars($u['role'] ?? 'Admin') ?>
+                                    </span>
+                                </td>
+                                <td class="py-4 text-gray-500 text-xs">
+                                    <?php 
+                                    if ($u['role'] == 'Customer') {
+                                        $rel = findCSV('customers', $u['related_id']);
+                                        echo $rel ? htmlspecialchars($rel['name']) : 'Unknown';
+                                    } elseif ($u['role'] == 'Dealer') {
+                                        $rel = findCSV('dealers', $u['related_id']);
+                                        echo $rel ? htmlspecialchars($rel['name']) : 'Unknown';
+                                    } else {
+                                        echo '-';
+                                    }
+                                    ?>
+                                </td>
+                                <td class="py-4 pr-4 text-right px-2">
+                                    <div class="flex justify-end gap-1">
+                                        <button onclick="adminChangePass(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username']) ?>')" class="text-blue-400 hover:text-blue-600 transition p-2" title="Change Password">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                        <?php if($u['id'] != $_SESSION['user_id']): ?>
+                                        <form method="POST" onsubmit="return confirm('Delete user?')" class="inline">
+                                            <input type="hidden" name="action" value="delete_user">
+                                            <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                            <button class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Updates Tab -->
     <div id="content-updates" class="tab-content hidden bg-white rounded-b-2xl shadow-xl p-8 border border-t-0 border-gray-100 mb-8 min-h-[400px]">
@@ -374,6 +596,109 @@ function switchTab(tabName) {
     
     // Save preference
     localStorage.setItem('settingsActiveTab', tabName);
+}
+
+function toggleRoleFields() {
+    const role = document.getElementById('roleSelect').value;
+    const desc = document.getElementById('roleDesc');
+    const custField = document.getElementById('customerField');
+    const dealerField = document.getElementById('dealerField');
+    const relatedIdFinal = document.getElementById('related_id_final');
+    
+    custField.classList.add('hidden');
+    dealerField.classList.add('hidden');
+    
+    let description = "";
+    switch(role) {
+        case 'Admin':
+            description = "Admins have full access to all features, settings, and user management.";
+            break;
+        case 'Viewer':
+            description = "Viewers can see records and download reports but cannot edit or delete anything.";
+            break;
+        case 'Customer':
+            description = "Customers can only see their own sales history and ledger.";
+            custField.classList.remove('hidden');
+            break;
+        case 'Dealer':
+            description = "Dealers can only see their own restock history and ledger.";
+            dealerField.classList.remove('hidden');
+            break;
+    }
+    desc.innerText = description;
+}
+
+// Update related_id before submit
+document.getElementById('addUserForm')?.addEventListener('submit', function() {
+    const role = document.getElementById('roleSelect').value;
+    const relatedIdFinal = document.getElementById('related_id_final');
+    if (role === 'Customer') {
+        relatedIdFinal.value = document.querySelector('select[name="related_id_customer"]').value;
+    } else if (role === 'Dealer') {
+        relatedIdFinal.value = document.querySelector('select[name="related_id_dealer"]').value;
+    } else {
+        relatedIdFinal.value = "";
+    }
+});
+
+function autoFetchUsername(select) {
+    const text = select.options[select.selectedIndex].text;
+    if (!text || text.includes('-- Select')) return;
+    
+    // Convert to lowercase, remove spaces and special chars
+    const username = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+    document.getElementById('usernameInput').value = username;
+}
+
+function togglePass(id) {
+    const pass = document.getElementById('pass-' + id);
+    const stars = document.getElementById('stars-' + id);
+    const eye = document.getElementById('eye-' + id);
+    
+    if (pass.classList.contains('hidden')) {
+        pass.classList.remove('hidden');
+        stars.classList.add('hidden');
+        eye.classList.remove('fa-eye');
+        eye.classList.add('fa-eye-slash');
+    } else {
+        pass.classList.add('hidden');
+        stars.classList.remove('hidden');
+        eye.classList.add('fa-eye');
+        eye.classList.remove('fa-eye-slash');
+    }
+}
+
+function adminChangePass(id, username) {
+    const newPass = prompt("Enter new password for '" + username + "':");
+    if (newPass === null) return;
+    if (!newPass.trim()) {
+        alert("Password cannot be empty.");
+        return;
+    }
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = 'admin_update_password';
+    form.appendChild(actionInput);
+    
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'id';
+    idInput.value = id;
+    form.appendChild(idInput);
+    
+    const passInput = document.createElement('input');
+    passInput.type = 'hidden';
+    passInput.name = 'new_password';
+    passInput.value = newPass;
+    form.appendChild(passInput);
+    
+    document.body.appendChild(form);
+    form.submit();
 }
 
 // Restore active tab logic

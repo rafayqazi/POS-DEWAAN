@@ -9,6 +9,12 @@ if (!isset($_GET['id'])) {
 }
 
 $dealer_id = $_GET['id'];
+
+// RBAC Check: Ensure Dealer only views their own ledger
+if (isRole('Dealer') && $dealer_id !== ($_SESSION['related_id'] ?? '')) {
+    die("Unauthorized access to this ledger.");
+}
+
 $dealer = findCSV('dealers', $dealer_id);
 
 if (!$dealer) die("Dealer not found");
@@ -19,6 +25,7 @@ $to_date = $_GET['to'] ?? '';
 
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (!isRole('Admin')) die("Unauthorized Action");
     $type = $_POST['type'];
     $amount = (float)$_POST['amount'];
     
@@ -57,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // Handle Transaction Deletion
 if (isset($_GET['delete_txn'])) {
+    if (!isRole('Admin')) die("Unauthorized Action");
     $del_id = $_GET['delete_txn'];
     $txn = findCSV('dealer_transactions', $del_id);
     
@@ -176,12 +184,14 @@ $current_balance = $total_debit - $total_credit;
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
+        <?php if (isRole('Admin')): ?>
         <button onclick="openModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-plus mr-1"></i> PAYMENT
         </button>
         <button onclick="openModal('Debt')" class="bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-red-900/10 font-bold text-xs h-[46px] hover:bg-red-600 transition active:scale-95">
             <i class="fas fa-file-invoice-dollar mr-1"></i> OUTSTANDING DEBT
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -342,6 +352,7 @@ $current_balance = $total_debit - $total_credit;
     // Pass PHP data to JS
     const allTxns = <?= json_encode($list) ?>;
     const initialBalance = <?= $current_balance ?>;
+    const canEdit = <?= json_encode(isRole('Admin')) ?>;
     let currentDebtValue = 0; // Store globally for validation
 
     // Helper for currency formatting
@@ -577,6 +588,7 @@ $current_balance = $total_debit - $total_credit;
                         ${formatCurrency(t.current_running_balance)}
                     </td>
                     <td class="p-6 text-center">
+                        ${canEdit ? `
                          <div class="flex justify-center space-x-2 transition-opacity">
                                <button onclick="prepareEdit('${t.id}')" class="text-blue-500 hover:text-blue-700 p-1" title="Edit">
                                    <i class="fas fa-edit"></i>
@@ -585,6 +597,7 @@ $current_balance = $total_debit - $total_credit;
                                    <i class="fas fa-trash"></i>
                                </button>
                          </div>
+                        ` : '<span class="text-gray-300 text-xs">-</span>'}
                     </td>
                 </tr>`;
             }
