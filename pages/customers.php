@@ -159,7 +159,7 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
                             <button onclick="event.stopPropagation(); editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="event.stopPropagation(); confirmDelete(<?= $c['id'] ?>)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
+                            <button onclick="event.stopPropagation(); confirmDelete(<?= $c['id'] ?>, <?= $debt_map[$c['id']] ?? 0 ?>)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -306,9 +306,27 @@ document.getElementById('customerSearch').addEventListener('keydown', function(e
 
 
 
-function confirmDelete(id) {
+function confirmDelete(id, balance) {
     document.getElementById('delete_customer_id').value = id;
+    const deleteBtn = document.getElementById('deleteConfirmBtn');
+    const warningMsg = document.getElementById('deleteWarningMsg');
+    
+    if (balance > 1) { // Allowing a small tolerance for floating point
+        deleteBtn.classList.add('hidden');
+        warningMsg.classList.remove('hidden');
+    } else {
+        deleteBtn.classList.remove('hidden');
+        warningMsg.classList.add('hidden');
+    }
+    
     document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function proceedDelete() {
+    const id = document.getElementById('delete_customer_id').value;
+    if (id) {
+        window.location.href = '../actions/delete_customer.php?id=' + id;
+    }
 }
 </script>
 
@@ -321,23 +339,19 @@ function confirmDelete(id) {
         <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Customer?</h3>
         <p class="text-gray-500 text-sm mb-6">
             Are you sure you want to delete this customer?<br>
-            <span class="text-xs text-red-500 font-bold mt-2 block bg-red-50 p-2 rounded">
-                <i class="fas fa-ban mr-1"></i> You cannot delete customers with existing sales or payments.
-            </span>
-        </p>
         <div class="flex gap-3 justify-center">
             <button onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-5 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-100 transition w-full">Cancel</button>
-            <button onclick="proceedDelete()" class="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition w-full">Delete</button>
+            <button id="deleteConfirmBtn" onclick="proceedDelete()" class="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition w-full hidden">Delete</button>
         </div>
+        <p id="deleteWarningMsg" class="text-xs text-red-500 font-bold mt-4 bg-red-50 p-3 rounded-xl hidden">
+            <i class="fas fa-ban mr-1"></i> First you should clear the debt to delete this customer.
+        </p>
         <input type="hidden" id="delete_customer_id">
     </div>
 </div>
 
 <script>
-function confirmDelete(id) {
-    document.getElementById('delete_customer_id').value = id;
-    document.getElementById('deleteModal').classList.remove('hidden');
-}
+
 
 function printReport() {
     const element = document.getElementById('printableArea');

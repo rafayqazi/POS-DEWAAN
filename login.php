@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                         <!-- Terms -->
                         <div class="flex items-center">
-                            <input id="accept_terms" name="accept_terms" type="checkbox" required
+                            <input id="accept_terms" name="accept_terms" type="checkbox" required checked
                                    class="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded">
                             <label for="accept_terms" class="ml-2 block text-sm text-gray-700">
                                 I accept the <a href="terms.php" class="font-semibold text-teal-600 hover:text-teal-500">Terms and Conditions</a>

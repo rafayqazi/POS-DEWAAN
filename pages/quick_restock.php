@@ -176,6 +176,14 @@ usort($products, function($a, $b) {
                 </div>
             </div>
 
+            <!-- Remarks Field -->
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Remarks (Optional)</label>
+                <input type="text" name="remarks" id="restock_remarks" 
+                       class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-teal-500 focus:bg-white transition-all outline-none font-medium text-gray-700"
+                       placeholder="Enter any notes or remarks here...">
+            </div>
+
             <!-- Footer Section -->
             <div class="flex flex-col md:flex-row items-center gap-6 mt-6 sm:mt-10 pt-6 sm:pt-8 border-t border-gray-100">
                 <div class="flex-1 w-full p-5 sm:p-6 bg-teal-50 rounded-3xl border border-teal-100">
@@ -233,6 +241,7 @@ usort($products, function($a, $b) {
         document.getElementById('restock_buy_price').value = product.buy_price;
         document.getElementById('restock_sell_price').value = product.sell_price;
         document.getElementById('restock_qty').value = '';
+        document.getElementById('restock_remarks').value = '';
         document.getElementById('amount_paid').value = '0';
         document.getElementById('total_bill_display').innerText = 'Rs. 0';
 
