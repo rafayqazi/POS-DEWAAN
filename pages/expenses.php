@@ -41,10 +41,16 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
 <?php endif; ?>
 
 <div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden glass">
-    <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+    <div class="p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center bg-gray-50/50 gap-4">
         <h3 class="font-bold text-gray-800 flex items-center">
             <i class="fas fa-list text-teal-500 mr-2"></i> Expense History
         </h3>
+        <div class="relative w-full md:w-64">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <i class="fas fa-search text-xs"></i>
+            </span>
+            <input type="text" id="expenseSearch" oninput="renderExpenses()" placeholder="Search expenses..." class="w-full pl-9 pr-4 py-2 rounded-xl border-gray-200 border focus:ring-2 focus:ring-primary focus:outline-none transition text-sm">
+        </div>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left">
@@ -54,46 +60,18 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
                     <th class="px-6 py-4 font-bold">Date</th>
                     <th class="px-6 py-4 font-bold">Category</th>
                     <th class="px-6 py-4 font-bold">Title</th>
-                    <th class="px-6 py-4 font-bold">Amount</th>
+                    <th class="px-6 py-4 font-bold text-right">Amount</th>
                     <th class="px-6 py-4 font-bold">Description</th>
                     <th class="px-6 py-4 font-bold text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
-                <?php if (empty($expenses)): ?>
-                    <tr>
-                        <td colspan="7" class="px-6 py-10 text-center text-gray-400">
-                            <i class="fas fa-folder-open text-4xl mb-3 block"></i>
-                            No expenses recorded yet.
-                        </td>
-                    </tr>
-<?php else: $sn = 1; ?>
-<?php foreach ($expenses as $e): ?>
-    <tr class="hover:bg-gray-50/50 transition-colors group">
-        <td class="px-6 py-4 whitespace-nowrap text-center text-xs font-mono text-gray-400"><?= $sn++ ?></td>
-        <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase">
-                                    <?= date('d M, Y', strtotime($e['date'])) ?>
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full border border-gray-200"><?= $e['category'] ?></span>
-                            </td>
-                            <td class="px-6 py-4 text-sm font-bold text-gray-800"><?= $e['title'] ?></td>
-                            <td class="px-6 py-4 text-sm font-bold text-red-600"><?= formatCurrency($e['amount']) ?></td>
-                            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate"><?= $e['description'] ?></td>
-                            <td class="px-6 py-4 text-right space-x-2">
-                                <button onclick='editExpense(<?= json_encode($e) ?>)' class="text-teal-600 hover:text-teal-900 bg-teal-50 p-2 rounded-lg transition-colors border border-teal-100">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button onclick="confirmDelete(<?= $e['id'] ?>)" class="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-lg transition-colors border border-red-100">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+            <tbody id="expenseTableBody" class="divide-y divide-gray-50">
+                <!-- Data rendered by JavaScript -->
             </tbody>
+        </table>
+    </div>
+    <div id="expensePagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100"></div>
+</div>
         </table>
     </div>
 </div>
@@ -153,6 +131,71 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
 </div>
 
 <script>
+    const allExpenses = <?= json_encode($expenses) ?>;
+    let currentPage_Expense = 1;
+    const pageSize_Expense = 200;
+
+    function formatCurrencyJS(amount) {
+        return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+    }
+
+    function renderExpenses() {
+        const term = document.getElementById('expenseSearch').value.toLowerCase();
+        
+        let filtered = allExpenses.filter(e => {
+            return e.title.toLowerCase().includes(term) || 
+                   e.category.toLowerCase().includes(term) || 
+                   (e.description || '').toLowerCase().includes(term);
+        });
+
+        const totalItems = filtered.length;
+        const paginated = Pagination.paginate(filtered, currentPage_Expense, pageSize_Expense);
+        const tbody = document.getElementById('expenseTableBody');
+
+        if (totalItems === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-gray-400"><i class="fas fa-folder-open text-4xl mb-3 block"></i>No expenses matched your search.</td></tr>`;
+            Pagination.render('expensePagination', 0, 1, pageSize_Expense, changePage_Expense);
+            return;
+        }
+
+        let html = '';
+        paginated.forEach((e, index) => {
+            const displayIndex = (currentPage_Expense - 1) * pageSize_Expense + index + 1;
+            const formattedDate = new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            
+            html += `
+                <tr class="hover:bg-gray-50/50 transition-colors group">
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-xs font-mono text-gray-400">${displayIndex}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${formattedDate}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">${e.category}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-bold text-gray-800">${e.title}</td>
+                    <td class="px-6 py-4 text-sm font-bold text-red-600 text-right">${formatCurrencyJS(e.amount)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">${e.description || ''}</td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <button onclick='editExpense(${JSON.stringify(e)})' class="text-teal-600 hover:text-teal-900 bg-teal-50 p-2 rounded-lg transition-colors border border-teal-100">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="confirmDelete(${e.id})" class="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-lg transition-colors border border-red-100">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        Pagination.render('expensePagination', totalItems, currentPage_Expense, pageSize_Expense, changePage_Expense);
+    }
+
+    function changePage_Expense(page) {
+        currentPage_Expense = page;
+        renderExpenses();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function openExpenseModal() {
         document.getElementById('modalTitle').innerText = 'Add New Expense';
         document.getElementById('expenseId').value = '';
@@ -192,6 +235,8 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
             window.location.href = '../actions/delete_expense.php?id=' + id;
         }, 'Confirm Delete');
     }
+
+    document.addEventListener('DOMContentLoaded', renderExpenses);
 </script>
 
 <?php include '../includes/footer.php'; echo '</main></div></body></html>'; ?>

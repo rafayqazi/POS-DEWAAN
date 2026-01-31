@@ -374,6 +374,7 @@ $report_ranges = [
                     <i class="fas fa-search-dollar text-5xl mb-4 opacity-20"></i>
                     <p class="font-bold">No transactions found for the selected period.</p>
                 </div>
+                <div id="recoveryPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100"></div>
             </div>
         </div>
         
@@ -386,6 +387,9 @@ $report_ranges = [
 <script>
 // Pass initial data to JS
 const recoveryData = <?= json_encode($recovery_details) ?>;
+let filteredRecoveryData = recoveryData;
+let currentPage_Rec = 1;
+const pageSize_Rec = 200;
 
 function formatCurrencyJS(amount) {
     return 'Rs. ' + Number(amount).toLocaleString();
@@ -396,25 +400,41 @@ function renderRecoveryTable(data) {
     const noMsg = document.getElementById('noRecoveryMessage');
     const totalText = document.getElementById('recoveryTotalText');
     
+    // Save filtered data for pagination
+    filteredRecoveryData = data;
+
     tbody.innerHTML = '';
     let total = 0;
     
     if (data.length === 0) {
         noMsg.classList.remove('hidden');
         totalText.innerText = formatCurrencyJS(0);
+        Pagination.render('recoveryPagination', 0, 1, pageSize_Rec, changePage_Rec);
         return;
     }
     
     noMsg.classList.add('hidden');
-    data.forEach((item, index) => {
-        total += Number(item.amount);
+
+    const paginated = Pagination.paginate(data, currentPage_Rec, pageSize_Rec);
+    
+    paginated.forEach((item, index) => {
+        const sn = (currentPage_Rec - 1) * pageSize_Rec + index + 1;
+        total += Number(item.amount); // This 'total' is tricky if we want total of ALL filtered, not just paginated.
+        // Actually, the original code calculates total from 'data' (all filtered).
+    });
+
+    // Recalculate total for ALL filtered data
+    let fullTotal = data.reduce((acc, item) => acc + Number(item.amount), 0);
+
+    paginated.forEach((item, index) => {
+        const sn = (currentPage_Rec - 1) * pageSize_Rec + index + 1;
         const date = new Date(item.date);
         const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + 
                         date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         
         const row = `
             <tr class="hover:bg-teal-50/30 transition-colors group border-b border-gray-50">
-                <td class="py-4 pl-6 text-[10px] font-bold text-gray-400 font-mono">${index + 1}</td>
+                <td class="py-4 pl-6 text-[10px] font-bold text-gray-400 font-mono">${sn}</td>
                 <td class="py-4 text-xs font-medium text-gray-500">${dateStr}</td>
                 <td class="py-4">
                     <div class="text-sm font-bold text-gray-800 group-hover:text-teal-600 transition-colors">${item.name}</div>
@@ -432,7 +452,13 @@ function renderRecoveryTable(data) {
         tbody.innerHTML += row;
     });
     
-    totalText.innerText = formatCurrencyJS(total);
+    totalText.innerText = formatCurrencyJS(fullTotal);
+    Pagination.render('recoveryPagination', data.length, currentPage_Rec, pageSize_Rec, changePage_Rec);
+}
+
+function changePage_Rec(page) {
+    currentPage_Rec = page;
+    renderRecoveryTable(filteredRecoveryData);
 }
 
 function filterRecovery(range) {
@@ -455,6 +481,7 @@ function filterRecovery(range) {
     today.setHours(0, 0, 0, 0);
     const titleText = document.getElementById('recoveryStatsTitle');
     
+    currentPage_Rec = 1;
     let filtered = recoveryData;
     
     if (range === 'today') {

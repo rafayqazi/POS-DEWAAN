@@ -118,91 +118,9 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
 <?php endif; ?>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="customerGrid">
-    <?php if (count($customers) > 0): ?>
-        <?php foreach ($customers as $c): ?>
-            <div class="customer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
-                 data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>"
-                 data-phone="<?= strtolower(htmlspecialchars($c['phone'] ?? '')) ?>"
-                 onclick="window.location.href='customer_ledger.php?id=<?= $c['id'] ?>'">
-                <div class="bg-amber-500 h-2 w-full"></div>
-                <div class="p-6">
-                    <div class="flex items-center mb-4">
-                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
-                            <i class="fas fa-user text-2xl"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($c['name']) ?></h3>
-                                <?php if(($debt_map[$c['id']] ?? 0) <= 0): ?>
-                                    <span title="Debt Fully Cleared!" class="text-yellow-500 text-xs">
-                                        <i class="fas fa-trophy scale-110"></i>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                            <div class="flex items-center mt-1">
-                                <?php if(!empty($c['phone'])): ?>
-                                    <a href="tel:<?= htmlspecialchars($c['phone']) ?>" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
-                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                        <?= htmlspecialchars($c['phone']) ?>
-                                    </a>
-                                <?php else: ?>
-                                    <span class="text-gray-400 text-xs italic flex items-center">
-                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
-                                        No phone provided
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-
-                        <?php if (hasPermission('manage_customers')): ?>
-                        <div class="flex flex-col gap-2">
-                            <button onclick="event.stopPropagation(); editCustomer(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="event.stopPropagation(); confirmDelete(<?= $c['id'] ?>, <?= $debt_map[$c['id']] ?? 0 ?>)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
-                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
-                        <p class="line-clamp-2"><?= htmlspecialchars($c['address']) ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
-                    </div>
-                    
-                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 relative">
-                        <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
-                            <?php $debt = $debt_map[$c['id']] ?? 0; ?>
-                            <p class="text-xl font-black <?= $debt > 0 ? 'text-red-600' : 'text-green-600' ?>">
-                                <?= formatCurrency($debt) ?>
-                            </p>
-                        </div>
-                        <?php if (isset($due_map[$c['id']])): ?>
-                            <div class="mt-2 pt-2 border-t border-gray-200">
-                                <p class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">Next Payment Due</p>
-                                <p class="text-xs font-bold text-gray-700 flex items-center gap-1">
-                                    <i class="fas fa-calendar-day text-[10px]"></i>
-                                    <?= date('d M Y', strtotime($due_map[$c['id']])) ?>
-                                </p>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
-                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
-            <i class="fas fa-users text-6xl text-gray-100 mb-4"></i>
-            <p class="text-gray-400 font-medium">No customers found. Start by adding one.</p>
-        </div>
-    <?php endif; ?>
+    <!-- Rendered by JS -->
 </div>
+<div id="customerPagination" class="mt-8 px-6 py-4 bg-white rounded-2xl shadow-sm border border-gray-100"></div>
 
 <!-- Add Customer Modal -->
 <div id="addCustomerModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-all">
@@ -272,6 +190,127 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
 </div>
 
 <script>
+const allCustomers = <?= json_encode($customers) ?>;
+const debtMap = <?= json_encode($debt_map) ?>;
+const dueMap = <?= json_encode($due_map) ?>;
+const hasManagePermission = <?= json_encode(hasPermission('manage_customers')) ?>;
+
+let currentPage_Cust = 1;
+const pageSize_Cust = 200;
+
+function formatCurrencyJS(amount) {
+    return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+}
+
+function renderCustomers() {
+    const term = document.getElementById('customerSearch').value.toLowerCase();
+    
+    let filtered = allCustomers.filter(c => {
+        return c.name.toLowerCase().includes(term) || (c.phone || '').toLowerCase().includes(term);
+    });
+
+    const totalItems = filtered.length;
+    const paginated = Pagination.paginate(filtered, currentPage_Cust, pageSize_Cust);
+    const grid = document.getElementById('customerGrid');
+
+    if (totalItems === 0) {
+        grid.innerHTML = `
+            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
+                <i class="fas fa-users text-6xl text-gray-100 mb-4"></i>
+                <p class="text-gray-400 font-medium">No customers matched your search.</p>
+            </div>
+        `;
+        Pagination.render('customerPagination', 0, 1, pageSize_Cust, changePage_Cust);
+        return;
+    }
+
+    let html = '';
+    paginated.forEach(c => {
+        const debt = debtMap[c.id] || 0;
+        const dueDate = dueMap[c.id];
+        const dueDateStr = dueDate ? new Date(dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+        
+        html += `
+            <div class="customer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
+                 onclick="window.location.href='customer_ledger.php?id=${c.id}'">
+                <div class="bg-amber-500 h-2 w-full"></div>
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
+                            <i class="fas fa-user text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-lg font-bold text-gray-800 leading-tight">${c.name}</h3>
+                                ${debt <= 0 ? `<span title="Debt Fully Cleared!" class="text-yellow-500 text-xs"><i class="fas fa-trophy scale-110"></i></span>` : ''}
+                            </div>
+                            <div class="flex items-center mt-1">
+                                ${c.phone ? `
+                                    <a href="tel:${c.phone}" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
+                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                                        ${c.phone}
+                                    </a>
+                                ` : `
+                                    <span class="text-gray-400 text-xs italic flex items-center">
+                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
+                                        No phone provided
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+
+                        ${hasManagePermission ? `
+                        <div class="flex flex-col gap-2">
+                            <button onclick="event.stopPropagation(); editCustomer(${JSON.stringify(c).replace(/"/g, '&quot;')})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); confirmDelete(${c.id}, ${debt})" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
+                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
+                        <p class="line-clamp-2">${c.address || '<span class="italic opacity-50">No address provided</span>'}</p>
+                    </div>
+                    
+                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 relative">
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
+                            <p class="text-xl font-black ${debt > 0 ? 'text-red-600' : 'text-green-600'}">
+                                ${formatCurrencyJS(debt)}
+                            </p>
+                        </div>
+                        ${dueDateStr ? `
+                            <div class="mt-2 pt-2 border-t border-gray-200">
+                                <p class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">Next Payment Due</p>
+                                <p class="text-xs font-bold text-gray-700 flex items-center gap-1">
+                                    <i class="fas fa-calendar-day text-[10px]"></i>
+                                    ${dueDateStr}
+                                </p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    grid.innerHTML = html;
+    Pagination.render('customerPagination', totalItems, currentPage_Cust, pageSize_Cust, changePage_Cust);
+}
+
+function changePage_Cust(page) {
+    currentPage_Cust = page;
+    renderCustomers();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function editCustomer(customer) {
     document.getElementById('edit_id').value = customer.id;
     document.getElementById('edit_name').value = customer.name;
@@ -281,25 +320,18 @@ function editCustomer(customer) {
 }
 
 document.getElementById('customerSearch').addEventListener('input', function(e) {
-    const term = e.target.value.toLowerCase();
-    const cards = document.querySelectorAll('.customer-card');
-    cards.forEach(card => {
-        const name = card.getAttribute('data-name');
-        const phone = card.getAttribute('data-phone');
-        if (name.includes(term) || phone.includes(term)) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
-    });
+    currentPage_Cust = 1;
+    renderCustomers();
 });
+
+document.addEventListener('DOMContentLoaded', renderCustomers);
 
 document.getElementById('customerSearch').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        const visibleCards = Array.from(document.querySelectorAll('.customer-card')).filter(c => c.style.display !== 'none');
-        if (visibleCards.length > 0) {
-            const editBtn = visibleCards[0].querySelector('button[title="Edit Customer"]');
-            if (editBtn) editBtn.click();
+        const grid = document.getElementById('customerGrid');
+        const firstCard = grid.querySelector('.customer-card');
+        if (firstCard) {
+            firstCard.click();
         }
     }
 });

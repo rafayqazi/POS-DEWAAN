@@ -127,7 +127,12 @@ usort($restocks, function($a, $b) {
             </tbody>
         </table>
     </div>
+    <div id="restockPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100 italic-normal"></div>
 </div>
+
+<style>
+    .italic-normal { font-style: normal !important; }
+</style>
 
 <style>
     .italic-rows tr td { font-style: normal; }
@@ -187,6 +192,8 @@ echo '</main></div>';
 
 <script>
     const allRestocks = <?= json_encode($restocks) ?>;
+    let currentPage_Restock = 1;
+    const pageSize_Restock = 200;
 
     const formatCurrency = (amount) => {
         return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
@@ -203,18 +210,30 @@ echo '</main></div>';
             return true;
         });
 
+        function changePage_Restock(page) {
+            currentPage_Restock = page;
+            renderTable();
+            document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         const body = document.getElementById('restockBody');
         const printBody = document.getElementById('printBody');
+
+        // Pagination
+        const totalItems = filtered.length;
+        const paginated = Pagination.paginate(filtered, currentPage_Restock, pageSize_Restock);
+
         let html = '';
         let printHtml = '';
         let totalPaid = 0;
 
-        if (filtered.length === 0) {
+        if (totalItems === 0) {
             html = '<tr><td colspan="10" class="p-20 text-center text-gray-300"><i class="fas fa-history text-6xl mb-4 opacity-20"></i><p class="font-medium">No restock history found for this period.</p></td></tr>';
             printHtml = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">No records found.</td></tr>';
+            Pagination.render('restockPagination', 0, 1, pageSize_Restock, changePage_Restock);
         } else {
-            filtered.forEach((log, index) => {
-                const sn = index + 1;
+            paginated.forEach((log, index) => {
+                const sn = (currentPage_Restock - 1) * pageSize_Restock + index + 1;
                 const paid = parseFloat(log.amount_paid || 0);
                 totalPaid += paid;
                 
@@ -261,6 +280,7 @@ echo '</main></div>';
 
         body.innerHTML = html;
         printBody.innerHTML = printHtml;
+        Pagination.render('restockPagination', totalItems, currentPage_Restock, pageSize_Restock, changePage_Restock);
         document.getElementById('printFooterTotal').innerText = formatCurrency(totalPaid);
     }
 
@@ -282,6 +302,10 @@ echo '</main></div>';
         }, 'Revert Restock');
     }
 
-    document.addEventListener('DOMContentLoaded', renderTable);
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('dateFrom').addEventListener('change', () => { currentPage_Restock = 1; renderTable(); });
+        document.getElementById('dateTo').addEventListener('change', () => { currentPage_Restock = 1; renderTable(); });
+        renderTable();
+    });
 </script>
 </body></html>

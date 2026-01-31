@@ -107,66 +107,9 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
 <?php endif; ?>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="dealerGrid">
-    <?php if (count($dealers) > 0): ?>
-        <?php foreach ($dealers as $dealer): ?>
-            <div class="dealer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
-                 data-name="<?= strtolower(htmlspecialchars($dealer['name'])) ?>"
-                 onclick="window.location.href='dealer_ledger.php?id=<?= $dealer['id'] ?>'">
-                <div class="bg-amber-500 h-2 w-full"></div>
-                <div class="p-6">
-                    <div class="flex items-center mb-4">
-                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
-                            <i class="fas fa-building text-2xl"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="text-lg font-bold text-gray-800 leading-tight"><?= htmlspecialchars($dealer['name']) ?></h3>
-                            <div class="flex items-center mt-1">
-                                <?php if(!empty($dealer['phone'])): ?>
-                                    <a href="tel:<?= htmlspecialchars($dealer['phone']) ?>" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
-                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                        <?= htmlspecialchars($dealer['phone']) ?>
-                                    </a>
-                                <?php else: ?>
-                                    <span class="text-gray-400 text-xs italic flex items-center">
-                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
-                                        No phone provided
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php if (hasPermission('manage_dealers')): ?>
-                        <button onclick="event.stopPropagation(); editDealer(<?= htmlspecialchars(json_encode($dealer)) ?>)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
-                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
-                        <p class="line-clamp-2"><?= htmlspecialchars($dealer['address'] ?? '') ?: '<span class="italic opacity-50">No address provided</span>' ?></p>
-                    </div>
-                    
-                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Payable Balance</p>
-                        <?php $bal = $balance_map[$dealer['id']] ?? 0; ?>
-                        <p class="text-xl font-black <?= $bal > 0 ? 'text-red-600' : 'text-green-600' ?>">
-                            <?= formatCurrency($bal) ?>
-                        </p>
-                    </div>
-
-                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
-                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
-            <i class="fas fa-truck-loading text-6xl text-gray-100 mb-4"></i>
-            <p class="text-gray-400 font-medium">No dealers found in the database.</p>
-        </div>
-    <?php endif; ?>
+    <!-- Rendered by JS -->
 </div>
+<div id="dealerPagination" class="mt-8 px-6 py-4 bg-white rounded-2xl shadow-sm border border-gray-100"></div>
 
 <script>
 document.getElementById('dealerSearch').addEventListener('keydown', function(e) {
@@ -241,6 +184,104 @@ document.getElementById('dealerSearch').addEventListener('keydown', function(e) 
 </div>
 
 <script>
+const allDealers = <?= json_encode($dealers) ?>;
+const balanceMap = <?= json_encode($balance_map) ?>;
+const hasManagePermission = <?= json_encode(hasPermission('manage_dealers')) ?>;
+
+let currentPage_Deal = 1;
+const pageSize_Deal = 200;
+
+function formatCurrencyJS(amount) {
+    return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+}
+
+function renderDealers() {
+    const term = document.getElementById('dealerSearch').value.toLowerCase();
+    
+    let filtered = allDealers.filter(d => {
+        return d.name.toLowerCase().includes(term) || (d.phone || '').toLowerCase().includes(term);
+    });
+
+    const totalItems = filtered.length;
+    const paginated = Pagination.paginate(filtered, currentPage_Deal, pageSize_Deal);
+    const grid = document.getElementById('dealerGrid');
+
+    if (totalItems === 0) {
+        grid.innerHTML = `
+            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
+                <i class="fas fa-truck-loading text-6xl text-gray-100 mb-4"></i>
+                <p class="text-gray-400 font-medium">No dealers matched your search.</p>
+            </div>
+        `;
+        Pagination.render('dealerPagination', 0, 1, pageSize_Deal, changePage_Deal);
+        return;
+    }
+
+    let html = '';
+    paginated.forEach(d => {
+        const bal = balanceMap[d.id] || 0;
+        
+        html += `
+            <div class="dealer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
+                 onclick="window.location.href='dealer_ledger.php?id=${d.id}'">
+                <div class="bg-amber-500 h-2 w-full"></div>
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
+                            <i class="fas fa-building text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-gray-800 leading-tight">${d.name}</h3>
+                            <div class="flex items-center mt-1">
+                                ${d.phone ? `
+                                    <a href="tel:${d.phone}" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
+                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                                        ${d.phone}
+                                    </a>
+                                ` : `
+                                    <span class="text-gray-400 text-xs italic flex items-center">
+                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
+                                        No phone provided
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                        ${hasManagePermission ? `
+                        <button onclick="event.stopPropagation(); editDealer(${JSON.stringify(d).replace(/"/g, '&quot;')})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
+                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
+                        <p class="line-clamp-2">${d.address || '<span class="italic opacity-50">No address provided</span>'}</p>
+                    </div>
+                    
+                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Payable Balance</p>
+                        <p class="text-xl font-black ${bal > 0 ? 'text-red-600' : 'text-green-600'}">
+                            ${formatCurrencyJS(bal)}
+                        </p>
+                    </div>
+
+                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    grid.innerHTML = html;
+    Pagination.render('dealerPagination', totalItems, currentPage_Deal, pageSize_Deal, changePage_Deal);
+}
+
+function changePage_Deal(page) {
+    currentPage_Deal = page;
+    renderDealers();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function editDealer(dealer) {
     document.getElementById('edit_id').value = dealer.id || '';
     document.getElementById('edit_name').value = dealer.name || '';
@@ -250,24 +291,18 @@ function editDealer(dealer) {
 }
 
 document.getElementById('dealerSearch').addEventListener('input', function(e) {
-    const term = e.target.value.toLowerCase();
-    const cards = document.querySelectorAll('.dealer-card');
-    cards.forEach(card => {
-        const name = card.getAttribute('data-name');
-        if (name.includes(term)) {
-            card.classList.remove('hidden');
-        } else {
-            card.classList.add('hidden');
-        }
-    });
+    currentPage_Deal = 1;
+    renderDealers();
 });
+
+document.addEventListener('DOMContentLoaded', renderDealers);
 
 document.getElementById('dealerSearch').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        const visibleCards = Array.from(document.querySelectorAll('.dealer-card')).filter(c => !c.classList.contains('hidden'));
-        if (visibleCards.length > 0) {
-            const editBtn = visibleCards[0].querySelector('button[title="Edit Dealer"]');
-            if (editBtn) editBtn.click();
+        const grid = document.getElementById('dealerGrid');
+        const firstCard = grid.querySelector('.dealer-card');
+        if (firstCard) {
+            firstCard.click();
         }
     }
 });

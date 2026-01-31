@@ -7,6 +7,7 @@
     <?php $base = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? '../' : ''; ?>
     <link rel="icon" type="image/png" href="<?= $base . getSetting('business_favicon', 'assets/img/favicon.png') . '?v=' . time() ?>">
     <script src="<?= $base ?>assets/js/tailwind.js"></script>
+    <script src="<?= $base ?>assets/js/pagination.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -256,14 +257,13 @@
                     </li>
                     <?php endif; ?>
                 </ul>
+                <div class="px-6 mt-6 pb-4">
+                    <a href="<?= $base ?>logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
+                        <i class="fas fa-power-off"></i> 
+                        <span class="ml-3 sidebar-text">Sign Out</span>
+                    </a>
+                </div>
             </nav>
-
-            <div class="p-6">
-                <a href="<?= $base ?>logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
-                    <i class="fas fa-power-off"></i> 
-                    <span class="ml-3 sidebar-text">Sign Out</span>
-                </a>
-            </div>
         </aside>
 
         <!-- Main Content -->

@@ -91,6 +91,9 @@ foreach($all_sales as $s) {
     const isRoleAdmin = <?= json_encode(isRole('Admin')) ?>;
     const isRoleCustomer = <?= json_encode(isRole('Customer')) ?>;
 
+    let currentPage_Sales = 1;
+    const pageSize_Sales = 200;
+
     function formatCurrency(amount) {
         return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
     }
@@ -134,6 +137,13 @@ foreach($all_sales as $s) {
         }, 'Bulk Delete?');
     }
 
+    function changePage_Sales(page) {
+        currentPage_Sales = page;
+        renderSalesTable();
+        // Scroll to top of table
+        document.getElementById('salesTableContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function renderSalesTable() {
         const term = document.getElementById('salesSearch').value.toLowerCase();
         const fType = document.getElementById('f_type_select').value;
@@ -170,14 +180,20 @@ foreach($all_sales as $s) {
         // Sort descending
         filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
 
+        // Pagination
+        const totalItems = filtered.length;
+        const paginated = Pagination.paginate(filtered, currentPage_Sales, pageSize_Sales);
+
         const tbody = document.getElementById('salesTableBody');
-        if (filtered.length === 0) {
+        if (totalItems === 0) {
             tbody.innerHTML = `<tr><td colspan="11" class="p-12 text-center text-gray-400"><i class="fas fa-receipt text-4xl mb-3 text-gray-200"></i><br>No sales records found.</td></tr>`;
+            Pagination.render('salesPagination', 0, 1, pageSize_Sales, changePage_Sales);
             return;
         }
 
         let html = '';
-        filtered.forEach((s, index) => {
+        paginated.forEach((s, index) => {
+            const displayIndex = (currentPage_Sales - 1) * pageSize_Sales + index + 1;
             const dateStr = new Date(s.date).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
             const isDue = s.total > s.paid;
             const statusClass = isDue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
@@ -194,9 +210,9 @@ foreach($all_sales as $s) {
             html += `
                 <tr class="hover:bg-teal-50 transition border-b border-gray-50 last:border-0 text-sm">
                     <td class="p-4 pl-6 text-center">
-                        ${isRoleAdmin ? `<input type="checkbox" name="id[]" value="${s.id}" onchange="toggleBulkBtn()" class="sale-checkbox rounded border-gray-300 text-teal-600 focus:ring-teal-500">` : (index + 1)}
+                        ${isRoleAdmin ? `<input type="checkbox" name="id[]" value="${s.id}" onchange="toggleBulkBtn()" class="sale-checkbox rounded border-gray-300 text-teal-600 focus:ring-teal-500">` : displayIndex}
                     </td>
-                    <td class="p-4 font-mono text-gray-500">${index + 1}</td>
+                    <td class="p-4 font-mono text-gray-500">${displayIndex}</td>
                     <td class="p-4 text-gray-700 font-medium">${dateStr}</td>
                     ${!isRoleCustomer ? `
                     <td class="p-4">
@@ -236,6 +252,7 @@ foreach($all_sales as $s) {
             `;
         });
         tbody.innerHTML = html;
+        Pagination.render('salesPagination', totalItems, currentPage_Sales, pageSize_Sales, changePage_Sales);
         updatePrintLink();
     }
 
@@ -264,13 +281,22 @@ foreach($all_sales as $s) {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('salesSearch').addEventListener('input', renderSalesTable);
-        document.getElementById('f_type_select').addEventListener('change', () => {
-            toggleCustomRange();
+        document.getElementById('salesSearch').addEventListener('input', () => {
+            currentPage_Sales = 1;
             renderSalesTable();
         });
-        document.getElementById('dateFrom').addEventListener('change', renderSalesTable);
-        document.getElementById('dateTo').addEventListener('change', renderSalesTable);
+        document.getElementById('f_type_select').addEventListener('change', () => {
+            currentPage_Sales = 1;
+            toggleCustomRange();
+        });
+        document.getElementById('dateFrom').addEventListener('change', () => {
+            currentPage_Sales = 1;
+            renderSalesTable();
+        });
+        document.getElementById('dateTo').addEventListener('change', () => {
+            currentPage_Sales = 1;
+            renderSalesTable();
+        });
         renderSalesTable();
     });
 </script>
@@ -351,6 +377,7 @@ foreach($all_sales as $s) {
             </tbody>
         </table>
     </div>
+    <div id="salesPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100"></div>
     <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
         <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
         <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>

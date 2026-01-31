@@ -220,8 +220,12 @@ $current_balance = $total_debit - $total_credit;
                 <!-- JS Rendered -->
             </tbody>
         </table>
-    </div>
+    <div id="dealerPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100 italic-normal"></div>
 </div>
+
+<style>
+    .italic-normal { font-style: normal !important; }
+</style>
 
 <!-- Transaction Modal -->
 <div id="txnModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
@@ -353,7 +357,10 @@ $current_balance = $total_debit - $total_credit;
     const allTxns = <?= json_encode($list) ?>;
     const initialBalance = <?= $current_balance ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
-    let currentDebtValue = 0; // Store globally for validation
+    let currentDebtValue = 0; 
+
+    let currentPage_Dealer = 1;
+    const pageSize_Dealer = 200;
 
     // Helper for currency formatting
     const formatCurrency = (amount) => {
@@ -395,6 +402,7 @@ $current_balance = $total_debit - $total_credit;
         
         document.getElementById('dateFrom').value = fmt(start);
         document.getElementById('dateTo').value = fmt(end);
+        currentPage_Dealer = 1;
         renderTable(); 
     }
 
@@ -403,6 +411,7 @@ $current_balance = $total_debit - $total_credit;
         document.getElementById('dateTo').value = '';
         const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
         if(quickRange) quickRange.value = '';
+        currentPage_Dealer = 1;
         renderTable();
     }
 
@@ -410,6 +419,12 @@ $current_balance = $total_debit - $total_credit;
         const dateFromVal = document.getElementById('dateFrom').value;
         const dateToVal = document.getElementById('dateTo').value;
         
+        function changePage_Dealer(page) {
+            currentPage_Dealer = page;
+            renderTable();
+            document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         // Filter Data
         let filteredInfo = filterTransactions(allTxns, dateFromVal, dateToVal);
         const { finalTxns, openingBalance, stats } = filteredInfo;
@@ -437,8 +452,11 @@ $current_balance = $total_debit - $total_credit;
         }
 
         // Render UI Table
-        const uiHtml = generateTableRows(finalTxns, openingBalance, dateFromVal, false);
+        const paginated = Pagination.paginate(finalTxns, currentPage_Dealer, pageSize_Dealer);
+        const uiHtml = generateTableRows(paginated, openingBalance, dateFromVal, false);
         document.getElementById('ledgerBody').innerHTML = uiHtml;
+
+        Pagination.render('dealerPagination', finalTxns.length, currentPage_Dealer, pageSize_Dealer, changePage_Dealer);
 
         // Render Print Table
         const printHtml = generateTableRows(finalTxns, openingBalance, dateFromVal, true);
@@ -536,7 +554,7 @@ $current_balance = $total_debit - $total_credit;
 
         list.forEach((t, index) => {
             const dateObj = new Date(t.date);
-            const sn = index + 1;
+            const sn = (currentPage_Dealer - 1) * pageSize_Dealer + index + 1;
             const displayDate = dateObj.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
             
             let displayTime = '';

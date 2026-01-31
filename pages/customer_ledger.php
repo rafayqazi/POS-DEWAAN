@@ -199,8 +199,12 @@ usort($ledger, function($a, $b) {
                 <!-- JS Rendered -->
             </tbody>
         </table>
-    </div>
+    <div id="ledgerPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100 italic-normal"></div>
 </div>
+
+<style>
+    .italic-normal { font-style: normal !important; }
+</style>
 
 </div>
 
@@ -345,6 +349,9 @@ usort($ledger, function($a, $b) {
     const initialBalance = <?= $total_due ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
 
+    let currentPage_Ledger = 1;
+    const pageSize_Ledger = 200;
+
     // Helper for currency formatting
     const formatCurrency = (amount) => {
         return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
@@ -385,6 +392,7 @@ usort($ledger, function($a, $b) {
         
         document.getElementById('dateFrom').value = fmt(start);
         document.getElementById('dateTo').value = fmt(end);
+        currentPage_Ledger = 1;
         renderTable(); 
     }
 
@@ -393,6 +401,7 @@ usort($ledger, function($a, $b) {
         document.getElementById('dateTo').value = '';
         const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
         if(quickRange) quickRange.value = '';
+        currentPage_Ledger = 1;
         renderTable();
     }
 
@@ -400,6 +409,12 @@ usort($ledger, function($a, $b) {
         const dateFromVal = document.getElementById('dateFrom').value;
         const dateToVal = document.getElementById('dateTo').value;
         
+        function changePage_Ledger(page) {
+            currentPage_Ledger = page;
+            renderTable();
+            document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         // Filter Data
         let filteredInfo = filterTransactions(allTxns, dateFromVal, dateToVal);
         const { finalTxns, openingBalance, stats } = filteredInfo; // finalTxns is newest first
@@ -428,8 +443,11 @@ usort($ledger, function($a, $b) {
         }
 
         // Render UI Table
-        const uiHtml = generateTableRows(finalTxns, openingBalance, dateFromVal, false);
+        const paginated = Pagination.paginate(finalTxns, currentPage_Ledger, pageSize_Ledger);
+        const uiHtml = generateTableRows(paginated, openingBalance, dateFromVal, false);
         document.getElementById('ledgerBody').innerHTML = uiHtml;
+
+        Pagination.render('ledgerPagination', finalTxns.length, currentPage_Ledger, pageSize_Ledger, changePage_Ledger);
 
         // Render Print Table
         // For Print, customers usually expect Sr # ascending, or Date Ascending?
@@ -537,9 +555,8 @@ usort($ledger, function($a, $b) {
             const dateObj = new Date(t.date);
             const displayDate = dateObj.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
             
-            // Re-calc Sr # based on reverse index? Or just use Loop Index + 1?
-            // Since it's descending, usually Sr# 1 is the latest.
-            const sn = index + 1;
+            // Re-calc Sr # based on reverse index
+            const sn = (currentPage_Ledger - 1) * pageSize_Ledger + index + 1;
 
             const dueDateDisplay = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
 

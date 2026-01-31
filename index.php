@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-chart-line text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Today's Revenue</p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Today's Revenue <br> <span class="text-[9px] lowercase opacity-80">(Aaj ki Kul Sale)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($today_sales) ?></h3>
             <div class="flex items-center gap-2 mt-4">
                 <span class="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold text-white backdrop-blur-md">
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-calendar-alt text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Monthly Revenue</p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Monthly Revenue <br> <span class="text-[9px] lowercase opacity-80">(Mahana Kul Sale)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($monthly_sales) ?></h3>
             <div class="flex items-center gap-2 mt-4 text-white text-[10px] font-bold">
                 <i class="fas fa-chart-bar"></i> Total this month
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-wallet text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Net Profit Today</p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Net Profit Today <br> <span class="text-[9px] lowercase opacity-80">(Aaj ka Net Munafa)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($today_profit) ?></h3>
             <div class="flex items-center gap-2 mt-4 text-white text-[10px] font-bold">
                 <i class="fas fa-info-circle"></i> Based on COGS
@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-users text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Total Customer Debt</p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Total Customer Debt <br> <span class="text-[9px] lowercase opacity-80">(Customer ka Kul Udhaar)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($total_customer_debt) ?></h3>
             <p class="text-[10px] mt-4 text-white font-bold underline underline-offset-4 group-hover:text-amber-200 transition-colors">View All Debtors <i class="fas fa-arrow-right ml-1"></i></p>
         </div>
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-truck text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Total Dealer Payable</p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Total Dealer Payable <br> <span class="text-[9px] lowercase opacity-80">(Dealer ko Kul Deni Rakam)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($total_dealer_debt) ?></h3>
             <p class="text-[10px] mt-4 text-white font-bold underline underline-offset-4 group-hover:text-indigo-200 transition-colors">View Dealer Ledgers <i class="fas fa-arrow-right ml-1"></i></p>
         </div>
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-box"></i>
         </div>
         <div>
-            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Total Products</p>
+            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Total Products <br> <span class="text-[9px] lowercase opacity-60">(Kul Ashyaa)</span></p>
             <h4 class="text-2xl font-black text-gray-800"><?= count($products) ?></h4>
         </div>
     </a>
@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-exclamation-triangle"></i>
         </div>
         <div>
-            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Low Stock Items</p>
+            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Low Stock Items <br> <span class="text-[9px] lowercase opacity-60">(Kam Stock Wali Ashyaa)</span></p>
             <h4 class="text-2xl font-black text-gray-800"><?= $low_stock ?></h4>
         </div>
     </a>
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-plus-square"></i>
         </div>
         <div>
-            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Action</p>
+            <p class="text-xs font-black text-gray-500 uppercase tracking-widest">Action <br> <span class="text-[9px] lowercase opacity-60">(Jaldi Stock Mangwayein)</span></p>
             <h4 class="text-xl font-black text-gray-800">Quick Restock</h4>
         </div>
     </a>
