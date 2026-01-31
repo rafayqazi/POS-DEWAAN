@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/session.php';
 // Core System Configuration
+if (!is_dir(__DIR__ . '/../.git')) {
+    die("etc folder is missing... contact to developer");
+}
 define('DATA_DIR', __DIR__ . '/../data/');
 
 // Ensure data directory exists
