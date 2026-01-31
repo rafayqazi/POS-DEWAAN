@@ -2,7 +2,13 @@
 require_once __DIR__ . '/session.php';
 // Core System Configuration
 if (!is_dir(__DIR__ . '/../.git')) {
-    die("etc folder is missing... contact to developer");
+    $contact_page = (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? 'contact_developer.php' : 'pages/contact_developer.php';
+    if (file_exists(__DIR__ . '/../' . $contact_page)) {
+        header("Location: " . $contact_page);
+        exit();
+    } else {
+        die("Critical system folder is missing... contact to developer: 03000358189");
+    }
 }
 define('DATA_DIR', __DIR__ . '/../data/');
 
