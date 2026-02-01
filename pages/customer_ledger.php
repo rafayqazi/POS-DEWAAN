@@ -163,6 +163,9 @@ usort($ledger, function($a, $b) {
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
         <?php if (isRole('Admin')): ?>
+        <button onclick="openTxnModal('Advance')" class="bg-orange-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-orange-900/10 font-bold text-xs h-[46px] hover:bg-orange-600 transition active:scale-95">
+            <i class="fas fa-plus-circle mr-2"></i> ADD ADVANCE PAYMENT
+        </button>
         <button onclick="openTxnModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-hand-holding-usd mr-2"></i> RECEIVE PAYMENT
         </button>
@@ -227,6 +230,7 @@ usort($ledger, function($a, $b) {
         <form method="POST" class="space-y-4" onsubmit="return validateTransaction()" enctype="multipart/form-data">
             <input type="hidden" name="type" id="modalTxnType">
             <input type="hidden" name="txn_id" id="modalTxnId">
+            <input type="hidden" id="modalIsAdvance" value="0">
             
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
@@ -688,6 +692,7 @@ usort($ledger, function($a, $b) {
         document.getElementById('modalExistingProof').value = data.payment_proof || '';
         document.getElementById('modalDueDate').value = data.due_date || '';
         document.getElementById('payInFullCheckbox').checked = false;
+        document.getElementById('modalIsAdvance').value = "0";
         
         // UI Adjustments
         const dueDateField = document.getElementById('dueDateField');
@@ -714,8 +719,11 @@ usort($ledger, function($a, $b) {
         const currentDebt = calculateCurrentDebt();
         document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebt);
         
-        document.getElementById('modalTxnType').value = type;
-        document.getElementById('txnModalTitle').innerText = (type === 'Debt' ? "Record Outstanding Debt" : "Receive Payment");
+        const isAdvance = type === 'Advance';
+        document.getElementById('modalIsAdvance').value = isAdvance ? "1" : "0";
+        
+        document.getElementById('modalTxnType').value = isAdvance ? 'Payment' : type;
+        document.getElementById('txnModalTitle').innerText = isAdvance ? "Record Advance Payment" : (type === 'Debt' ? "Record Outstanding Debt" : "Receive Payment");
         document.getElementById('modalTxnId').value = '';
         document.getElementById('modalTxnDate').value = '<?= date('Y-m-d') ?>';
         document.getElementById('modalTxnAmount').value = '';
@@ -733,13 +741,13 @@ usort($ledger, function($a, $b) {
         
         // UI Adjustments
         const dueDateField = document.getElementById('dueDateField');
-        if (type === 'Payment') {
+        if (type === 'Payment' || type === 'Advance') {
             document.getElementById('modalDebtDisplay').classList.remove('hidden');
-            document.getElementById('payInFullWrapper').classList.remove('hidden');
+            document.getElementById('payInFullWrapper').classList.toggle('hidden', isAdvance);
             document.getElementById('paymentFields').classList.remove('hidden');
             dueDateField.classList.add('hidden');
             document.getElementById('modalDueDate').required = false;
-            document.getElementById('amountLabel').innerText = "Amount Received";
+            document.getElementById('amountLabel').innerText = isAdvance ? "Advance Amount" : "Amount Received";
         } else {
             document.getElementById('modalDebtDisplay').classList.add('hidden');
             document.getElementById('payInFullWrapper').classList.add('hidden');
@@ -790,6 +798,9 @@ usort($ledger, function($a, $b) {
         }
 
         if (type === 'Payment') {
+            const isAdvance = document.getElementById('modalIsAdvance').value === "1";
+            if (isAdvance) return true; // Bypass debt limit for advance payments
+
             const amount = parseFloat(document.getElementById('modalTxnAmount').value) || 0;
             const currentDebt = calculateCurrentDebt();
             const errorMsg = document.getElementById('amountError');
@@ -797,7 +808,7 @@ usort($ledger, function($a, $b) {
             if (amount > currentDebt + 1) { // 1 unit buffer for floats
                 errorMsg.classList.remove('hidden');
                 document.getElementById('modalTxnAmount').classList.add('border-red-500');
-                showAlert(`Payment amount (Rs. ${amount.toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!`, 'Overpayment Not Allowed');
+                showAlert(`Payment amount (Rs. ${amount.toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!\n\nUse "Add Advance Payment" if you want to record an overpayment.`, 'Overpayment Not Allowed');
                 return false;
             }
         }
