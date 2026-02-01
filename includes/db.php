@@ -377,8 +377,18 @@ initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'd
 initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'expiry_date', 'remarks', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
+initCSV('users', ['id', 'username', 'password', 'role', 'related_id', 'created_at', 'plain_password']);
 
 // Seed defaults only if files do not exist (fresh install)
+if (!file_exists(getCSVPath('users'))) {
+    insertCSV('users', [
+        'username' => 'admin',
+        'password' => password_hash('admin123', PASSWORD_DEFAULT),
+        'role' => 'Admin',
+        'created_at' => date('Y-m-d H:i:s'),
+        'plain_password' => 'admin123'
+    ]);
+}
 if (!file_exists(getCSVPath('settings'))) {
     updateSetting('expiry_notify_days', '7');
     updateSetting('recovery_notify_days', '7');

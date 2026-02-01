@@ -147,20 +147,27 @@ function runUpdate() {
     exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b);
     $branch = trim($out_b[0] ?? 'master');
     
-    // Force reset to origin/branch if needed, or just pull
-    // Using pull for safety but with explicit origin branch
+    // Stash any local changes (especially in data files) to allow pull to succeed
+    exec("git stash 2>&1");
+    
+    // Perform the update
     exec("git pull origin $branch 2>&1", $output, $return_var);
     
     $message = implode("\n", $output);
     
-    if ($return_var !== 0) {
+    if ($return_var === 0) {
+        // Success: Try to restore local changes
+        exec("git stash pop 2>&1");
+        
+        // Clear the detection flag
+        updateSetting('update_first_detected', '');
+    } else {
+        // Failure: If pull failed, check if we need to explain why
         if (strpos($message, 'local changes to the following files would be overwritten by merge') !== false) {
             $message = "Update failed: Local changes would be overwritten. Please commit or discard changes.\n\nFiles:\n" . $message;
         }
-    } else {
-        // Update successful
-        // Clear the detection flag so next time it starts fresh
-         updateSetting('update_first_detected', ''); // Reset via wrapper
+        
+        // Attempt to restore stash even if pull failed? No, keep it in stash for safety.
     }
     
     return ['success' => ($return_var === 0), 'message' => $message, 'branch' => $branch];
