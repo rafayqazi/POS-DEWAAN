@@ -544,7 +544,7 @@ function printRecoveryReport() {
         <body>
             <div class="header">
                 <div>
-                     <h1 style="margin: 0; color: #0f766e;">Fashion Shines</h1>
+                     <h1 style="margin: 0; color: #0f766e;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
                      <p style="margin: 5px 0 0 0; color: #64748b;">Recovered Payments Report</p>
                 </div>
                 <div class="text-right">

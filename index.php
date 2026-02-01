@@ -579,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <h2 class="text-[10px] font-black text-teal-600 uppercase tracking-[0.3em] mb-3">Login Successful</h2>
                 <h3 class="text-3xl font-black text-gray-800 mb-4 tracking-tight leading-tight">
-                    Welcome to <span class="text-teal-600">Fashion Shines POS</span>
+                    Welcome to <span class="text-teal-600"><?= getSetting('business_name', 'Fashion Shines') ?></span>
                 </h3>
                 
                 <p class="text-sm font-medium text-gray-500 mb-8 leading-relaxed px-4">

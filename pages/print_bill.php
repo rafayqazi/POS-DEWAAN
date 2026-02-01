@@ -47,8 +47,8 @@ $p_map = [];
 foreach ($products as $p) $p_map[$p['id']] = $p;
 
 $business_name = getSetting('business_name', 'Fashion Shines');
-$business_address = "Main Market Area, City Name";
-$business_phone = "0300-0358189";
+$business_address = getSetting('business_address', 'Faisalabad, Pakistan');
+$business_phone = getSetting('business_phone', '0300-0000000');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,7 +106,7 @@ $business_phone = "0300-0358189";
         <div class="header">
             <h1><?= $business_name ?></h1>
             <p><?= $business_address ?></p>
-            <p>Tel: <?= $business_phone ?></p>
+            <p>Phone: <?= $business_phone ?></p>
         </div>
 
         <div class="info-row">

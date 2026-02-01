@@ -407,7 +407,7 @@ function printReport() {
     <div style="padding: 40px; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
             <div>
-                <h1 style="color: #0f766e; margin: 0; font-size: 28px;">Fashion Shines</h1>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
                 <p style="color: #666; margin: 5px 0 0 0;">Customer Outstanding Debt Report</p>
             </div>
             <div style="text-align: right;">

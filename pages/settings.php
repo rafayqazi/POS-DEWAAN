@@ -97,14 +97,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);
         }
         exit;
-    } elseif ($action == 'update_general_settings') {
-        $expiry_days = $_POST['expiry_notify_days'] ?? '7';
-        $recovery_days = $_POST['recovery_notify_days'] ?? '7';
         $business_name = cleanInput($_POST['business_name']);
+        $business_address = cleanInput($_POST['business_address']);
+        $business_phone = cleanInput($_POST['business_phone']);
         
         updateSetting('expiry_notify_days', $expiry_days);
         updateSetting('recovery_notify_days', $recovery_days);
         if ($business_name) updateSetting('business_name', $business_name);
+        if ($business_address) updateSetting('business_address', $business_address);
+        if ($business_phone) updateSetting('business_phone', $business_phone);
         
         // Handle Favicon Upload
         if (isset($_FILES['business_favicon']) && $_FILES['business_favicon']['error'] == 0) {
@@ -500,6 +501,24 @@ $categories = readCSV('categories');
                         <input type="text" name="business_name" value="<?= htmlspecialchars($current_name) ?>" 
                                class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white" 
                                placeholder="e.g. My Awesome Shop">
+                    </div>
+
+                    <!-- Business Address -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Business Address</label>
+                        <?php $current_address = getSetting('business_address', 'Your Business Address Here'); ?>
+                        <input type="text" name="business_address" value="<?= htmlspecialchars($current_address) ?>" 
+                               class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white" 
+                               placeholder="e.g. Shop #1, Main Market">
+                    </div>
+
+                    <!-- Business Phone -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Business Phone</label>
+                        <?php $current_phone = getSetting('business_phone', '0300-0000000'); ?>
+                        <input type="text" name="business_phone" value="<?= htmlspecialchars($current_phone) ?>" 
+                               class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white" 
+                               placeholder="e.g. 0300-1234567">
                     </div>
 
                     <!-- Favicon Upload -->

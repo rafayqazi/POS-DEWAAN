@@ -9,6 +9,6 @@
         <span class="mx-2 text-gray-300">|</span> 
         <i class="fab fa-whatsapp text-green-500 text-sm mr-1"></i><span class="font-medium text-gray-700">03000358189 / 03710273699</span>
         <span class="mx-2 text-gray-300">|</span>
-        &copy; <?= date('Y') ?> <strong class="text-gray-700"><?= getSetting('business_name', 'Fashion Shines POS') ?></strong>.
+        &copy; <?= date('Y') ?> <strong class="text-gray-700"><?= getSetting('business_name', 'Fashion Shines') ?></strong>.
     </div>
 </footer>
