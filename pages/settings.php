@@ -97,9 +97,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
              echo json_encode(['status' => 'error', 'message' => "Update failed: " . $result['message']]);
         }
         exit;
+    } elseif ($action == 'update_general_settings') {
         $business_name = cleanInput($_POST['business_name']);
         $business_address = cleanInput($_POST['business_address']);
         $business_phone = cleanInput($_POST['business_phone']);
+        $expiry_days = cleanInput($_POST['expiry_notify_days'] ?? '7');
+        $recovery_days = cleanInput($_POST['recovery_notify_days'] ?? '7');
         
         updateSetting('expiry_notify_days', $expiry_days);
         updateSetting('recovery_notify_days', $recovery_days);
