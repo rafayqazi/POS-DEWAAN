@@ -279,9 +279,16 @@
                     <button onclick="toggleSidebarMobile()" class="md:hidden p-2 text-gray-400 hover:text-teal-600 transition-colors">
                         <i class="fas fa-bars text-lg"></i>
                     </button>
-                    <div class="hidden md:flex items-center bg-gray-50 rounded-xl px-4 py-2 border border-gray-100 group focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                    <div class="relative hidden md:flex items-center bg-gray-50 rounded-xl px-4 py-2 border border-gray-100 group focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
                         <i class="fas fa-search text-gray-400 mr-2 group-focus-within:text-teal-500"></i>
-                        <input type="text" placeholder="Search..." class="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-700 w-48">
+                        <input type="text" id="global-feature-search" placeholder="Search features (POS, Reports)..." class="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-700 w-48" autocomplete="off">
+                        
+                        <!-- Search Results Dropdown -->
+                        <div id="search-results" class="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 hidden overflow-hidden z-[100] transform origin-top transition-all">
+                            <div id="search-results-list" class="max-h-64 overflow-y-auto p-2">
+                                <!-- Results JS Populated -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -633,6 +640,133 @@
                 console.error("Failed to clear notifications", e);
             }
         }
+
+        // Global Feature Search Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('global-feature-search');
+            const resultsContainer = document.getElementById('search-results');
+            const resultsList = document.getElementById('search-results-list');
+            const base = '<?= $base ?>';
+
+            const features = [
+                { name: 'Dashboard', url: 'index.php', icon: 'fa-th-large', keywords: 'home main overview' },
+                <?php if (hasPermission('add_sale')): ?>
+                { name: 'POS / New Sale', url: 'pages/pos.php', icon: 'fa-cash-register', keywords: 'bill invoice checkout sell counter' },
+                <?php endif; ?>
+                <?php if (isRole(['Admin', 'Viewer', 'Customer'])): ?>
+                { name: 'Sales History', url: 'pages/sales_history.php', icon: 'fa-history', keywords: 'records transactions history past sales' },
+                <?php endif; ?>
+                <?php if (isRole(['Admin', 'Viewer'])): ?>
+                { name: 'Inventory / Stock', url: 'pages/inventory.php', icon: 'fa-boxes', keywords: 'products items warehouse stock' },
+                { name: 'Check Inventory', url: 'pages/check_inventory.php', icon: 'fa-search', keywords: 'verify search stock look' },
+                { name: 'Reports & Analytics', url: 'pages/reports.php', icon: 'fa-chart-line', keywords: 'profit loss analysis statistics status' },
+                { name: 'Customers', url: 'pages/customers.php', icon: 'fa-users', keywords: 'clients people buyers' },
+                { name: 'Customer Ledgers', url: 'pages/customer_ledger.php', icon: 'fa-file-invoice-dollar', keywords: 'debt khata recovery balance history' },
+                { name: 'Dealers / Suppliers', url: 'pages/dealers.php', icon: 'fa-truck', keywords: 'vendors suppliers wholesale' },
+                { name: 'Dealer Ledgers', url: 'pages/dealer_ledger.php', icon: 'fa-file-invoice-dollar', keywords: 'payment payable bill records' },
+                { name: 'Expenses', url: 'pages/expenses.php', icon: 'fa-wallet', keywords: 'kharcha bills utility rent' },
+                <?php endif; ?>
+                <?php if (isRole(['Admin', 'Viewer', 'Dealer'])): ?>
+                { name: 'Quick Restock', url: 'pages/quick_restock.php', icon: 'fa-plus-square', keywords: 'order buy supply refill' },
+                <?php endif; ?>
+                <?php if (hasPermission('add_sale')): ?>
+                { name: 'Return Product', url: 'pages/return_product.php', icon: 'fa-undo', keywords: 'refund exchange back' },
+                <?php endif; ?>
+                <?php if (isRole('Admin')): ?>
+                { name: 'Categories', url: 'pages/categories.php', icon: 'fa-tags', keywords: 'group type classification' },
+                { name: 'Units', url: 'pages/units.php', icon: 'fa-balance-scale', keywords: 'measurement kg piece pack' },
+                <?php endif; ?>
+                { name: 'Settings', url: 'pages/settings.php', icon: 'fa-cog', keywords: 'config profile business setup' },
+                <?php if (isRole('Admin')): ?>
+                { name: 'Backup & Restore', url: 'pages/backup_restore.php', icon: 'fa-database', keywords: 'security save download database' }
+                <?php endif; ?>
+            ];
+
+            let selectedIndex = -1;
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                if (!query) {
+                    resultsContainer.classList.add('hidden');
+                    return;
+                }
+
+                const matches = features.filter(f => 
+                    f.name.toLowerCase().includes(query) || 
+                    f.keywords.toLowerCase().includes(query)
+                ).slice(0, 6);
+
+                if (matches.length > 0) {
+                    renderResults(matches);
+                    resultsContainer.classList.remove('hidden');
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
+                selectedIndex = -1;
+            });
+
+            function renderResults(matches) {
+                resultsList.innerHTML = matches.map((f, idx) => `
+                    <div class="result-item flex items-center gap-3 p-3 rounded-xl hover:bg-teal-50 cursor-pointer transition-colors group" data-url="${base + f.url}">
+                        <div class="w-8 h-8 bg-gray-100 text-gray-400 rounded-lg flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-all">
+                            <i class="fas ${f.icon} text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-gray-800">${f.name}</p>
+                            <p class="text-[9px] text-gray-400 uppercase tracking-widest">${f.url}</p>
+                        </div>
+                        <i class="fas fa-chevron-right text-[10px] text-gray-200 group-hover:text-teal-400"></i>
+                    </div>
+                `).join('');
+
+                document.querySelectorAll('.result-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        window.location.href = item.dataset.url;
+                    });
+                });
+            }
+
+            searchInput.addEventListener('keydown', (e) => {
+                const items = document.querySelectorAll('.result-item');
+                if (resultsContainer.classList.contains('hidden')) return;
+
+                if (e.key === 'ArrowDown') {
+                    selectedIndex = (selectedIndex + 1) % items.length;
+                    updateSelection(items);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+                    updateSelection(items);
+                    e.preventDefault();
+                } else if (e.key === 'Enter') {
+                    if (selectedIndex > -1) {
+                        window.location.href = items[selectedIndex].dataset.url;
+                    } else if (items.length > 0) {
+                        window.location.href = items[0].dataset.url;
+                    }
+                } else if (e.key === 'Escape') {
+                    resultsContainer.classList.add('hidden');
+                }
+            });
+
+            function updateSelection(items) {
+                items.forEach((item, idx) => {
+                    if (idx === selectedIndex) {
+                        item.classList.add('bg-teal-50', 'ring-1', 'ring-teal-100');
+                        item.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        item.classList.remove('bg-teal-50', 'ring-1', 'ring-teal-100');
+                    }
+                });
+            }
+
+            // Close results when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                    resultsContainer.classList.add('hidden');
+                }
+            });
+        });
     </script>
 
     <!-- Global Alert Modal -->

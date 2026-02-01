@@ -437,6 +437,30 @@ function calculateDebt() {
     }
 }
 
+function manualUpdateQty(id, val) {
+    const item = cart.find(i => i.id == id);
+    if (item) {
+        let newQty = parseFloat(val);
+        if (isNaN(newQty)) return;
+
+        if (newQty > item.max_stock) {
+            showAlert(`Only ${item.max_stock} units available.`, 'Inventory Alert');
+            newQty = item.max_stock;
+            const input = document.getElementById(`qty-input-${id}`);
+            if (input) input.value = newQty;
+        }
+        
+        item.qty = newQty;
+        item.total = item.qty * item.price;
+        
+        // Update the item total field in the row
+        const totalInput = document.getElementById(`total-${item.id}`);
+        if (totalInput) totalInput.value = Math.round(item.total);
+        
+        calculateTotals();
+    }
+}
+
 function renderCart(fullRedraw = true) {
     const tbody = document.getElementById('cartItems');
     let html = '';
@@ -457,10 +481,12 @@ function renderCart(fullRedraw = true) {
                     <div id="error-${item.id}" class="text-[8px] font-black text-red-500 uppercase mt-1 hidden"></div>
                 </td>
                 <td class="py-3">
-                    <div class="flex items-center justify-center gap-2 bg-gray-100/50 rounded-lg p-1 w-24 mx-auto">
-                        <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-500 hover:text-red-500 transition-colors"><i class="fas fa-minus text-[10px]"></i></button>
-                        <span class="text-xs font-black text-gray-700 min-w-[20px] text-center">${item.qty}</span>
-                        <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-500 hover:text-teal-500 transition-colors"><i class="fas fa-plus text-[10px]"></i></button>
+                    <div class="flex items-center justify-center gap-1.5 bg-gray-100/50 rounded-lg p-1 w-28 mx-auto">
+                        <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-400 hover:text-red-500 transition-colors shrink-0"><i class="fas fa-minus text-[8px]"></i></button>
+                        <input type="number" id="qty-input-${item.id}" value="${item.qty}" 
+                               oninput="manualUpdateQty('${item.id}', this.value)" 
+                               class="w-12 bg-white border border-gray-100 rounded text-center text-xs font-black text-gray-700 focus:ring-1 focus:ring-teal-500 outline-none p-1">
+                        <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-400 hover:text-teal-500 transition-colors shrink-0"><i class="fas fa-plus text-[8px]"></i></button>
                     </div>
                 </td>
                 <td class="py-3 text-right">

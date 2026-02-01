@@ -74,7 +74,7 @@ usort($all_debtors, function($a, $b) {
 
 // 2. Calculations for high-impact metrics
 $today_str = date('Y-m-d');
-$month_str = date('Y-m');
+$thirty_days_ago_str = date('Y-m-d', strtotime('-30 days'));
 $today_sales = 0;
 $today_profit = 0;
 $monthly_sales = 0;
@@ -95,7 +95,7 @@ foreach($sales as $s) {
             }
         }
     }
-    if (strpos($s['sale_date'], $month_str) === 0) {
+    if ($s['sale_date'] >= $thirty_days_ago_str) {
         $monthly_sales += (float)$s['total_amount'];
     }
 }
@@ -321,18 +321,18 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     <!-- Monthly Sales Card -->
-    <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
+    <a href="pages/sales_history.php?f_type=30days" class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
         <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500">
             <i class="fas fa-calendar-alt text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Monthly Revenue <br> <span class="text-[9px] lowercase opacity-80">(Mahana Kul Sale)</span></p>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">30-Day Revenue <br> <span class="text-[9px] lowercase opacity-80">(Pichle 30 Din ki Sale)</span></p>
             <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($monthly_sales) ?></h3>
             <div class="flex items-center gap-2 mt-4 text-white text-[10px] font-bold">
-                <i class="fas fa-chart-bar"></i> Total this month
+                <i class="fas fa-chart-bar"></i> Total last 30 days
             </div>
         </div>
-    </div>
+    </a>
 
     <!-- Today's Profit Card -->
     <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
@@ -450,6 +450,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fas fa-cash-register"></i>
         </div>
         <span class="text-[10px] font-black text-gray-800 uppercase tracking-widest">New Sale</span>
+    </a>
+
+    <a href="pages/sales_history.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 transition-all duration-300 group">
+        <div class="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center text-xl mb-3 shadow-lg shadow-emerald-500/20 group-hover:rotate-6 transition-transform">
+            <i class="fas fa-history"></i>
+        </div>
+        <span class="text-[10px] font-black text-gray-800 uppercase tracking-widest">View Sales</span>
     </a>
 
     <a href="pages/inventory.php" class="flex flex-col items-center justify-center p-6 bg-white rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 transition-all duration-300 group">

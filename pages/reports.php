@@ -17,6 +17,7 @@ $total_sales_amount = 0;
 $total_paid_at_sale = 0;
 
 $today_str = date('Y-m-d');
+$thirty_days_ago_str = date('Y-m-d', strtotime('-30 days'));
 $month_str = date('Y-m');
 
 $sale_items = readCSV('sale_items');
@@ -30,7 +31,7 @@ foreach($sales as $s) {
     $is_month = (strpos($s['sale_date'], $month_str) === 0);
     
     if ($is_today) $sales_today += $amount;
-    if ($is_month) $sales_month += $amount;
+    if ($s['sale_date'] >= $thirty_days_ago_str) $sales_month += $amount;
     
     // Calculate Profit
     $current_sale_items = array_filter($sale_items, function($item) use ($s) {
@@ -72,7 +73,7 @@ foreach($sales as $s) {
         $item_profit = $item_revenue - $cost;
 
         if ($is_today) $profit_today += $item_profit;
-        if ($is_month) $profit_month += $item_profit;
+        if ($s['sale_date'] >= $thirty_days_ago_str) $profit_month += $item_profit;
     }
     
     $total_sales_amount += $amount;
@@ -137,7 +138,7 @@ $expenses_today = 0;
 $expenses_month = 0;
 foreach($expenses_data as $e) {
     if(strpos($e['date'], $today_str) === 0) $expenses_today += (float)$e['amount'];
-    if(strpos($e['date'], $month_str) === 0) $expenses_month += (float)$e['amount'];
+    if($e['date'] >= $thirty_days_ago_str) $expenses_month += (float)$e['amount'];
 }
 
 $net_profit_today = $profit_today - $expenses_today;
@@ -176,14 +177,14 @@ $report_ranges = [
          <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Today)</h3>
          <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_today) ?></p>
     </a>
-    <a href="sales_history.php?month=<?= date('Y-m') ?>" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-green-500 hover:shadow-lg transition transform hover:-translate-y-1">
-        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Month)</h3>
+     <a href="sales_history.php?f_type=30days" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-green-500 hover:shadow-lg transition transform hover:-translate-y-1">
+        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Last 30 Days)</h3>
         <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_month) ?></p>
     </a>
     
     <!-- Expense Cards -->
     <a href="expenses.php" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-red-500 hover:shadow-lg transition transform hover:-translate-y-1">
-        <h3 class="text-red-500 text-xs uppercase font-bold tracking-wider">Expenses (Month)</h3>
+        <h3 class="text-red-500 text-xs uppercase font-bold tracking-wider">Expenses (Last 30 Days)</h3>
         <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($expenses_month) ?></p>
     </a>
 
@@ -199,17 +200,17 @@ $report_ranges = [
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Net Profit Card -->
     <div class="bg-gradient-to-br from-emerald-600 to-teal-700 p-8 rounded-[2rem] shadow-xl text-white">
-        <h4 class="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-4">Net Profit (This Month)</h4>
+        <h4 class="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-4">Net Profit (Last 30 Days)</h4>
         <p class="text-5xl font-black tracking-tighter mb-2"><?= formatCurrency($net_profit_month) ?></p>
         <p class="text-emerald-200 text-[10px] font-medium uppercase tracking-tight">After deducting all expenses</p>
         
         <div class="mt-8 pt-6 border-t border-white/10 space-y-3">
              <div class="flex justify-between items-center text-sm">
-                <span class="text-emerald-200">Gross Profit (Sales-Cost)</span>
+                <span class="text-emerald-200">Gross Profit (Last 30 Days)</span>
                 <span class="font-bold text-white"><?= formatCurrency($profit_month) ?></span>
              </div>
              <div class="flex justify-between items-center text-sm">
-                <span class="text-emerald-200">Total Monthly Expenses</span>
+                <span class="text-emerald-200">Total Expenses (30 Days)</span>
                 <span class="font-bold text-red-300">- <?= formatCurrency($expenses_month) ?></span>
              </div>
         </div>
