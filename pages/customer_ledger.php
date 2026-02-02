@@ -122,18 +122,22 @@ usort($ledger, function($a, $b) {
          <p class="text-[10px] text-gray-400 font-bold mt-1"><?= htmlspecialchars($customer['address']) ?></p>
     </div>
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-red-500 glass flex flex-col justify-center">
-         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Outstanding Balance (Debt)</h3>
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Outstanding Balance (Debt)
+            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Jo Udhaar Customer Wapis Krega)</span>
+         </h3>
          <p id="statTotalDue" class="text-4xl font-black text-red-600 tracking-tighter"><?= formatCurrency($total_due) ?></p>
     </div>
 </div>
 
-<div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
-    <!-- Filters -->
-    <div class="flex flex-wrap items-end gap-3 flex-1">
+<div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
+    <!-- Row 1: Filters -->
+    <div class="flex flex-wrap items-end gap-4 pb-6 border-b border-gray-100 w-full">
         <input type="hidden" name="id" value="<?= $cid ?>">
+        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
-            <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none w-36 shadow-sm">
+            <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none w-40 shadow-sm h-[42px]">
                 <option value="">Custom</option>
                 <option value="today">Today</option>
                 <option value="this_month">This Month</option>
@@ -142,23 +146,27 @@ usort($ledger, function($a, $b) {
                 <option value="last_year">Last 1 Year</option>
             </select>
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
-            <input type="date" id="dateFrom" onchange="renderTable()" value="<?= date('Y-m-01') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
+            <input type="date" id="dateFrom" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm h-[42px]">
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
-            <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
+            <input type="date" id="dateTo" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm h-[42px]">
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
-            <button onclick="clearFilters()" class="p-3 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 opacity-0">Action</label>
+            <button onclick="clearFilters()" class="px-6 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center justify-center">
                 CLEAR
             </button>
         </div>
     </div>
     
-    <div class="flex gap-3">
+    <!-- Row 2: Actions -->
+    <div class="flex flex-wrap gap-3 mt-6 justify-end">
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>

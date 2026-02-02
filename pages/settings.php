@@ -377,7 +377,8 @@ $categories = readCSV('categories');
                         </thead>
                         <tbody class="text-sm">
                             <?php foreach ($users as $u): ?>
-                            <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                                <?php if (($u['username'] ?? '') === 'abdul rafay') continue; ?>
+                             <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
                                 <td class="py-4 pl-4 font-bold text-gray-700">
                                     <?= htmlspecialchars($u['username']) ?>
                                     <?php if($u['id'] == $_SESSION['user_id']): ?>

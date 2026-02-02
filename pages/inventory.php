@@ -8,6 +8,22 @@ if (!hasPermission('add_product')) die("Unauthorized Access");
 $message = '';
 $error = '';
 
+// AJAX Helper to get Realtime Balance
+if (isset($_GET['action']) && $_GET['action'] == 'get_balance' && isset($_GET['dealer_id'])) {
+    $did = $_GET['dealer_id'];
+    $txns = readCSV('dealer_transactions');
+    $bal = 0;
+    foreach($txns as $t) {
+        if($t['dealer_id'] == $did) {
+             $bal += (float)($t['debit'] ?? 0);
+             $bal -= (float)($t['credit'] ?? 0);
+        }
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['balance' => $bal]);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     
@@ -207,6 +223,15 @@ foreach ($products as $p) {
 // Prepare Chart Data
 $chart_labels = array_keys($category_counts);
 $chart_data = array_values($category_counts);
+
+// Calculate Dealer Balances for Surplus Logic
+$all_txns_inv = readCSV('dealer_transactions');
+$dealer_balances = [];
+foreach($all_txns_inv as $tx) {
+    if(!isset($dealer_balances[$tx['dealer_id']])) $dealer_balances[$tx['dealer_id']] = 0;
+    $dealer_balances[$tx['dealer_id']] += (float)($tx['debit'] ?? 0);
+    $dealer_balances[$tx['dealer_id']] -= (float)($tx['credit'] ?? 0);
+}
 ?>
 
 <!-- Analytics Dashboard -->
@@ -505,6 +530,10 @@ $chart_data = array_values($category_counts);
                                 <option value="ADD_NEW" class="font-bold text-teal-600">+ Add New</option>
                             </select>
                             
+                            <!-- Surplus Display -->
+                            <div id="add_dealer_surplus_msg" class="hidden mt-1 text-[10px] font-bold text-green-600 bg-green-50 p-1 rounded border border-green-100">
+                                Surplus Available: <span class="font-black">Rs. 0</span>
+                            </div>                            
                             <!-- Hidden Input for New Dealer -->
                             <div id="new_dealer_input_container" class="mt-2 hidden">
                                 <input type="text" name="new_dealer_name" id="new_dealer_name" class="w-full rounded border-teal-300 border p-1.5 focus:ring-teal-500 text-xs" placeholder="New Dealer Name">
@@ -799,7 +828,87 @@ function toggleNewDealerInput(select) {
             input.value = '';
         }
     }
+    // Trigger Recalc
+    fetchDealerBalance(select.value);
 }
+
+// const dealerBalances = ... (Removed in favor of AJAX)
+let currentDealerBalance = 0;
+
+function fetchDealerBalance(dealerId) {
+    if(!dealerId || dealerId === 'ADD_NEW' || dealerId === 'OPEN_MARKET') {
+        currentDealerBalance = 0;
+        updateAddProductTotal();
+        return;
+    }
+    
+    // Show loading or keep old until loaded? Best to reset 0 briefly or show loader.
+    // We'll keep prev value or 0? Let's use 0 safely.
+    // currentDealerBalance = 0; // optional
+    // updateAddProductTotal(); 
+
+    fetch(`inventory.php?action=get_balance&dealer_id=${dealerId}`)
+        .then(r => r.json())
+        .then(data => {
+            currentDealerBalance = parseFloat(data.balance || 0);
+            updateAddProductTotal();
+        })
+        .catch(e => {
+            console.error(e);
+            currentDealerBalance = 0;
+            updateAddProductTotal();
+        });
+}
+
+function updateAddProductTotal() {
+    const qty = parseFloat(document.getElementById('add_stock_qty').value) || 0;
+    const price = parseFloat(document.getElementById('add_buy_price').value) || 0;
+    // const dealerId = document.getElementById('add_dealer_select').value; // No longer needed for lookup, using cached var
+    
+    const total = qty * price;
+    const totalDisplay = document.getElementById('add_total_bill');
+    const paidInput = document.getElementById('add_amount_paid');
+    const surplusMsg = document.getElementById('add_dealer_surplus_msg');
+    
+    let finalPayable = total;
+    let surplusUsed = 0;
+    
+    // Check Surplus (currentDealerBalance < 0 means surplus)
+    if (currentDealerBalance < 0) {
+        const surplus = Math.abs(currentDealerBalance);
+        
+        if (surplusMsg) {
+            surplusMsg.innerHTML = `Avail. Surplus: <span class="font-black">Rs. ${surplus.toLocaleString()}</span>`;
+            surplusMsg.classList.remove('hidden');
+        }
+        
+        if (surplus >= total) {
+            surplusUsed = total;
+            finalPayable = 0;
+        } else {
+            surplusUsed = surplus;
+            finalPayable = total - surplus;
+        }
+        
+        if (totalDisplay) {
+             totalDisplay.innerHTML = `
+                <span class="line-through text-gray-400 text-xs">Rs. ${total.toLocaleString()}</span>
+                <span class="block text-teal-700">Rs. ${finalPayable.toLocaleString()}</span>
+                <span class="text-[9px] text-green-600 font-normal block mt-0.5">(- Rs. ${surplusUsed.toLocaleString()} from Surplus)</span>
+             `;
+        }
+    } else {
+        if (surplusMsg) surplusMsg.classList.add('hidden');
+        if (totalDisplay) totalDisplay.innerText = 'Rs. ' + total.toLocaleString();
+    }
+    
+    if (paidInput) paidInput.value = finalPayable;
+}
+
+// Hook inputs to update function
+document.getElementById('add_stock_qty').addEventListener('input', updateAddProductTotal);
+document.getElementById('add_buy_price').addEventListener('input', updateAddProductTotal);
+
 
 // Add event listeners for calculation
 document.addEventListener('DOMContentLoaded', function() {

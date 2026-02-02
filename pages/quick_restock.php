@@ -168,6 +168,9 @@ usort($products, function($a, $b) {
                         <div id="new_dealer_input_container" class="mt-2 hidden">
                             <input type="text" name="new_dealer_name" id="new_dealer_name" class="w-full rounded-xl border-teal-200 border-2 p-3 sm:p-3.5 focus:border-teal-500 outline-none text-sm font-medium" placeholder="Enter Dealer Name">
                         </div>
+                        <div id="restock_dealer_surplus_msg" class="hidden mt-2 text-[10px] font-bold text-green-600 bg-green-50 p-2 rounded-xl border border-green-100">
+                             Surplus Available: <span class="font-black">Rs. 0</span>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Purchase Date</label>
@@ -202,7 +205,24 @@ usort($products, function($a, $b) {
                     <i class="fas fa-check-circle"></i>
                     <span>CONFIRM RESTOCK</span>
                 </button>
-            </div>
+                </div>
+</div>
+
+<!-- Overpayment Warning Modal -->
+<div id="overpaymentModal" class="fixed inset-0 bg-black/50 hidden z-[10000] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center transform transition-all scale-100 animate-in zoom-in duration-200">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-hand-paper text-3xl text-red-600"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Overpayment Warning</h3>
+        <p class="text-sm text-gray-600 font-medium mb-6 leading-relaxed" id="overpaymentMsg">
+            You cannot pay more than the Net Payable amount.
+        </p>
+        <button type="button" onclick="closeOverpaymentModal()" class="w-full py-3.5 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 shadow-lg shadow-red-500/30 transition active:scale-95">
+            Understood, will correct
+        </button>
+    </div>
+</div>
         </form>
     </div>
 </div>
@@ -255,19 +275,10 @@ usort($products, function($a, $b) {
         document.getElementById('restockModal').classList.remove('flex');
     }
 
-    function calculateTotal() {
-        const qty = parseFloat(document.getElementById('restock_qty').value) || 0;
-        const price = parseFloat(document.getElementById('restock_buy_price').value) || 0;
-        const total = qty * price;
-        
-        document.getElementById('total_bill_display').innerText = 'Rs. ' + Math.round(total).toLocaleString();
-        document.getElementById('amount_paid').value = Math.round(total);
-    }
-
     function toggleNewDealerInput(select) {
         const container = document.getElementById('new_dealer_input_container');
         const input = document.getElementById('new_dealer_name');
-        
+
         if (select.value === 'ADD_NEW') {
             container.classList.remove('hidden');
             input.required = true;
@@ -276,6 +287,75 @@ usort($products, function($a, $b) {
             container.classList.add('hidden');
             input.required = false;
         }
+        // Trigger Ajax Fetch
+        fetchDealerBalance(select.value);
+    }
+    
+    let currentDealerBalance = 0;
+    
+    function fetchDealerBalance(dealerId) {
+        if(!dealerId || dealerId === 'ADD_NEW' || dealerId === 'OPEN_MARKET') {
+            currentDealerBalance = 0;
+            calculateTotal();
+            return;
+        }
+        
+        fetch(`inventory.php?action=get_balance&dealer_id=${dealerId}`)
+            .then(r => r.json())
+            .then(data => {
+                currentDealerBalance = parseFloat(data.balance || 0);
+                calculateTotal();
+            })
+            .catch(e => {
+                console.error(e);
+                currentDealerBalance = 0;
+                calculateTotal();
+            });
+    }
+
+    function calculateTotal() {
+        const qty = parseFloat(document.getElementById('restock_qty').value) || 0;
+        const price = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+        const total = qty * price;
+        const totalDisplay = document.getElementById('total_bill_display');
+        const paidInput = document.getElementById('amount_paid');
+        const surplusMsg = document.getElementById('restock_dealer_surplus_msg');
+        
+        let finalPayable = total;
+        let surplusUsed = 0;
+        
+        // Match logic from inventory.php
+        if (currentDealerBalance < 0) {
+            const surplus = Math.abs(currentDealerBalance);
+            
+            if (surplusMsg) {
+                surplusMsg.innerHTML = `Avail. Surplus: <span class="font-black">Rs. ${surplus.toLocaleString()}</span>`;
+                surplusMsg.classList.remove('hidden');
+            }
+            
+            if (surplus >= total) {
+                surplusUsed = total;
+                finalPayable = 0;
+            } else {
+                surplusUsed = surplus;
+                finalPayable = total - surplus;
+            }
+            
+            if (totalDisplay) {
+                 totalDisplay.innerHTML = `
+                    <div class="flex flex-col items-start">
+                        <span class="line-through text-gray-400 text-xs">Rs. ${Math.round(total).toLocaleString()}</span>
+                        <span class="text-2xl sm:text-3xl font-black text-teal-600">Rs. ${Math.round(finalPayable).toLocaleString()}</span>
+                        <span class="text-[9px] text-green-600 font-bold bg-green-50 px-1 rounded border border-green-100 uppercase tracking-wide mt-1">(-${Math.round(surplusUsed).toLocaleString()} Surplus)</span>
+                    </div>
+                 `;
+            }
+        } else {
+            if (surplusMsg) surplusMsg.classList.add('hidden');
+            if (totalDisplay) totalDisplay.innerText = 'Rs. ' + Math.round(total).toLocaleString();
+        }
+
+        if(paidInput) paidInput.value = Math.round(finalPayable);
     }
 
     function validateAndSubmit() {
@@ -291,6 +371,29 @@ usort($products, function($a, $b) {
             showAlert("Please enter a valid quantity to add.", "Invalid Quantity");
             return;
         }
+        
+        // Overpayment Protection
+        const qty = parseFloat(document.getElementById('restock_qty').value) || 0;
+        const price = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+        const enteredPaid = parseFloat(document.getElementById('amount_paid').value) || 0;
+        
+        const totalBill = qty * price;
+        let maxPayable = totalBill;
+        
+        // Recalculate max payable based on surplus
+        if (currentDealerBalance < 0) {
+            const surplus = Math.abs(currentDealerBalance);
+            if (surplus >= totalBill) {
+                maxPayable = 0;
+            } else {
+                maxPayable = totalBill - surplus;
+            }
+        }
+        
+        if (enteredPaid > Math.ceil(maxPayable)) { 
+            showAlert(`You cannot pay more than the Net Bill Amount (Rs. ${Math.round(maxPayable).toLocaleString()}). <br>Surplus has already covered part/all of the bill.`, "Overpayment Error");
+            return;
+        }
 
         document.querySelector('#restockModal form').submit();
     }
@@ -299,6 +402,39 @@ usort($products, function($a, $b) {
     document.getElementById('restockModal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('restockModal')) {
             closeRestockModal();
+        }
+    });
+
+    function closeOverpaymentModal() {
+        document.getElementById('overpaymentModal').classList.add('hidden');
+    }
+
+    // Realtime Overpayment Check
+    document.getElementById('amount_paid').addEventListener('input', function() {
+        const qty = parseFloat(document.getElementById('restock_qty').value) || 0;
+        const price = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+        const entered = parseFloat(this.value) || 0;
+        
+        const total = qty * price;
+        let maxPayable = total;
+        
+        if (currentDealerBalance < 0) {
+            const surplus = Math.abs(currentDealerBalance);
+            maxPayable = Math.max(0, total - surplus);
+        }
+        
+        // Allow a small epsilon for floating point, but strict enough for currency
+        if (entered > Math.ceil(maxPayable)) {
+            document.getElementById('overpaymentMsg').innerHTML = `
+                Total Bill: <span class="font-bold">Rs. ${Math.round(total)}</span><br>
+                Surplus Used: <span class="font-bold text-green-600">Rs. ${Math.round(total - maxPayable)}</span><br>
+                <hr class="my-2 border-gray-100">
+                Max Payable: <span class="font-black text-red-600 text-lg">Rs. ${Math.ceil(maxPayable)}</span>
+            `;
+            document.getElementById('overpaymentModal').classList.remove('hidden');
+            
+            // Auto-correct
+            this.value = Math.ceil(maxPayable);
         }
     });
 </script>

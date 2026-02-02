@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'dealer_id' => $dealer_id,
         'type' => $type,
         'debit' => ($type == 'Purchase' || $type == 'Debt') ? $amount : 0,
-        'credit' => ($type == 'Payment') ? $amount : 0,
+        'credit' => ($type == 'Payment' || $type == 'Advance') ? $amount : 0,
         'description' => cleanInput($_POST['description']),
         'date' => $_POST['date'],
         'payment_type' => $_POST['payment_type'] ?? '',
@@ -140,19 +140,32 @@ $current_balance = $total_debit - $total_credit;
         <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Total Paid</h3>
         <p id="statTotalCredit" class="text-3xl font-black text-gray-800 tracking-tighter mt-1"><?= formatCurrency($total_credit) ?></p>
     </div>
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-500 glass">
-        <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Outstanding Debt</h3>
-        <p id="statBalance" class="text-3xl font-black text-red-600 tracking-tighter mt-1"><?= formatCurrency($current_balance) ?></p>
+    <?php
+        $is_surplus = $current_balance < 0;
+        $balance_display = abs($current_balance);
+        $card_border = $is_surplus ? 'border-emerald-500' : 'border-red-500';
+        $card_text = $is_surplus ? 'text-emerald-600' : 'text-red-600';
+        $card_title = $is_surplus ? 'Advance Balance (Credit)' : 'Outstanding Debt';
+        $card_subtitle = $is_surplus ? '' : '(Dealer Ko Itny Paisai Dene Hen Hamain)';
+        $subtitle_class = $is_surplus ? 'hidden' : 'block';
+    ?>
+    <div id="cardBalanceWrapper" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 <?= $card_border ?> glass">
+        <h3 id="statBalanceTitle" class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+            <?= $card_title ?>
+            <span id="statBalanceSubtitle" class="<?= $subtitle_class ?> text-[11px] text-black font-black mt-1 normal-case tracking-normal"><?= $card_subtitle ?></span>
+        </h3>
+        <p id="statBalance" class="text-3xl font-black <?= $card_text ?> tracking-tighter mt-1"><?= formatCurrency($balance_display) ?></p>
     </div>
 </div>
 
-<div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
-<!-- Top Filter Blocks -->
-    <div class="flex flex-wrap items-end gap-3 flex-1">
+<div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
+    <!-- Row 1: Filters -->
+    <div class="flex flex-wrap items-end gap-4 pb-6 border-b border-gray-100 w-full">
         <input type="hidden" name="id" value="<?= $dealer_id ?>">
+        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
-            <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none w-36 shadow-sm">
+            <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none w-40 shadow-sm h-[42px]">
                 <option value="">Custom</option>
                 <option value="today">Today</option>
                 <option value="this_month">This Month</option>
@@ -161,30 +174,37 @@ $current_balance = $total_debit - $total_credit;
                 <option value="last_year">Last 1 Year</option>
             </select>
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
-            <input type="date" id="dateFrom" onchange="renderTable()" value="<?= date('Y-m-01') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
+            <input type="date" id="dateFrom" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm h-[42px]">
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
-            <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
+            <input type="date" id="dateTo" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm h-[42px]">
         </div>
-        <div>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
-            <button onclick="clearFilters()" class="p-3 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center">
+        
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 opacity-0">Action</label>
+            <button onclick="clearFilters()" class="px-6 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center justify-center">
                 CLEAR
             </button>
         </div>
+        
         <!-- No Filter Button - Realtime -->
         <button onclick="renderTable()" class="hidden"></button>
     </div>
     
-    <div class="flex gap-3">
-        <!-- ... Buttons ... -->
+    <!-- Row 2: Actions -->
+    <div class="flex flex-wrap gap-3 mt-6 justify-end">
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
         <?php if (isRole('Admin')): ?>
+        <button onclick="openModal('Advance')" class="bg-amber-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-amber-900/10 font-bold text-xs h-[46px] hover:bg-amber-600 transition active:scale-95">
+            <i class="fas fa-coins mr-1"></i> ADD ADVANCE PAYMENT
+        </button>
         <button onclick="openModal('Payment')" class="bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-teal-900/10 font-bold text-xs h-[46px] hover:bg-secondary transition active:scale-95">
             <i class="fas fa-plus mr-1"></i> PAYMENT
         </button>
@@ -226,6 +246,65 @@ $current_balance = $total_debit - $total_credit;
 <style>
     .italic-normal { font-style: normal !important; }
 </style>
+
+
+<!-- Print/PDF Hidden Area -->
+<div id="printableArea" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
+            <div style="text-align: left;">
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Management System</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #333;">Dealer Ledger Report</h2>
+                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 40px; margin-bottom: 30px;">
+            <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
+                <h4 style="margin: 0 0 10px 0; color: #0f766e; text-transform: uppercase; font-size: 11px;">Dealer Details</h4>
+                <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($dealer['name']) ?></p>
+                <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($dealer['phone'] ?? '') ?></p>
+                <p style="margin: 0; color: #888; font-size: 11px;"><?= htmlspecialchars($dealer['address'] ?? '') ?></p>
+            </div>
+            <div style="flex: 1; background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; text-align: right;">
+                <h4 style="margin: 0 0 10px 0; color: #dc2626; text-transform: uppercase; font-size: 11px;">Outstanding Balance</h4>
+                <p id="printTotalDue" style="margin: 0; font-weight: bold; font-size: 24px; color: #dc2626;"><?= formatCurrency($current_balance) ?></p>
+                <p id="printDateRange" style="margin: 5px 0 0 0; font-size: 10px; color: #991b1b; display: none;"></p>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #0f766e; color: #fff;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Goods)</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Balance</th>
+                </tr>
+            </thead>
+            <tbody id="printBody">
+                <!-- JS Populated -->
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fafb; font-weight: bold;">
+                    <td colspan="4" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($current_balance) ?></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        </div>
+    </div>
+</div>
+
+
 
 <!-- Transaction Modal -->
 <div id="txnModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
@@ -294,63 +373,6 @@ $current_balance = $total_debit - $total_credit;
         </form>
     </div>
 </div>
-
-<!-- Print/PDF Hidden Area -->
-<div id="printableArea" class="hidden">
-    <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
-            <div style="text-align: left;">
-                <h1 style="color: #0f766e; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Management System</p>
-            </div>
-            <div style="text-align: right;">
-                <h2 style="margin: 0; color: #333;">Dealer Ledger Report</h2>
-                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 40px; margin-bottom: 30px;">
-            <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
-                <h4 style="margin: 0 0 10px 0; color: #0f766e; text-transform: uppercase; font-size: 11px;">Dealer Details</h4>
-                <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($dealer['name']) ?></p>
-                <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($dealer['phone'] ?? '') ?></p>
-                <p style="margin: 0; color: #888; font-size: 11px;"><?= htmlspecialchars($dealer['address'] ?? '') ?></p>
-            </div>
-            <div style="flex: 1; background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; text-align: right;">
-                <h4 style="margin: 0 0 10px 0; color: #dc2626; text-transform: uppercase; font-size: 11px;">Outstanding Balance</h4>
-                <p id="printTotalDue" style="margin: 0; font-weight: bold; font-size: 24px; color: #dc2626;"><?= formatCurrency($current_balance) ?></p>
-                <p id="printDateRange" style="margin: 5px 0 0 0; font-size: 10px; color: #991b1b; display: none;"></p>
-            </div>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <thead>
-                <tr style="background: #0f766e; color: #fff;">
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Goods)</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Balance</th>
-                </tr>
-            </thead>
-            <tbody id="printBody">
-                <!-- JS Populated -->
-            </tbody>
-            <tfoot>
-                <tr style="background: #f9fafb; font-weight: bold;">
-                    <td colspan="4" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
-                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($current_balance) ?></td>
-                </tr>
-            </tfoot>
-        </table>
-        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
-            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
-        </div>
-    </div>
-</div>
-
 
 <script>
     // Pass PHP data to JS
@@ -433,9 +455,52 @@ $current_balance = $total_debit - $total_credit;
         currentDebtValue = stats.balance;
 
         // Update Stats Cards
+        // Update Stats Cards
         if(document.getElementById('statTotalDebit')) document.getElementById('statTotalDebit').innerText = formatCurrency(stats.totalDebit);
         if(document.getElementById('statTotalCredit')) document.getElementById('statTotalCredit').innerText = formatCurrency(stats.totalCredit);
-        if(document.getElementById('statBalance')) document.getElementById('statBalance').innerText = formatCurrency(stats.balance);
+        
+        // Dynamic Balance Card Logic
+        const balanceWrapper = document.getElementById('cardBalanceWrapper');
+        const balanceTitle = document.getElementById('statBalanceTitle');
+        const balanceSubtitle = document.getElementById('statBalanceSubtitle');
+        const balanceText = document.getElementById('statBalance');
+        
+        let displayBalance = stats.balance;
+        
+        if (stats.balance < 0) {
+            // Surplus / Advance Mode
+            if(balanceWrapper) {
+                balanceWrapper.classList.remove('border-red-500');
+                balanceWrapper.classList.add('border-emerald-500');
+            }
+            if(balanceTitle) balanceTitle.childNodes[0].nodeValue = "Advance Balance (Credit)"; // Update text node only, keep span
+            if(balanceSubtitle) {
+                balanceSubtitle.classList.add('hidden');
+                balanceSubtitle.classList.remove('block');
+            }
+            if(balanceText) {
+                balanceText.classList.remove('text-red-600');
+                balanceText.classList.add('text-emerald-600');
+                balanceText.innerText = formatCurrency(Math.abs(stats.balance)); // Show positive value
+            }
+        } else {
+            // Debt Mode
+            if(balanceWrapper) {
+                balanceWrapper.classList.remove('border-emerald-500');
+                balanceWrapper.classList.add('border-red-500');
+            }
+            if(balanceTitle) balanceTitle.childNodes[0].nodeValue = "Outstanding Debt";
+            if(balanceSubtitle) {
+                balanceSubtitle.innerText = "(Dealer Ko Itny Paisai Dene Hen Hamain)";
+                balanceSubtitle.classList.remove('hidden');
+                balanceSubtitle.classList.add('block');
+            }
+            if(balanceText) {
+                balanceText.classList.remove('text-emerald-600');
+                balanceText.classList.add('text-red-600');
+                balanceText.innerText = formatCurrency(stats.balance);
+            }
+        }
 
         // Update Print Stats
         if(document.getElementById('printTotalDue')) document.getElementById('printTotalDue').innerText = formatCurrency(stats.balance);
@@ -592,7 +657,12 @@ $current_balance = $total_debit - $total_credit;
                         </div>` : ''}
                     </td>
                     <td class="p-6 text-center">
-                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${t.type === 'Purchase' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}">
+                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                            t.type === 'Purchase' ? 'bg-orange-50 text-orange-600 border-orange-100' : 
+                            (t.type === 'Payment' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                            (t.type === 'Advance' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                            'bg-red-50 text-red-600 border-red-100'))
+                        }">
                             ${t.type}
                         </span>
                     </td>
@@ -638,6 +708,10 @@ $current_balance = $total_debit - $total_credit;
         let title = "Record Transaction";
         if(type == 'Purchase') title = "Record Goods";
         else if(type == 'Payment') title = "Record Payment";
+        else if(type == 'Advance') {
+            title = "Record Advance Payment";
+            document.getElementById('txnDesc').value = 'Advance Payment';
+        }
         else if(type == 'Debt') title = "Record Outstanding Debt";
         
         document.getElementById('modalTitle').innerText = title;
@@ -647,10 +721,15 @@ $current_balance = $total_debit - $total_credit;
         const payTotalWrapper = document.getElementById('payTotalWrapper');
         const paymentFields = document.getElementById('paymentFields');
         
-        if (type == 'Payment') {
-            debtDisplay.classList.remove('hidden');
-            document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebtValue);
-            if(payTotalWrapper) payTotalWrapper.classList.remove('hidden');
+        if (type == 'Payment' || type == 'Advance') {
+            if(type == 'Payment') {
+                debtDisplay.classList.remove('hidden');
+                document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebtValue);
+                if(payTotalWrapper) payTotalWrapper.classList.remove('hidden');
+            } else {
+                debtDisplay.classList.add('hidden'); // Advance doesn't care about debt limit
+                if(payTotalWrapper) payTotalWrapper.classList.add('hidden');
+            }
             if(paymentFields) paymentFields.classList.remove('hidden');
         } else {
             debtDisplay.classList.add('hidden');
@@ -735,6 +814,10 @@ $current_balance = $total_debit - $total_credit;
     // RE-INJECT FUNCTIONS AND INIT
     document.addEventListener('DOMContentLoaded', () => {
        renderTable(); // Initial Render
+       
+       // Move modal to body to fix stacking context/clipping issues
+       const modal = document.getElementById('txnModal');
+       if(modal) document.body.appendChild(modal);
     });
 
     function confirmDelete(url) {
