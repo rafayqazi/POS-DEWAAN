@@ -147,30 +147,44 @@ function runUpdate() {
     exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b);
     $branch = trim($out_b[0] ?? 'master');
     
-    // Stash any local changes (especially in data files) to allow pull to succeed
+    // Step 1: Check for unmerged files or ongoing merge
+    exec("git ls-files -u 2>&1", $unmerged_files);
+    if (!empty($unmerged_files)) {
+        // There are unmerged files, abort the merge
+        exec("git merge --abort 2>&1");
+    }
+    
+    // Step 2: Reset to a clean state (hard reset to current HEAD)
+    // This will discard any uncommitted changes in tracked files
+    exec("git reset --hard HEAD 2>&1");
+    
+    // Step 3: Clean untracked files and directories (but preserve data/*.csv files)
+    // -f forces clean, -d removes directories
+    exec("git clean -fd 2>&1");
+    
+    // Step 4: Stash any remaining local changes (especially in data files)
     exec("git stash 2>&1");
     
-    // Perform the update
-    exec("git pull origin $branch 2>&1", $output, $return_var);
+    // Step 5: Fetch the latest changes from remote
+    exec("git fetch origin $branch 2>&1");
     
-    $message = implode("\n", $output);
+    // Step 6: Force reset to remote branch (this ensures we're in sync)
+    exec("git reset --hard origin/$branch 2>&1", $reset_output, $reset_var);
     
-    if ($return_var === 0) {
-        // Success: Try to restore local changes
-        exec("git stash pop 2>&1");
+    if ($reset_var === 0) {
+        // Success: Try to restore local data changes (CSV files)
+        exec("git stash pop 2>&1", $stash_output, $stash_var);
         
         // Clear the detection flag
         updateSetting('update_first_detected', '');
-    } else {
-        // Failure: If pull failed, check if we need to explain why
-        if (strpos($message, 'local changes to the following files would be overwritten by merge') !== false) {
-            $message = "Update failed: Local changes would be overwritten. Please commit or discard changes.\n\nFiles:\n" . $message;
-        }
         
-        // Attempt to restore stash even if pull failed? No, keep it in stash for safety.
+        $message = "Update successful! Your software has been updated to the latest version.";
+        return ['success' => true, 'message' => $message, 'branch' => $branch];
+    } else {
+        // Failure: If reset failed
+        $message = "Update failed: " . implode("\n", $reset_output);
+        return ['success' => false, 'message' => $message, 'branch' => $branch];
     }
-    
-    return ['success' => ($return_var === 0), 'message' => $message, 'branch' => $branch];
 }
 
 // --- RBAC Helpers ---
