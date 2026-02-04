@@ -61,10 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     }
 
     $due_date = $_POST['due_date'] ?? '';
+    $new_date_only = $_POST['sale_date'];
 
     // 4. Update Sale Record
     $sale = findCSV('sales', $sale_id);
     if ($sale) {
+        $old_time = date('H:i:s', strtotime($sale['sale_date']));
+        $sale['sale_date'] = $new_date_only . ' ' . $old_time;
         $sale['total_amount'] = $total_amount;
         $sale['paid_amount'] = $paid_amount;
         $sale['discount'] = $discount;
@@ -105,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     $all_txns = readCSV('customer_transactions');
     foreach($all_txns as $tx) {
         if (isset($tx['sale_id']) && $tx['sale_id'] == $sale_id) {
+            $tx['date'] = $new_date_only;
             $tx['debit'] = $total_amount;
             $tx['credit'] = $paid_amount;
             $tx['description'] = "Sale #$sale_id Updated - $remarks";

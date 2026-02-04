@@ -118,6 +118,11 @@ include '../includes/header.php';
                 <input type="hidden" name="cart_data" id="cart_data">
                 <input type="hidden" name="total_amount" id="total_amount_input">
                 
+                <div class="mb-4">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1.5 ml-1">Sale Date</label>
+                    <input type="date" name="sale_date" value="<?= date('Y-m-d', strtotime($sale['sale_date'])) ?>" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all shadow-sm">
+                </div>
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1.5 ml-1">Paid Amount</label>

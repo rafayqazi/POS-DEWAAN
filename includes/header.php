@@ -76,12 +76,18 @@
         <!-- Sidebar -->
         <!-- Added mobile responsive classes: fixed on mobile, translate-x-full to hide, md:relative to show -->
         <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white shadow-2xl flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative border-r border-teal-800/50" id="sidebar">
-            <div class="p-6 flex items-center justify-between border-b border-teal-800 h-24 bg-teal-900/20">
-                <div class="sidebar-text truncate">
-                    <h1 class="text-2xl font-bold tracking-tight text-accent logo-text"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
-                    <p class="text-[10px] text-teal-400 font-medium uppercase tracking-[0.2em]">Management System</p>
+            <div class="p-4 flex items-center justify-between border-b border-teal-800 min-h-[6rem] bg-teal-900/20">
+                <div class="flex items-center gap-3 sidebar-text">
+                    <?php $business_logo = getSetting('business_favicon', 'assets/img/logo.png'); ?>
+                    <div class="w-10 h-10 rounded-lg p-1 flex-shrink-0">
+                        <img src="<?= $base . $business_logo . '?v=' . time() ?>" alt="Logo" class="w-full h-full object-contain">
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-accent logo-text leading-tight"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                        <p class="text-[9px] text-teal-400 font-medium uppercase tracking-[0.1em]">Management System</p>
+                    </div>
                 </div>
-                <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-teal-800 transition-all text-teal-400 hover:text-white outline-none ring-1 ring-teal-800 hover:ring-teal-600">
+                <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-teal-800 transition-all text-teal-400 hover:text-white outline-none ring-1 ring-teal-800 hover:ring-teal-600 flex-shrink-0 ml-2">
                     <i class="fas fa-bars text-lg" id="sidebarToggleIcon"></i>
                 </button>
             </div>

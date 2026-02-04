@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validation: Ensure Sell Price >= Buy Price (Prevent Loss)
     if ($new_buy_price > $new_sell_price) {
         $_SESSION['error'] = "Error: Buy Price ($new_buy_price) cannot be greater than Sell Price ($new_sell_price).";
-        redirect('../pages/inventory.php');
+        redirect('../pages/quick_restock.php');
     }
 
     // 1. Transactional Update of Product (AVCO & Stock)
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$transaction_success) {
         $_SESSION['error'] = "Restock failed. Product not found or database busy.";
-        redirect('../pages/inventory.php');
+        redirect('../pages/quick_restock.php');
     }
     
     // Extract captured data
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $_SESSION['success'] = "Inventory restocked successfully!";
-    redirect('../pages/inventory.php');
+    redirect('../pages/quick_restock.php');
 } else {
-    redirect('../pages/inventory.php');
+    redirect('../pages/quick_restock.php');
 }
