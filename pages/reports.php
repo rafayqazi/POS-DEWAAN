@@ -144,7 +144,38 @@ foreach($expenses_data as $e) {
 $net_profit_today = $profit_today - $expenses_today;
 $net_profit_month = $profit_month - $expenses_month;
 
-$total_recovered = $total_paid_at_sale + $total_customer_payments;
+// Return Statistics (Last 30 Days)
+$returns_data = readCSV('returns');
+$return_items_data = readCSV('return_items');
+$returned_count_30d = 0;
+$return_details_30d = [];
+
+foreach($returns_data as $r) {
+    if (empty($r['id']) || empty($r['date'])) continue;
+    if ($r['date'] >= $thirty_days_ago_str) {
+        $r_items = array_filter($return_items_data, function($ri) use ($r) {
+            return isset($ri['return_id']) && $ri['return_id'] == $r['id'];
+        });
+        
+        foreach($r_items as $ri) {
+            $qty = (float)$ri['quantity'];
+            $returned_count_30d += $qty;
+            
+            $return_details_30d[] = [
+                'date' => $r['date'],
+                'customer' => $customer_map[$r['customer_id']] ?? 'Walk-in',
+                'p_id' => $ri['product_id'],
+                'p_name' => $products_map[$ri['product_id']]['name'] ?? 'Unknown',
+                'qty' => $qty,
+                'refund' => (float)$ri['total_price']
+            ];
+        }
+    }
+}
+// Sort by date desc
+usort($return_details_30d, function($a, $b) {
+    return strtotime($b['date']) - strtotime($a['date']);
+});
 
 $total_recovered = $total_paid_at_sale + $total_customer_payments;
 
@@ -193,6 +224,13 @@ $report_ranges = [
         <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Total Recovered</h3>
         <p class="text-3xl font-black text-teal-600 tracking-tight mt-1"><?= formatCurrency($total_recovered) ?></p>
         <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Click to view breakdown</p>
+    </div>
+
+    <!-- Returns Card -->
+    <div onclick="showReturnDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-orange-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
+        <h3 class="text-orange-500 text-xs uppercase font-bold tracking-wider">Returned Products</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= $returned_count_30d ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
     </div>
 </div>
 
@@ -582,8 +620,103 @@ function showRecoveryDetails() {
     document.getElementById('recoveryToDate').value = '';
     filterRecovery('all');
 }
+
+function showReturnDetails() {
+    document.getElementById('returnsModal').classList.remove('hidden');
+    renderReturnTable(returnsData);
+}
+
+const returnsData = <?= json_encode($return_details_30d) ?>;
+function renderReturnTable(data) {
+    const tbody = document.getElementById('returnsTableBody');
+    tbody.innerHTML = '';
+    data.forEach((item, index) => {
+        tbody.innerHTML += `
+            <tr class="hover:bg-orange-50/30 transition border-b border-gray-50 text-sm">
+                <td class="p-4 pl-6 text-[10px] font-bold text-gray-400">${index + 1}</td>
+                <td class="p-4 text-gray-600 font-medium">${item.date}</td>
+                <td class="p-4 font-bold text-gray-800">${item.customer}</td>
+                <td class="p-4 text-gray-600">${item.p_name}</td>
+                <td class="p-4 font-black text-orange-600 text-center">x ${item.qty}</td>
+                <td class="p-4 text-right pr-6 font-bold text-gray-900">${formatCurrencyJS(item.refund)}</td>
+            </tr>
+        `;
+    });
+}
+
+function printReturnReport() {
+    const content = document.getElementById('returnsPrintableContainer').innerHTML;
+    const stats = "Last 30 Days";
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Returned Products Report</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 12px; border: 1px solid #eee; text-align: left; font-size: 12px; }
+                th { background: #f8fafc; font-weight: bold; text-transform: uppercase; color: #64748b; }
+                .header { display: flex; justify-content: space-between; border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px; }
+                .text-right { text-align: right; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div>
+                     <h1 style="margin: 0; color: #ea580c;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                     <p style="margin: 5px 0 0 0; color: #64748b;">Returned Products Report</p>
+                </div>
+                <div class="text-right">
+                     <h3 style="margin: 0;">${stats}</h3>
+                     <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 10px;">Generated: ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+            ${content}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+}
 </script>
 
+
+<!-- Returns Details Modal -->
+<div id="returnsModal" class="fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-orange-600 text-white">
+            <div>
+                <h3 class="text-xl font-bold">Returned Products History</h3>
+                <p class="text-xs opacity-80 mt-1">Detailed breakdown of products returned in the last 30 days</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="printReturnReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="document.getElementById('returnsModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <div id="returnsPrintableContainer" class="p-6 overflow-y-auto flex-1 bg-white">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 bg-gray-50/50">
+                        <th class="p-4 pl-6">Sr #</th>
+                        <th class="p-4">Date</th>
+                        <th class="p-4">Customer</th>
+                        <th class="p-4">Product Name</th>
+                        <th class="p-4 text-center">Qty</th>
+                        <th class="p-4 text-right pr-6">Refund</th>
+                    </tr>
+                </thead>
+                <tbody id="returnsTableBody" class="divide-y divide-gray-50"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 <!-- General Report Selection Modal -->
 <div id="generalReportModal" class="fixed inset-0 bg-black/60 hidden z-[60] flex items-center justify-center backdrop-blur-sm p-4">

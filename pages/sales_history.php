@@ -68,7 +68,8 @@ foreach($all_sales as $s) {
     foreach($items as $i) {
         $formatted_items[] = [
             'p_name' => $p_name_map[$i['product_id']] ?? 'Unknown',
-            'qty' => (float)$i['quantity']
+            'qty' => (float)$i['quantity'],
+            'returned_qty' => (float)($i['returned_qty'] ?? 0)
         ];
     }
     
@@ -205,9 +206,17 @@ foreach($all_sales as $s) {
             const statusIcon = isDue ? 'fa-exclamation-circle' : 'fa-check';
 
             let itemsHtml = s.items.map(i => `
-                <div class="flex justify-between gap-4 text-[11px] border-b border-gray-50 pb-1 last:border-0 mb-1">
-                    <span class="font-bold text-gray-600 truncate max-w-[150px]">${i.p_name}</span>
-                    <span class="text-teal-600 font-black whitespace-nowrap">x ${i.qty}</span>
+                <div class="flex flex-col border-b border-gray-50 pb-1 last:border-0 mb-1">
+                    <div class="flex justify-between gap-4 text-[11px]">
+                        <span class="font-bold text-gray-600 truncate max-w-[150px]">${i.p_name}</span>
+                        <span class="text-teal-600 font-black whitespace-nowrap">x ${i.qty}</span>
+                    </div>
+                    ${i.returned_qty > 0 ? `
+                    <div class="flex justify-between text-[10px] text-red-500 font-bold -mt-0.5">
+                        <span>[Returned]</span>
+                        <span>- ${i.returned_qty}</span>
+                    </div>
+                    ` : ''}
                 </div>
             `).join('');
 
@@ -236,9 +245,15 @@ foreach($all_sales as $s) {
                         <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[150px]" title="${s.remarks}">${s.remarks}</div>
                     </td>
                     <td class="p-4 text-center">
-                        <span class="${statusClass} text-[10px] uppercase font-bold px-2 py-1 rounded-full border border-opacity-20 hover:opacity-80 transition cursor-default">
-                            <i class="fas ${statusIcon} mr-1"></i> ${statusLabel}
-                        </span>
+                        ${s.customer_id ? `
+                            <a href="customer_ledger.php?id=${s.customer_id}" class="${statusClass} text-[10px] uppercase font-bold px-2 py-1 rounded-full border border-opacity-20 hover:bg-opacity-80 transition cursor-pointer flex items-center justify-center gap-1 mx-auto w-fit">
+                                <i class="fas ${statusIcon}"></i> ${statusLabel}
+                            </a>
+                        ` : `
+                            <span class="${statusClass} text-[10px] uppercase font-bold px-2 py-1 rounded-full border border-opacity-20 hover:opacity-80 transition cursor-default flex items-center justify-center gap-1 mx-auto w-fit">
+                                <i class="fas ${statusIcon}"></i> ${statusLabel}
+                            </span>
+                        `}
                     </td>
                     <td class="p-4 text-center">
                         <div class="flex items-center justify-center gap-3">

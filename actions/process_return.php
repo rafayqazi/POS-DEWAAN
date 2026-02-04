@@ -60,16 +60,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
     });
 
     if ($transaction_success) {
-        // 3. Update Sale Items in CSV
+        // 3. Record Return Event
+        $return_id = insertCSV('returns', [
+            'sale_id' => $sale_id,
+            'customer_id' => $customer_id,
+            'total_refund' => $total_refund,
+            'remarks' => $remarks,
+            'date' => date('Y-m-d'),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        // 4. Update Sale Items in CSV & Record Return Items
         foreach ($items_to_update as $updated_si) {
             updateCSV('sale_items', $updated_si['id'], $updated_si);
+            
+            // Record this item in return_items (only if it was part of THIS return)
+            // The $return_qtys array has item_id => qty
+            $this_return_qty = (float)($return_qtys[$updated_si['id']] ?? 0);
+            if ($this_return_qty > 0) {
+                insertCSV('return_items', [
+                    'return_id' => $return_id,
+                    'product_id' => $updated_si['product_id'],
+                    'quantity' => $this_return_qty,
+                    'price_per_unit' => $updated_si['price_per_unit'],
+                    'total_price' => $this_return_qty * (float)$updated_si['price_per_unit']
+                ]);
+            }
         }
 
-        // 4. Update Original Sale Total
+        // 5. Update Original Sale Total
         $sale['total_amount'] = (float)$sale['total_amount'] - $total_refund;
         updateCSV('sales', $sale_id, $sale);
 
-        // 5. Update Customer Ledger
+        // 6. Update Customer Ledger
         if (!empty($customer_id)) {
             insertCSV('customer_transactions', [
                 'customer_id' => $customer_id,
@@ -79,11 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
                 'description' => "Return from Sale #$sale_id - $remarks",
                 'date' => date('Y-m-d'),
                 'created_at' => date('Y-m-d H:i:s'),
-                'sale_id' => $sale_id
+                'sale_id' => $sale_id,
+                'return_id' => $return_id
             ]);
         }
 
-        redirect("../pages/return_product.php?sale_id=$sale_id&msg=" . urlencode("Return processed successfully. Stock updated and ledger adjusted."));
+        redirect("../pages/return_product.php?sale_id=$sale_id&return_id=$return_id&msg=" . urlencode("Return processed successfully. Stock updated and ledger adjusted."));
     } else {
         redirect("../pages/return_product.php?sale_id=$sale_id&error=" . urlencode("Failed to process transaction."));
     }

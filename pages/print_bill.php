@@ -134,12 +134,28 @@ $business_phone = getSetting('business_phone', '0300-0000000');
             <tbody>
                 <?php foreach ($items as $item): 
                     $p_name = $p_map[$item['product_id']]['name'] ?? 'Unknown Item';
+                    $returned_qty = (float)($item['returned_qty'] ?? 0);
+                    $net_qty = (float)$item['quantity'] - $returned_qty;
                 ?>
                 <tr>
-                    <td><?= htmlspecialchars($p_name) ?></td>
+                    <td>
+                        <?= htmlspecialchars($p_name) ?>
+                        <?php if ($returned_qty > 0): ?>
+                            <div style="color: #ef4444; font-size: 11px; font-weight: 800; margin-top: 2px;">
+                                [Returned: <?= $returned_qty ?>]
+                            </div>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-right"><?= $item['quantity'] ?></td>
                     <td class="text-right"><?= number_format($item['price_per_unit']) ?></td>
-                    <td class="text-right"><?= number_format($item['total_price']) ?></td>
+                    <td class="text-right">
+                        <?= number_format($item['total_price']) ?>
+                        <?php if ($returned_qty > 0): ?>
+                            <div style="color: #ef4444; font-size: 11px; font-weight: 800; margin-top: 1px;">
+                                -<?= number_format($returned_qty * $item['price_per_unit']) ?>
+                            </div>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>

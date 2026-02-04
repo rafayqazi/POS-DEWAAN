@@ -373,8 +373,8 @@ function processCSVTransaction($table, $callback) {
 initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
 initCSV('settings', ['id', 'key', 'value']);
-initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id', 'payment_type', 'payment_proof']);
-initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof']);
+initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id', 'payment_type', 'payment_proof', 'return_id']);
+initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof', 'return_id']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'expiry_date', 'remarks', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 initCSV('users', ['id', 'username', 'password', 'role', 'related_id', 'created_at', 'plain_password']);
@@ -410,7 +410,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 3;
+    $latest_version = 4;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -568,8 +568,27 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 4: Add return_id to transactions
+    // ----------------------------------------------------
+    foreach (['customer_transactions', 'dealer_transactions'] as $tbl) {
+        $p = getCSVPath($tbl);
+        if (file_exists($p)) {
+            $fp_mig = fopen($p, 'r');
+            if ($fp_mig) {
+                $headers = fgetcsv($fp_mig);
+                fclose($fp_mig);
+                if ($headers && !in_array('return_id', $headers)) {
+                    $data = readCSV($tbl);
+                    $newHeaders = array_merge($headers, ['return_id']);
+                    writeCSV($tbl, $data, array_unique($newHeaders));
+                }
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', '3');
+    updateSetting('db_schema_version', '4');
 }
 
 // Run Migrations (only runs if version < latest)

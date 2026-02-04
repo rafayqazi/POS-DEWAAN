@@ -74,6 +74,7 @@ $all_txns = readCSV('customer_transactions');
 $all_sales = readCSV('sales');
 $all_sale_items = readCSV('sale_items');
 $all_products = readCSV('products');
+$all_return_items = readCSV('return_items');
 
 // Create maps for efficient lookups
 $sales_map = [];
@@ -85,6 +86,11 @@ foreach($all_products as $p) $products_map[$p['id']] = $p['name'];
 $sale_items_grouped = [];
 foreach($all_sale_items as $si) {
     $sale_items_grouped[$si['sale_id']][] = $si;
+}
+
+$return_items_grouped = [];
+foreach($all_return_items as $ri) {
+    $return_items_grouped[$ri['return_id']][] = $ri;
 }
 
 $ledger = [];
@@ -358,6 +364,7 @@ usort($ledger, function($a, $b) {
     const salesMap = <?= json_encode($sales_map) ?>;
     const saleItemsMap = <?= json_encode($sale_items_grouped) ?>;
     const productsMap = <?= json_encode($products_map) ?>;
+    const returnItemsMap = <?= json_encode($return_items_grouped) ?>;
     const initialBalance = <?= $total_due ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
 
@@ -522,6 +529,40 @@ usort($ledger, function($a, $b) {
         };
     }
 
+    function getProductsHtml(t, isPrint) {
+        if (t.type === 'Sale' && t.sale_id) {
+            const items = saleItemsMap[t.sale_id] || [];
+            if (items.length > 0) {
+                return items.map(item => {
+                    const pName = productsMap[item.product_id] || 'Unknown Product';
+                    if (isPrint) return `${pName} x ${item.quantity}`;
+                    return `<div class="flex items-start justify-between gap-2 text-[11px] mb-1.5 border-b border-gray-50 pb-1 last:border-0">
+                                <span class="font-bold text-gray-700 flex-1 leading-tight">${pName}</span>
+                                <span class="text-teal-600 font-black whitespace-nowrap">x ${item.quantity}</span>
+                            </div>`;
+                }).join(isPrint ? ', ' : '');
+            }
+            return t.description;
+        } else if (t.type === 'Return' && t.return_id) {
+            const items = returnItemsMap[t.return_id] || [];
+            if (items.length > 0) {
+                const itemsHtml = items.map(item => {
+                    const pName = productsMap[item.product_id] || 'Unknown Product';
+                    if (isPrint) return `${pName} x ${item.quantity}`;
+                    return `<div class="flex items-start justify-between gap-2 text-[10px] mb-1 pl-2 border-l-2 border-purple-200">
+                                <span class="font-medium text-gray-600 flex-1">${pName}</span>
+                                <span class="text-orange-600 font-black">x ${item.quantity}</span>
+                            </div>`;
+                }).join(isPrint ? ', ' : '');
+                
+                if (isPrint) return `${t.description} (${itemsHtml})`;
+                return `<div class="text-[11px] font-bold text-purple-600 mb-1 leading-tight">${t.description}</div>${itemsHtml}`;
+            }
+            return t.description;
+        }
+        return isPrint ? t.description : `<div class="text-sm font-bold text-purple-600">${t.description}</div>`;
+    }
+
     function generateTableRows(list, opening, fromDate, isPrint) {
         let html = '';
         
@@ -576,35 +617,19 @@ usort($ledger, function($a, $b) {
                 html += `<tr>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${displayDate}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${t.description}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${getProductsHtml(t, true)}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #e11d48;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${t.description}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dueDateDisplay}</td>
                 </tr>`;
             } else {
-                let productsInfo = '';
+                let productsInfo = getProductsHtml(t, false);
                 let remarks = '-';
                 
                 if (t.type === 'Sale' && t.sale_id) {
                     const sale = salesMap[t.sale_id];
-                    const items = saleItemsMap[t.sale_id] || [];
-                    
                     if (sale && sale.remarks) remarks = sale.remarks;
-                    
-                    if (items.length > 0) {
-                        productsInfo = items.map(item => {
-                            const pName = productsMap[item.product_id] || 'Unknown Product';
-                            return `<div class="flex items-start justify-between gap-2 text-[11px] mb-1.5 border-b border-gray-50 pb-1 last:border-0">
-                                        <span class="font-bold text-gray-700 flex-1 leading-tight">${pName}</span>
-                                        <span class="text-teal-600 font-black whitespace-nowrap">x ${item.quantity}</span>
-                                    </div>`;
-                        }).join('');
-                    } else {
-                        productsInfo = `<span class="text-xs text-gray-400 italic">${t.description}</span>`;
-                    }
-                } else {
-                    productsInfo = `<div class="text-sm font-bold text-purple-600">${t.description}</div>`;
                 }
 
                 html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0 group">
