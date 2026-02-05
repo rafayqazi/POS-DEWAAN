@@ -46,6 +46,10 @@ foreach($all_products as $p) $p_map[$p['id']] = $p;
 $c_map = [];
 foreach($all_customers as $c) $c_map[$c['id']] = $c['name'];
 
+$all_dealers = readCSV('dealers');
+$d_map = [];
+foreach($all_dealers as $d) $d_map[$d['id']] = $d['name'];
+
 // 1. Process Sales & Profit
 $period_sales = array_filter($all_sales, function($s) use ($start_date, $end_date) {
     $sdate = substr($s['sale_date'], 0, 10);
@@ -114,12 +118,26 @@ foreach($period_ledger_payments as $pay) $recovery_amount += (float)$pay['credit
 $total_cash_inflow = $paid_at_sale + $recovery_amount;
 
 // 3. Process Dealer Payments
-$period_dealer_payments = array_filter($all_costs, function($tx) use ($start_date, $end_date) {
+$period_dealer_payments_raw = array_filter($all_costs, function($tx) use ($start_date, $end_date) {
     $tdate = substr($tx['date'], 0, 10);
-    return $tdate >= $start_date && $tdate <= $end_date && (float)$tx['credit'] > 0;
+    return $tdate >= $start_date && $tdate <= $end_date && (float)$tx['credit'] > 0 && ($tx['type'] == 'Payment' || $tx['type'] == 'Advance');
 });
 $dealer_paid_amount = 0;
-foreach($period_dealer_payments as $pay) $dealer_paid_amount += (float)$pay['credit'];
+$dealer_payment_details = [];
+foreach($period_dealer_payments_raw as $pay) {
+    $dealer_paid_amount += (float)$pay['credit'];
+    $dealer_payment_details[] = [
+        'date' => $pay['date'],
+        'dealer' => $d_map[$pay['dealer_id']] ?? 'Unknown',
+        'type' => $pay['type'],
+        'p_type' => $pay['payment_type'] ?? 'Cash',
+        'amount' => (float)$pay['credit']
+    ];
+}
+// Sort by date desc
+usort($dealer_payment_details, function($a, $b) {
+    return strtotime($b['date']) - strtotime($a['date']);
+});
 
 // 4. Process Expenses
 $period_expenses = array_filter($all_expenses, function($e) use ($start_date, $end_date) {
@@ -224,9 +242,9 @@ $top_customers = $customer_revenue;
             <span class="metric-label">Net Profit<br><small>(Expense nikal kr profit)</small></span>
             <div class="metric-value"><?= formatCurrency($net_profit) ?></div>
         </div>
-        <div class="metric-card" style="background: #f0fdfa; border-color: #5eead4;">
-            <span class="metric-label" style="color: #0f766e;">Total Recovery (Ledger)<br><small>(Customer se recovery)</small></span>
-            <div class="metric-value" style="color: #0d9488;"><?= formatCurrency($recovery_amount) ?></div>
+        <div class="metric-card" style="background: #fdfaf0; border-color: #fde68a;">
+            <span class="metric-label" style="color: #b45309;">Paid to Dealers<br><small>(Total Dealer Payments)</small></span>
+            <div class="metric-value" style="color: #92400e;"><?= formatCurrency($dealer_paid_amount) ?></div>
         </div>
     </div>
 
@@ -304,30 +322,38 @@ $top_customers = $customer_revenue;
         </div>
 
         <div style="margin-top: 40px;">
-            <div class="section-title">Customer Performance (Revenue)</div>
+            <div class="section-title">Dealer Payments Detail</div>
             <table>
                 <thead>
                     <tr>
-                        <th>Customer Name</th>
+                        <th style="width: 150px;">Date</th>
+                        <th>Dealer Name</th>
+                        <th>Type</th>
+                        <th>Method</th>
                         <th class="text-right">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php 
-                    $total_cust_rev = 0;
-                    foreach($top_customers as $cid => $amt): 
-                        $total_cust_rev += $amt;
-                    ?>
-                    <tr>
-                        <td><?= $cid === 'Walk-in' ? 'Walk-in Customer' : htmlspecialchars($c_map[$cid] ?? 'Unknown') ?></td>
-                        <td class="text-right font-black"><?= formatCurrency($amt) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
+                    <?php if (empty($dealer_payment_details)): ?>
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 30px;">No dealer payments recorded in this period.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach($dealer_payment_details as $det): ?>
+                        <tr>
+                            <td><?= date('d M Y, h:i A', strtotime($det['date'])) ?></td>
+                            <td class="font-black"><?= htmlspecialchars($det['dealer']) ?></td>
+                            <td><span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; font-weight: 800;"><?= $det['type'] ?></span></td>
+                            <td><?= $det['p_type'] ?></td>
+                            <td class="text-right font-black"><?= formatCurrency($det['amount']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
                 <tfoot>
-                    <tr style="background: #f8fafc;">
-                        <td class="font-black" style="color: #0d9488;">TOTAL REVENUE</td>
-                        <td class="text-right font-black" style="color: #0d9488;"><?= formatCurrency($total_cust_rev) ?></td>
+                    <tr style="background: #fffbeb;">
+                        <td colspan="4" class="font-black" style="color: #92400e;">TOTAL PAID TO DEALERS</td>
+                        <td class="text-right font-black" style="color: #92400e;"><?= formatCurrency($dealer_paid_amount) ?></td>
                     </tr>
                 </tfoot>
             </table>

@@ -127,9 +127,15 @@ usort($recovery_details, function($a, $b) {
 
 $dealer_purchases = 0;
 $dealer_payments = 0;
+$dealer_payments_today = 0;
 foreach($dealer_txns as $t) {
-    $dealer_purchases += (float)($t['debit'] ?? 0);
-    $dealer_payments += (float)($t['credit'] ?? 0);
+    if (isset($t['debit'])) $dealer_purchases += (float)$t['debit'];
+    if (isset($t['credit'])) $dealer_payments += (float)$t['credit'];
+    
+    // Calculate today's payments to dealers
+    if (strpos($t['date'], $today_str) === 0 && ($t['type'] == 'Payment' || $t['type'] == 'Advance')) {
+        $dealer_payments_today += (float)($t['credit'] ?? 0);
+    }
 }
 $total_debt_dealers = $dealer_purchases - $dealer_payments;
 
@@ -232,6 +238,13 @@ $report_ranges = [
         <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= $returned_count_30d ?></p>
         <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
     </div>
+
+    <!-- Dealer Payments Today -->
+    <a href="dealers.php" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-amber-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
+        <h3 class="text-amber-500 text-xs uppercase font-bold tracking-wider">Paid to Dealers (Today)</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($dealer_payments_today) ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Total payments to all dealers</p>
+    </a>
 </div>
 
 <!-- Detailed Profit & Debt Analysis -->
