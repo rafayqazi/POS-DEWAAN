@@ -247,9 +247,14 @@ function renderDealers() {
                             </div>
                         </div>
                         ${hasManagePermission ? `
-                        <button onclick="event.stopPropagation(); editDealer(${JSON.stringify(d).replace(/"/g, '&quot;')})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
-                            <i class="fas fa-edit"></i>
-                        </button>
+                        <div class="flex gap-1">
+                            <button onclick="event.stopPropagation(); editDealer(${JSON.stringify(d).replace(/"/g, '&quot;')})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Dealer">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); confirmDeleteDealer('${d.id}', '${d.name.replace(/'/g, "\\'")}')" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Dealer">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
                         ` : ''}
                     </div>
                     
@@ -288,6 +293,12 @@ function editDealer(dealer) {
     document.getElementById('edit_phone').value = dealer.phone || '';
     document.getElementById('edit_address').value = dealer.address || '';
     document.getElementById('editDealerModal').classList.remove('hidden');
+}
+
+function confirmDeleteDealer(id, name) {
+    showConfirm(`Are you sure you want to delete dealer "${name}"?`, () => {
+        window.location.href = `../actions/delete_dealer.php?id=${id}`;
+    }, 'Delete Dealer');
 }
 
 document.getElementById('dealerSearch').addEventListener('input', function(e) {

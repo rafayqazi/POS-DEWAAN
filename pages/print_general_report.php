@@ -39,6 +39,7 @@ $all_expenses = readCSV('expenses');
 $all_customer_txns = readCSV('customer_transactions');
 $all_products = readCSV('products');
 $all_customers = readCSV('customers');
+$all_restocks = readCSV('restocks');
 
 $p_map = [];
 foreach($all_products as $p) $p_map[$p['id']] = $p;
@@ -62,6 +63,16 @@ $gross_profit = 0;
 $paid_at_sale = 0;
 $product_qty_sales = [];
 $customer_revenue = [];
+$total_items_out = 0;
+
+// Calculate Inventory In
+$period_restocks = array_filter($all_restocks, function($r) use ($start_date, $end_date) {
+    if (!isset($r['date'])) return false;
+    $rdate = substr($r['date'], 0, 10);
+    return $rdate >= $start_date && $rdate <= $end_date;
+});
+$total_items_in = 0;
+foreach($period_restocks as $r) $total_items_in += (float)$r['quantity'];
 
 foreach($period_sales as $s) {
     $revenue += (float)$s['total_amount'];
@@ -94,6 +105,7 @@ foreach($period_sales as $s) {
         $item_cost = $unit_cost * $net_qty;
         
         $gross_profit += ($item_revenue - $item_cost);
+        $total_items_out += $net_qty;
         
         // Product Performance
         $pid = $item['product_id'];
@@ -245,6 +257,10 @@ $top_customers = $customer_revenue;
         <div class="metric-card" style="background: #fdfaf0; border-color: #fde68a;">
             <span class="metric-label" style="color: #b45309;">Paid to Dealers<br><small>(Total Dealer Payments)</small></span>
             <div class="metric-value" style="color: #92400e;"><?= formatCurrency($dealer_paid_amount) ?></div>
+        </div>
+        <div class="metric-card" style="background: #f0f9ff; border-color: #bae6fd;">
+            <span class="metric-label" style="color: #0369a1;">Inventory Movement<br><small>(IN vs OUT items)</small></span>
+            <div class="metric-value" style="color: #0c4a6e; font-size: 22px;">In: <?= number_format($total_items_in) ?> | Out: <?= number_format($total_items_out) ?></div>
         </div>
     </div>
 

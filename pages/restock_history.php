@@ -8,11 +8,15 @@ $pageTitle = "Restock History";
 include '../includes/header.php';
 
 $restocks = readCSV('restocks');
+$dealers = readCSV('dealers');
 
-$restocks = readCSV('restocks');
-
-// Sort by ID descending to see newest first
+// Sort by Date descending, then by ID descending
 usort($restocks, function($a, $b) {
+    $dateA = $a['date'] ?? '';
+    $dateB = $b['date'] ?? '';
+    if ($dateA != $dateB) {
+        return strcmp($dateB, $dateA);
+    }
     return (int)($b['id'] ?? 0) - (int)($a['id'] ?? 0);
 });
 ?>
@@ -41,13 +45,17 @@ usort($restocks, function($a, $b) {
                 <option value="last_year">Last 1 Year</option>
             </select>
         </div>
+        <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Search Product</label>
+            <input type="text" id="productSearch" onkeyup="renderTable()" placeholder="Search by product name..." class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none w-48">
+        </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
-            <input type="date" id="dateFrom" onchange="renderTable()" value="<?= date('Y-m-01') ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="date" id="dateFrom" onchange="renderTable()" value="" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
         </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
-            <input type="date" id="dateTo" onchange="renderTable()" value="<?= date('Y-m-d') ?>" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="date" id="dateTo" onchange="renderTable()" value="" class="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
         </div>
         <div>
             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">&nbsp;</label>
@@ -98,6 +106,7 @@ usort($restocks, function($a, $b) {
     function clearFilters() {
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
+        document.getElementById('productSearch').value = '';
         const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
         if(quickRange) quickRange.value = '';
         renderTable();
@@ -186,9 +195,79 @@ usort($restocks, function($a, $b) {
 include '../includes/footer.php'; 
 echo '</main></div>';
 ?>
-<form id="deleteRestockForm" action="../actions/delete_restock.php" method="POST" class="hidden">
-    <input type="hidden" name="restock_id" id="deleteRestockId">
 </form>
+
+<!-- Edit Restock Modal -->
+<div id="editRestockModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[100] items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transform transition-all animate-in fade-in zoom-in duration-200">
+        <div class="sticky top-0 bg-white p-6 border-b border-gray-100 flex items-center justify-between z-10">
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">Edit Restock Entry</h3>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Update record details</p>
+            </div>
+            <button onclick="closeEditModal()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form action="../actions/edit_restock.php" method="POST" class="p-6">
+            <input type="hidden" name="restock_id" id="edit_restock_id">
+            
+            <div class="mb-6 p-4 bg-teal-50 rounded-2xl border border-teal-100 flex items-center justify-between">
+                <div>
+                    <span id="edit_product_id_display" class="text-[10px] font-black text-teal-600 bg-teal-100 px-2 py-0.5 rounded-full">#ID</span>
+                    <h4 id="edit_product_name_display" class="text-sm font-bold text-teal-800 mt-1">Product Name</h4>
+                </div>
+                <i class="fas fa-boxes text-teal-200 text-3xl"></i>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Quantity Added</label>
+                    <input type="number" step="any" name="quantity" id="edit_quantity" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Restock Date</label>
+                    <input type="date" name="date" id="edit_date" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Buy Price (Each)</label>
+                    <input type="number" step="any" name="new_buy_price" id="edit_new_buy_price" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Sell Price (New)</label>
+                    <input type="number" step="any" name="new_sell_price" id="edit_new_sell_price" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Dealer / Supplier</label>
+                    <select name="dealer_id" id="edit_dealer_id" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                        <option value="OPEN_MARKET">Open Market</option>
+                        <?php foreach($dealers as $d): ?>
+                            <option value="<?= $d['id'] ?>"><?= $d['name'] ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Paid Amount</label>
+                    <input type="number" step="any" name="amount_paid" id="edit_amount_paid" required class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Expiry Date</label>
+                    <input type="date" name="expiry_date" id="edit_expiry_date" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Remarks</label>
+                    <input type="text" name="remarks" id="edit_remarks" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all">
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeEditModal()" class="flex-1 px-6 py-3 bg-gray-50 text-gray-500 font-bold rounded-xl hover:bg-gray-100 transition-all active:scale-95">Cancel</button>
+                <button type="submit" class="flex-1 px-6 py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-900/20 transition-all active:scale-95">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
     const allRestocks = <?= json_encode($restocks) ?>;
@@ -202,11 +281,16 @@ echo '</main></div>';
     function renderTable() {
         const dateFromVal = document.getElementById('dateFrom').value;
         const dateToVal = document.getElementById('dateTo').value;
+        const searchVal = document.getElementById('productSearch').value.toLowerCase();
         
         let filtered = allRestocks.filter(r => {
             const rDate = (r.date || "").substring(0, 10);
+            const pName = (r.product_name || "").toLowerCase();
+            const dName = (r.dealer_name || "").toLowerCase();
+
             if (dateFromVal && rDate < dateFromVal) return false;
             if (dateToVal && rDate > dateToVal) return false;
+            if (searchVal && !(pName.includes(searchVal) || dName.includes(searchVal))) return false;
             return true;
         });
 
@@ -262,9 +346,19 @@ echo '</main></div>';
                         <div class="text-[10px] text-gray-400 line-through italic">Prev: ${formatCurrency(parseFloat(log.old_buy_price || 0))}</div>
                     </td>
                     <td class="p-6 text-teal-600 font-bold text-sm">${formatCurrency(parseFloat(log.new_sell_price || 0))}</td>
-                    <td class="p-6">${log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700"><i class="fas fa-truck text-teal-400"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>'}</td>
+                    <td class="p-6">
+                        ${log.dealer_id && log.dealer_id !== 'OPEN_MARKET' ? 
+                            `<a href="dealer_ledger.php?id=${log.dealer_id}" class="flex items-center gap-2 text-sm font-bold text-teal-600 hover:text-teal-800 transition">
+                                <i class="fas fa-truck text-teal-400"></i>${log.dealer_name}
+                             </a>` : 
+                            (log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700 italic opacity-70"><i class="fas fa-shopping-cart text-gray-300"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>')
+                        }
+                    </td>
                     <td class="p-6 text-right">${log.amount_paid !== '' ? `<span class="font-black text-gray-800">${formatCurrency(paid)}</span>` : '<span class="text-gray-300 font-bold">-</span>'}</td>
-                    <td class="p-6 text-center"><button onclick="confirmDeleteRestock(${log.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button></td>
+                    <td class="p-6 text-center whitespace-nowrap">
+                        <button onclick='openEditModal(${JSON.stringify(log).replace(/'/g, "&apos;")})' class="text-teal-600 hover:text-teal-800 hover:bg-teal-50 p-2 rounded-lg transition mr-1"><i class="fas fa-edit"></i></button>
+                        <button onclick="confirmDeleteRestock(${log.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button>
+                    </td>
                 </tr>`;
 
                 printHtml += `<tr>
@@ -300,6 +394,28 @@ echo '</main></div>';
             document.getElementById('deleteRestockId').value = id;
             document.getElementById('deleteRestockForm').submit();
         }, 'Revert Restock');
+    }
+
+    function openEditModal(log) {
+        document.getElementById('edit_restock_id').value = log.id;
+        document.getElementById('edit_product_id_display').innerText = '#' + log.product_id;
+        document.getElementById('edit_product_name_display').innerText = log.product_name;
+        document.getElementById('edit_quantity').value = log.quantity;
+        document.getElementById('edit_new_buy_price').value = log.new_buy_price;
+        document.getElementById('edit_new_sell_price').value = log.new_sell_price;
+        document.getElementById('edit_dealer_id').value = log.dealer_id || 'OPEN_MARKET';
+        document.getElementById('edit_amount_paid').value = log.amount_paid;
+        document.getElementById('edit_date').value = (log.date || '').substring(0, 10);
+        document.getElementById('edit_expiry_date').value = log.expiry_date || '';
+        document.getElementById('edit_remarks').value = log.remarks || '';
+        
+        document.getElementById('editRestockModal').classList.remove('hidden');
+        document.getElementById('editRestockModal').classList.add('flex');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editRestockModal').classList.add('hidden');
+        document.getElementById('editRestockModal').classList.remove('flex');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
