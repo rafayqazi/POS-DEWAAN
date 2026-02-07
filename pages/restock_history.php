@@ -191,11 +191,15 @@ usort($restocks, function($a, $b) {
     </div>
 </div>
 
+<!-- Hidden Delete Form -->
+<form id="deleteRestockForm" action="../actions/delete_restock.php" method="POST" style="display:none;">
+    <input type="hidden" name="restock_id" id="deleteRestockId">
+</form>
+
 <?php 
 include '../includes/footer.php'; 
 echo '</main></div>';
 ?>
-</form>
 
 <!-- Edit Restock Modal -->
 <div id="editRestockModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[100] items-center justify-center p-4">
