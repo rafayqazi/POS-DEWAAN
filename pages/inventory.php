@@ -306,9 +306,14 @@ foreach($all_txns_inv as $tx) {
         </div>
     </div>
 
-    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-6 py-2.5 rounded-xl hover:bg-teal-700 transition flex items-center shadow-lg w-full lg:w-auto justify-center font-bold text-sm transform active:scale-95">
-        <i class="fas fa-plus mr-2"></i> Add Product
-    </button>
+    <div class="flex gap-3 w-full lg:w-auto">
+        <button onclick="printReport()" class="w-full lg:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
+            <i class="fas fa-print mr-2"></i> Print / Save PDF
+        </button>
+        <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-teal-600 text-white px-6 py-2.5 rounded-xl hover:bg-teal-700 transition flex items-center shadow-lg w-full lg:w-auto justify-center font-bold text-sm transform active:scale-95">
+            <i class="fas fa-plus mr-2"></i> Add Product
+        </button>
+    </div>
 </div>
 
 <?php if ($message): ?>
@@ -1107,7 +1112,83 @@ new Chart(ctx, {
         cutout: '10%'
     }
 });
+
+function printReport() {
+    const element = document.getElementById('printableArea');
+    const content = element.innerHTML;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write('<html><head><title>Overall Inventory Report</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; }</style></head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
 </script>
+
+<!-- Printable Area -->
+<div id="printableArea" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
+            <div>
+                <h1 style="color: #0f766e; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Overall Inventory Preview Report</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #333;">Inventory Summary</h2>
+                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #0f766e; color: #fff;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Product Name</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Category</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Stock</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Unit</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Buy Price</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Total Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                $sn_p = 1; 
+                $total_inv_val = 0;
+                foreach ($products as $p): 
+                    $val = (float)$p['buy_price'] * (float)$p['stock_quantity'];
+                    $total_inv_val += $val;
+                ?>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;"><?= $sn_p++ ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;"><?= htmlspecialchars($p['name']) ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;"><?= htmlspecialchars($p['category']) ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right;"><?= $p['stock_quantity'] ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #666;"><?= htmlspecialchars($p['unit']) ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right;"><?= formatCurrency($p['buy_price']) ?></td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; font-size: 11px;"><?= formatCurrency($val) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+            <tfoot>
+                <tr style="background: #f9fafb; font-weight: bold;">
+                    <td colspan="6" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Grand Total Stock Value:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #0d9488; font-size: 14px;"><?= formatCurrency($total_inv_val) ?></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
+            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        </div>
+    </div>
+</div>
 
 <?php 
 include '../includes/footer.php';
