@@ -38,8 +38,10 @@ $transactions = readCSV('customer_transactions');
 $debt_map = [];
 
 foreach($transactions as $t) {
-    $cid = $t['customer_id'];
-    $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
+    if(!empty($t['customer_id'])) {
+        $cid = $t['customer_id'];
+        $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
+    }
 }
 
 $total_outstanding_debt = array_sum($debt_map);
@@ -95,7 +97,6 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
             <i class="fas fa-search"></i>
         </span>
-<!-- Search Input -->
         <input type="text" id="customerSearch" autofocus placeholder="Search by name or phone..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm transition">
     </div>
     <div class="flex gap-3 w-full md:w-auto">
@@ -117,8 +118,24 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
     </div>
 <?php endif; ?>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="customerGrid">
-    <!-- Rendered by JS -->
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-amber-600 text-white text-[10px] uppercase tracking-widest font-bold">
+                    <th class="p-4 w-12 text-center">Sr #</th>
+                    <th class="p-4">Customer Name</th>
+                    <th class="p-4">Contact Info</th>
+                    <th class="p-4">Address</th>
+                    <th class="p-4 text-right">Outstanding Debt</th>
+                    <th class="p-4 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100" id="customerGrid">
+                <!-- Rendered by JS -->
+            </tbody>
+        </table>
+    </div>
 </div>
 <div id="customerPagination" class="mt-8 px-6 py-4 bg-white rounded-2xl shadow-sm border border-gray-100"></div>
 
@@ -189,6 +206,27 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-all">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform scale-100 text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Customer?</h3>
+        <p class="text-gray-500 text-sm mb-6">
+            Are you sure you want to delete this customer?
+        </p>
+        <div class="flex gap-3 justify-center">
+            <button onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-5 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-100 transition w-full">Cancel</button>
+            <button id="deleteConfirmBtn" onclick="proceedDelete()" class="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition w-full hidden">Delete</button>
+        </div>
+        <p id="deleteWarningMsg" class="text-xs text-red-500 font-bold mt-4 bg-red-50 p-3 rounded-xl hidden">
+            <i class="fas fa-ban mr-1"></i> First you should clear the debt to delete this customer.
+        </p>
+        <input type="hidden" id="delete_customer_id">
+    </div>
+</div>
+
 <script>
 const allCustomers = <?= json_encode($customers) ?>;
 const debtMap = <?= json_encode($debt_map) ?>;
@@ -215,90 +253,81 @@ function renderCustomers() {
 
     if (totalItems === 0) {
         grid.innerHTML = `
-            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-20 bg-white rounded-2xl shadow border-2 border-dashed border-gray-100">
-                <i class="fas fa-users text-6xl text-gray-100 mb-4"></i>
-                <p class="text-gray-400 font-medium">No customers matched your search.</p>
-            </div>
+            <tr>
+                <td colspan="6" class="text-center py-20 bg-white rounded-2xl">
+                    <i class="fas fa-users text-6xl text-gray-100 mb-4"></i>
+                    <p class="text-gray-400 font-medium">No customers matched your search.</p>
+                </td>
+            </tr>
         `;
         Pagination.render('customerPagination', 0, 1, pageSize_Cust, changePage_Cust);
         return;
     }
 
     let html = '';
+    let sn = (currentPage_Cust - 1) * pageSize_Cust + 1;
     paginated.forEach(c => {
         const debt = debtMap[c.id] || 0;
         const dueDate = dueMap[c.id];
         const dueDateStr = dueDate ? new Date(dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
         
         html += `
-            <div class="customer-card bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
-                 onclick="window.location.href='customer_ledger.php?id=${c.id}'">
-                <div class="bg-amber-500 h-2 w-full"></div>
-                <div class="p-6">
-                    <div class="flex items-center mb-4">
-                        <div class="p-3 bg-amber-50 rounded-xl text-amber-600 mr-4">
-                            <i class="fas fa-user text-2xl"></i>
+            <tr class="customer-card hover:bg-amber-50/30 transition-colors cursor-pointer group" onclick="window.location.href='customer_ledger.php?id=${c.id}'">
+                <td class="p-4 text-gray-400 font-mono text-xs text-center">${sn++}</td>
+                <td class="p-4">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                            <i class="fas fa-user text-xs"></i>
                         </div>
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <h3 class="text-lg font-bold text-gray-800 leading-tight">${c.name}</h3>
-                                ${debt <= 0 ? `<span title="Debt Fully Cleared!" class="text-yellow-500 text-xs"><i class="fas fa-trophy scale-110"></i></span>` : ''}
-                            </div>
-                            <div class="flex items-center mt-1">
-                                ${c.phone ? `
-                                    <a href="tel:${c.phone}" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
-                                        <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
-                                        ${c.phone}
-                                    </a>
-                                ` : `
-                                    <span class="text-gray-400 text-xs italic flex items-center">
-                                        <i class="fas fa-phone-slash mr-2 text-xs opacity-40"></i>
-                                        No phone provided
-                                    </span>
-                                `}
-                            </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-800 uppercase">${c.name}</span>
+                            ${debt <= 0 ? `<span title="Debt Fully Cleared!" class="text-yellow-500 text-xs"><i class="fas fa-trophy scale-110"></i></span>` : ''}
                         </div>
-
+                    </div>
+                </td>
+                <td class="p-4">
+                    ${c.phone ? `
+                        <a href="tel:${c.phone}" class="text-amber-600 hover:text-amber-700 text-sm font-bold flex items-center" onclick="event.stopPropagation();">
+                            <i class="fas fa-phone-alt mr-2 text-xs opacity-70"></i>
+                            ${c.phone}
+                        </a>
+                    ` : `
+                        <span class="text-gray-400 text-xs italic">No phone</span>
+                    `}
+                </td>
+                <td class="p-4">
+                    <p class="text-gray-500 text-xs truncate max-w-[200px]" title="${c.address || ''}">
+                        ${c.address || '<span class="italic opacity-50">No address</span>'}
+                    </p>
+                </td>
+                <td class="p-4 text-right">
+                    <div>
+                        <span class="font-black ${debt > 0 ? 'text-red-600' : 'text-green-600'} text-sm">
+                            ${formatCurrencyJS(debt)}
+                        </span>
+                        ${dueDateStr ? `
+                            <p class="text-[9px] font-bold text-orange-500 uppercase flex items-center justify-end gap-1 mt-0.5">
+                                <i class="fas fa-calendar-day"></i> ${dueDateStr}
+                            </p>
+                        ` : ''}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex justify-center items-center gap-1">
+                        <button onclick="window.location.href='customer_ledger.php?id=${c.id}'; event.stopPropagation();" class="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="View Ledger">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </button>
                         ${hasManagePermission ? `
-                        <div class="flex flex-col gap-2">
-                            <button onclick="event.stopPropagation(); editCustomer(${JSON.stringify(c).replace(/"/g, '&quot;')})" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
+                            <button onclick="event.stopPropagation(); editCustomer(${JSON.stringify(c).replace(/"/g, '&quot;')})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit Customer">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="event.stopPropagation(); confirmDelete(${c.id}, ${debt})" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
+                            <button onclick="event.stopPropagation(); confirmDelete(${c.id}, ${debt})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Customer">
                                 <i class="fas fa-trash"></i>
                             </button>
-                        </div>
                         ` : ''}
                     </div>
-                    
-                    <div class="text-gray-500 text-sm mb-6 flex items-start min-h-[40px]">
-                        <i class="fas fa-map-marker-alt mr-2 mt-1 text-xs opacity-40"></i>
-                        <p class="line-clamp-2">${c.address || '<span class="italic opacity-50">No address provided</span>'}</p>
-                    </div>
-                    
-                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100 relative">
-                        <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Outstanding Debt</p>
-                            <p class="text-xl font-black ${debt > 0 ? 'text-red-600' : 'text-green-600'}">
-                                ${formatCurrencyJS(debt)}
-                            </p>
-                        </div>
-                        ${dueDateStr ? `
-                            <div class="mt-2 pt-2 border-t border-gray-200">
-                                <p class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">Next Payment Due</p>
-                                <p class="text-xs font-bold text-gray-700 flex items-center gap-1">
-                                    <i class="fas fa-calendar-day text-[10px]"></i>
-                                    ${dueDateStr}
-                                </p>
-                            </div>
-                        ` : ''}
-                    </div>
-
-                    <div class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold transition shadow-md group-hover:bg-teal-700">
-                        <i class="fas fa-file-invoice-dollar mr-2"></i> View Account Ledger
-                    </div>
-                </div>
-            </div>
+                </td>
+            </tr>
         `;
     });
     grid.innerHTML = html;
@@ -319,31 +348,12 @@ function editCustomer(customer) {
     document.getElementById('editCustomerModal').classList.remove('hidden');
 }
 
-document.getElementById('customerSearch').addEventListener('input', function(e) {
-    currentPage_Cust = 1;
-    renderCustomers();
-});
-
-document.addEventListener('DOMContentLoaded', renderCustomers);
-
-document.getElementById('customerSearch').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        const grid = document.getElementById('customerGrid');
-        const firstCard = grid.querySelector('.customer-card');
-        if (firstCard) {
-            firstCard.click();
-        }
-    }
-});
-
-
-
 function confirmDelete(id, balance) {
     document.getElementById('delete_customer_id').value = id;
     const deleteBtn = document.getElementById('deleteConfirmBtn');
     const warningMsg = document.getElementById('deleteWarningMsg');
     
-    if (balance > 1) { // Allowing a small tolerance for floating point
+    if (balance > 1) { 
         deleteBtn.classList.add('hidden');
         warningMsg.classList.remove('hidden');
     } else {
@@ -360,30 +370,23 @@ function proceedDelete() {
         window.location.href = '../actions/delete_customer.php?id=' + id;
     }
 }
-</script>
 
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-all">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform scale-100 text-center">
-        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
-        </div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Customer?</h3>
-        <p class="text-gray-500 text-sm mb-6">
-            Are you sure you want to delete this customer?<br>
-        <div class="flex gap-3 justify-center">
-            <button onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-5 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-100 transition w-full">Cancel</button>
-            <button id="deleteConfirmBtn" onclick="proceedDelete()" class="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition w-full hidden">Delete</button>
-        </div>
-        <p id="deleteWarningMsg" class="text-xs text-red-500 font-bold mt-4 bg-red-50 p-3 rounded-xl hidden">
-            <i class="fas fa-ban mr-1"></i> First you should clear the debt to delete this customer.
-        </p>
-        <input type="hidden" id="delete_customer_id">
-    </div>
-</div>
+document.getElementById('customerSearch').addEventListener('input', function(e) {
+    currentPage_Cust = 1;
+    renderCustomers();
+});
 
-<script>
+document.addEventListener('DOMContentLoaded', renderCustomers);
 
+document.getElementById('customerSearch').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        const grid = document.getElementById('customerGrid');
+        const firstRow = grid.querySelector('.customer-card');
+        if (firstRow) {
+            firstRow.click();
+        }
+    }
+});
 
 function printReport() {
     const element = document.getElementById('printableArea');
@@ -451,9 +454,7 @@ function printReport() {
         </div>
     </div>
 </div>
-
 <?php 
-// Show Session Messages
 if (isset($_SESSION['error'])) {
     echo "<script>alert('" . addslashes($_SESSION['error']) . "');</script>";
     unset($_SESSION['error']);
@@ -462,7 +463,5 @@ if (isset($_SESSION['success'])) {
     echo "<script>alert('" . addslashes($_SESSION['success']) . "');</script>";
     unset($_SESSION['success']);
 }
-
 include '../includes/footer.php'; 
-echo '</main></div></body></html>'; 
 ?>
