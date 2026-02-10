@@ -147,8 +147,60 @@ foreach($expenses_data as $e) {
     if($e['date'] >= $thirty_days_ago_str) $expenses_month += (float)$e['amount'];
 }
 
-$net_profit_today = $profit_today - $expenses_today;
-$net_profit_month = $profit_month - $expenses_month;
+// Calculate Discounts
+$discounts_today = 0;
+$discounts_month = 0;
+$discount_details_30d = [];
+
+// 1. Sales Discounts
+foreach($sales as $s) {
+    $d_amount = (float)($s['discount'] ?? 0);
+    if ($d_amount > 0) {
+        $date = $s['sale_date'];
+        if (strpos($date, $today_str) === 0) $discounts_today += $d_amount;
+        if ($date >= $thirty_days_ago_str) {
+            $discounts_month += $d_amount;
+            $name = 'Walk-in Customer';
+            if (!empty($s['customer_id']) && isset($customer_map[$s['customer_id']])) {
+                $name = $customer_map[$s['customer_id']];
+            }
+            $discount_details_30d[] = [
+                'date' => $date,
+                'name' => $name,
+                'amount' => $d_amount,
+                'type' => 'Sale Discount',
+                'p_name' => '-' // Product name not specific for whole sale discount
+            ];
+        }
+    }
+}
+
+// 2. Ledger Discounts
+foreach($customer_txns as $tx) {
+    $d_amount = (float)($tx['discount'] ?? 0);
+    if ($d_amount > 0) {
+        $date = $tx['date'];
+        if (strpos($date, $today_str) === 0) $discounts_today += $d_amount;
+        if ($date >= $thirty_days_ago_str) {
+            $discounts_month += $d_amount;
+            $discount_details_30d[] = [
+                'date' => $date,
+                'name' => $customer_map[$tx['customer_id']] ?? 'Unknown Customer',
+                'amount' => $d_amount,
+                'type' => 'Payment Discount',
+                'p_name' => '-'
+            ];
+        }
+    }
+}
+
+// Sort Discount Details
+usort($discount_details_30d, function($a, $b) {
+    return strtotime($b['date']) - strtotime($a['date']);
+});
+
+$net_profit_today = $profit_today - $expenses_today - $discounts_today;
+$net_profit_month = $profit_month - $expenses_month - $discounts_month;
 
 // Return Statistics (Last 30 Days)
 $returns_data = readCSV('returns');
@@ -239,6 +291,13 @@ $report_ranges = [
         <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
     </div>
 
+    <!-- Discounts Card -->
+    <div onclick="showDiscountDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-pink-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
+        <h3 class="text-pink-500 text-xs uppercase font-bold tracking-wider">Discounts Given</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($discounts_month) ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
+    </div>
+
     <!-- Dealer Payments Today -->
     <a href="dealers.php" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-amber-500 hover:shadow-lg transition transform hover:-translate-y-1 block">
         <h3 class="text-amber-500 text-xs uppercase font-bold tracking-wider">Paid to Dealers (Today)</h3>
@@ -264,6 +323,10 @@ $report_ranges = [
                 <span class="text-emerald-200">Total Expenses (30 Days)</span>
                 <span class="font-bold text-red-300">- <?= formatCurrency($expenses_month) ?></span>
              </div>
+             <div class="flex justify-between items-center text-sm">
+                <span class="text-emerald-200">Total Discounts (30 Days)</span>
+                <span class="font-bold text-pink-300">- <?= formatCurrency($discounts_month) ?></span>
+             </div>
         </div>
     </div>
 
@@ -279,6 +342,10 @@ $report_ranges = [
                 <div class="flex justify-between items-center pb-3 border-b border-gray-50">
                     <span class="text-sm text-gray-600">Daily Expenses</span>
                     <span class="font-bold text-red-500">- <?= formatCurrency($expenses_today) ?></span>
+                </div>
+                <div class="flex justify-between items-center pb-3 border-b border-gray-50">
+                    <span class="text-sm text-gray-600">Daily Discounts</span>
+                    <span class="font-bold text-pink-500">- <?= formatCurrency($discounts_today) ?></span>
                 </div>
                 <div class="flex justify-between items-center pt-2">
                     <span class="text-sm font-bold text-gray-800">Net Profit (Today)</span>
@@ -350,7 +417,7 @@ $report_ranges = [
             </li>
             <li class="text-[10px] text-gray-500 flex items-center gap-2">
                 <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                <strong>Net Profit:</strong> Gross Profit minus Daily/Monthly Operating Expenses.
+                <strong>Net Profit:</strong> Gross Profit minus Expenses & Discounts.
             </li>
         </ul>
     </div>
@@ -639,6 +706,73 @@ function showReturnDetails() {
     renderReturnTable(returnsData);
 }
 
+function showDiscountDetails() {
+    document.getElementById('discountsModal').classList.remove('hidden');
+    renderDiscountTable(discountData);
+}
+
+const discountData = <?= json_encode($discount_details_30d) ?>;
+function renderDiscountTable(data) {
+    const tbody = document.getElementById('discountsTableBody');
+    tbody.innerHTML = '';
+    if(data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400 font-bold">No discounts given in the last 30 days.</td></tr>`;
+        return;
+    }
+    data.forEach((item, index) => {
+        tbody.innerHTML += `
+            <tr class="hover:bg-pink-50/30 transition border-b border-gray-50 text-sm">
+                <td class="p-4 pl-6 text-[10px] font-bold text-gray-400">${index + 1}</td>
+                <td class="p-4 text-gray-600 font-medium">${item.date}</td>
+                <td class="p-4 font-bold text-gray-800">${item.name}</td>
+                <td class="p-4">
+                    <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-pink-50 text-pink-600 border border-pink-100">
+                        ${item.type}
+                    </span>
+                </td>
+                <td class="p-4 text-right pr-6 font-black text-pink-600">${formatCurrencyJS(item.amount)}</td>
+            </tr>
+        `;
+    });
+}
+
+function printDiscountReport() {
+    const content = document.getElementById('discountsPrintableContainer').innerHTML;
+    const stats = "Last 30 Days";
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Discounts Report</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 12px; border: 1px solid #eee; text-align: left; font-size: 12px; }
+                th { background: #fdf2f8; font-weight: bold; text-transform: uppercase; color: #831843; }
+                .header { display: flex; justify-content: space-between; border-bottom: 3px solid #db2777; padding-bottom: 20px; margin-bottom: 30px; }
+                .text-right { text-align: right; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div>
+                     <h1 style="margin: 0; color: #be185d;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                     <p style="margin: 5px 0 0 0; color: #64748b;">Discounts Report</p>
+                </div>
+                <div class="text-right">
+                     <h3 style="margin: 0;">${stats}</h3>
+                     <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 10px;">Generated: ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+            ${content}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+}
+
 const returnsData = <?= json_encode($return_details_30d) ?>;
 function renderReturnTable(data) {
     const tbody = document.getElementById('returnsTableBody');
@@ -726,6 +860,41 @@ function printReturnReport() {
                     </tr>
                 </thead>
                 <tbody id="returnsTableBody" class="divide-y divide-gray-50"></tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- Discount Details Modal -->
+<div id="discountsModal" class="fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-pink-600 text-white">
+            <div>
+                <h3 class="text-xl font-bold">Discount History</h3>
+                <p class="text-xs opacity-80 mt-1">Detailed breakdown of discounts given in the last 30 days</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="printDiscountReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="document.getElementById('discountsModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <div id="discountsPrintableContainer" class="p-6 overflow-y-auto flex-1 bg-white">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 bg-gray-50/50">
+                        <th class="p-4 pl-6">Sr #</th>
+                        <th class="p-4">Date</th>
+                        <th class="p-4">Customer</th>
+                        <th class="p-4">Type</th>
+                        <th class="p-4 text-right pr-6">Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="discountsTableBody" class="divide-y divide-gray-50"></tbody>
             </table>
         </div>
     </div>

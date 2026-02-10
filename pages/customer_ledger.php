@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
         'type' => $type,
         'debit' => ($type == 'Debt') ? $amount : 0,
         'credit' => ($type == 'Payment') ? $amount : 0,
+        'discount' => isset($_POST['discount']) ? (float)$_POST['discount'] : 0,
         'description' => ($type == 'Debt' ? "Previous Debt: " : "Payment Received: ") . $notes,
         'date' => $date,
         'due_date' => $_POST['due_date'] ?? '',
@@ -102,9 +103,10 @@ foreach($all_txns as $t) {
         // if ($from_date && $t['date'] < $from_date) continue;
         // if ($to_date && $t['date'] > $to_date) continue;
         
+        if (!isset($t['discount'])) $t['discount'] = 0;
         $ledger[] = $t;
         // Calculate total for initial view (JS will overwrite, but good for SEO/No-JS fallback if needed, though completely dependent on JS now)
-        $total_due += (float)$t['debit'] - (float)$t['credit'];
+        $total_due += (float)$t['debit'] - (float)$t['credit'] - (float)$t['discount'];
     }
 }
 
@@ -206,6 +208,7 @@ usort($ledger, function($a, $b) {
                     <th class="p-6">Products & QTY</th>
                     <th class="p-6 text-right">Debit (Sale)</th>
                     <th class="p-6 text-right">Credit (Paid)</th>
+                    <th class="p-6 text-right">Discount</th>
                     <th class="p-6">Reference</th>
                     <th class="p-6">Due Date</th>
                     <th class="p-6 text-right text-purple-600">Balance</th> 
@@ -260,10 +263,15 @@ usort($ledger, function($a, $b) {
                     <label for="payInFullCheckbox" class="text-sm font-bold text-teal-600 cursor-pointer">Pay in Full (Clear all debt)</label>
                 </div>
                 
-                <input type="number" name="amount" id="modalTxnAmount" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
+                <input type="number" name="amount" id="modalTxnAmount" oninput="syncAmountAndDiscount()" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
                 <p id="amountError" class="hidden mt-1 text-xs text-red-600 font-bold">
                     <i class="fas fa-exclamation-triangle mr-1"></i> Amount cannot exceed outstanding balance!
                 </p>
+            </div>
+
+            <div id="discountField" class="hidden">
+                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Discount (Optional)</label>
+                 <input type="number" name="discount" id="modalTxnDiscount" oninput="syncAmountAndDiscount()" step="0.01" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
             </div>
             
             <div>
@@ -336,6 +344,7 @@ usort($ledger, function($a, $b) {
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Sale)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
+                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Discount</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Reference</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Due Date</th>
                 </tr>
@@ -499,7 +508,7 @@ usort($ledger, function($a, $b) {
             
             // Strict String Comparison
             if (fromDate && tDate < fromDate) {
-                opening += parseFloat(t.debit || 0) - parseFloat(t.credit || 0);
+                opening += parseFloat(t.debit || 0) - parseFloat(t.credit || 0) - parseFloat(t.discount || 0);
             } else if (toDate && tDate > toDate) {
                 // Skip future transactions
             } else {
@@ -509,11 +518,14 @@ usort($ledger, function($a, $b) {
 
         // Calculate Running Balance for Range
         let running = opening;
+        let rangeDiscount = 0;
         validTxns.forEach(t => {
             running += parseFloat(t.debit || 0);
             running -= parseFloat(t.credit || 0);
+            running -= parseFloat(t.discount || 0);
             rangeDebit += parseFloat(t.debit || 0);
             rangeCredit += parseFloat(t.credit || 0);
+            rangeDiscount += parseFloat(t.discount || 0);
             t.current_running_balance = running; 
         });
 
@@ -524,7 +536,8 @@ usort($ledger, function($a, $b) {
             stats: {
                 totalDebit: rangeDebit,
                 totalCredit: rangeCredit,
-                balance: opening + (rangeDebit - rangeCredit)
+                totalDiscount: rangeDiscount,
+                balance: opening + (rangeDebit - rangeCredit - rangeDiscount)
             }
         };
     }
@@ -595,12 +608,13 @@ usort($ledger, function($a, $b) {
                     <td colspan="7" class="${cellStyle} text-xs font-bold text-gray-500 uppercase tracking-widest">Opening Balance ${dateLabel}</td>
                     <td class="${balStyle}">${formatCurrency(opening)}</td>
                     <td class="p-6"></td>
+                    <td class="p-6"></td>
                 </tr>`;
             }
         }
 
         if (list.length === 0 && opening === 0) {
-            html += `<tr><td colspan="${isPrint ? 7 : 9}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
+            html += `<tr><td colspan="${isPrint ? 8 : 10}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
             return html;
         }
 
@@ -620,6 +634,7 @@ usort($ledger, function($a, $b) {
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${getProductsHtml(t, true)}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #e11d48;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #d97706;">${parseFloat(t.discount) > 0 ? formatCurrency(parseFloat(t.discount)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${t.description}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dueDateDisplay}</td>
                 </tr>`;
@@ -646,6 +661,9 @@ usort($ledger, function($a, $b) {
                     <td class="p-6 text-right font-black text-emerald-600 align-top">
                         ${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '<span class="text-gray-200">-</span>'}
                     </td>
+                    <td class="p-6 text-right font-black text-amber-600 align-top">
+                        ${parseFloat(t.discount) > 0 ? formatCurrency(parseFloat(t.discount)) : '<span class="text-gray-200">-</span>'}
+                    </td>
                     <td class="p-6 align-top">
                         <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[180px]" title="${remarks}">${remarks}</div>
                         ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
@@ -668,7 +686,7 @@ usort($ledger, function($a, $b) {
                          ${canEdit ? `
                          <div class="flex justify-center items-center gap-1">
                                 ${t.type === 'Payment' ? `
-                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
+                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', discount:'${t.discount || 0}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
                                    <i class="fas fa-edit"></i>
                                </button>
                                ` : (t.type === 'Debt' ? `
@@ -720,6 +738,7 @@ usort($ledger, function($a, $b) {
         document.getElementById('modalTxnId').value = data.id;
         document.getElementById('modalTxnDate').value = data.date;
         document.getElementById('modalTxnAmount').value = data.amount;
+        document.getElementById('modalTxnDiscount').value = data.discount || '';
         document.getElementById('modalTxnNotes').value = data.description.replace(data.type === 'Debt' ? "Previous Debt: " : "Payment Received: ", "");
         document.getElementById('modalPaymentType').value = data.payment_type || 'Cash';
         document.getElementById('modalExistingProof').value = data.payment_proof || '';
@@ -733,6 +752,7 @@ usort($ledger, function($a, $b) {
             document.getElementById('modalDebtDisplay').classList.remove('hidden');
             document.getElementById('payInFullWrapper').classList.remove('hidden');
             document.getElementById('paymentFields').classList.remove('hidden');
+            document.getElementById('discountField').classList.remove('hidden');
             dueDateField.classList.add('hidden');
             document.getElementById('modalDueDate').required = false;
             document.getElementById('amountLabel').innerText = "Amount Received";
@@ -740,6 +760,7 @@ usort($ledger, function($a, $b) {
             document.getElementById('modalDebtDisplay').classList.add('hidden');
             document.getElementById('payInFullWrapper').classList.add('hidden');
             document.getElementById('paymentFields').classList.add('hidden');
+            document.getElementById('discountField').classList.add('hidden');
             dueDateField.classList.remove('hidden');
             document.getElementById('modalDueDate').required = true;
             document.getElementById('amountLabel').innerText = "Debt Amount";
@@ -760,6 +781,7 @@ usort($ledger, function($a, $b) {
         document.getElementById('modalTxnId').value = '';
         document.getElementById('modalTxnDate').value = '<?= date('Y-m-d') ?>';
         document.getElementById('modalTxnAmount').value = '';
+        document.getElementById('modalTxnDiscount').value = '';
         document.getElementById('modalTxnNotes').value = '';
         document.getElementById('modalPaymentType').value = 'Cash';
         document.getElementById('modalExistingProof').value = '';
@@ -778,6 +800,7 @@ usort($ledger, function($a, $b) {
             document.getElementById('modalDebtDisplay').classList.remove('hidden');
             document.getElementById('payInFullWrapper').classList.toggle('hidden', isAdvance);
             document.getElementById('paymentFields').classList.remove('hidden');
+            document.getElementById('discountField').classList.remove('hidden');
             dueDateField.classList.add('hidden');
             document.getElementById('modalDueDate').required = false;
             document.getElementById('amountLabel').innerText = isAdvance ? "Advance Amount" : "Amount Received";
@@ -785,6 +808,7 @@ usort($ledger, function($a, $b) {
             document.getElementById('modalDebtDisplay').classList.add('hidden');
             document.getElementById('payInFullWrapper').classList.add('hidden');
             document.getElementById('paymentFields').classList.add('hidden');
+            document.getElementById('discountField').classList.add('hidden');
             dueDateField.classList.remove('hidden');
             document.getElementById('modalDueDate').required = true;
             document.getElementById('amountLabel').innerText = "Debt Amount";
@@ -794,17 +818,44 @@ usort($ledger, function($a, $b) {
     }
     
     function handlePayInFull(checked) {
-        const currentDebt = calculateCurrentDebt();
-        const amountInput = document.getElementById('modalTxnAmount');
+        syncAmountAndDiscount();
         
+        const amountInput = document.getElementById('modalTxnAmount');
         if (checked) {
-            amountInput.value = currentDebt.toFixed(2);
             amountInput.readOnly = true;
             amountInput.classList.add('bg-gray-100');
         } else {
-            amountInput.value = '';
             amountInput.readOnly = false;
             amountInput.classList.remove('bg-gray-100');
+        }
+    }
+
+    function syncAmountAndDiscount() {
+        const isPayFull = document.getElementById('payInFullCheckbox').checked;
+        const currentDebt = calculateCurrentDebt();
+        const amountInput = document.getElementById('modalTxnAmount');
+        const discountInput = document.getElementById('modalTxnDiscount');
+        const discount = parseFloat(discountInput.value) || 0;
+
+        if (isPayFull) {
+            const amountNeeded = Math.max(0, currentDebt - discount);
+            amountInput.value = amountNeeded.toFixed(2);
+        }
+        
+        // Validation check in real-time
+        const amount = parseFloat(amountInput.value) || 0;
+        const errorMsg = document.getElementById('amountError');
+        const isAdvance = document.getElementById('modalIsAdvance').value === "1";
+
+        if (!isAdvance && (amount + discount) > currentDebt + 1) {
+            errorMsg.classList.remove('hidden');
+            errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Total (Amount + Discount) exceeds Outstanding Balance!`;
+            amountInput.classList.add('border-red-500');
+            discountInput.classList.add('border-red-500');
+        } else {
+            errorMsg.classList.add('hidden');
+            amountInput.classList.remove('border-red-500');
+            discountInput.classList.remove('border-red-500');
         }
     }
     
@@ -835,13 +886,14 @@ usort($ledger, function($a, $b) {
             if (isAdvance) return true; // Bypass debt limit for advance payments
 
             const amount = parseFloat(document.getElementById('modalTxnAmount').value) || 0;
+            const discount = parseFloat(document.getElementById('modalTxnDiscount').value) || 0;
             const currentDebt = calculateCurrentDebt();
             const errorMsg = document.getElementById('amountError');
             
-            if (amount > currentDebt + 1) { // 1 unit buffer for floats
+            if ((amount + discount) > currentDebt + 1) { // 1 unit buffer for floats
                 errorMsg.classList.remove('hidden');
                 document.getElementById('modalTxnAmount').classList.add('border-red-500');
-                showAlert(`Payment amount (Rs. ${amount.toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!\n\nUse "Add Advance Payment" if you want to record an overpayment.`, 'Overpayment Not Allowed');
+                showAlert(`Total (Payment + Discount: Rs. ${(amount + discount).toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!\n\nUse "Add Advance Payment" if you want to record an overpayment.`, 'Overpayment Not Allowed');
                 return false;
             }
         }

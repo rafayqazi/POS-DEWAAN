@@ -374,7 +374,7 @@ initCSV('units', ['id', 'name']);
 initCSV('categories', ['id', 'name']);
 initCSV('settings', ['id', 'key', 'value']);
 initCSV('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id', 'payment_type', 'payment_proof', 'return_id']);
-initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof', 'return_id']);
+initCSV('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof', 'return_id', 'discount']);
 initCSV('restocks', ['id', 'product_id', 'product_name', 'quantity', 'new_buy_price', 'old_buy_price', 'new_sell_price', 'old_sell_price', 'dealer_id', 'dealer_name', 'amount_paid', 'date', 'expiry_date', 'remarks', 'created_at']);
 initCSV('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at']);
 initCSV('users', ['id', 'username', 'password', 'role', 'related_id', 'created_at', 'plain_password']);
@@ -410,7 +410,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 4;
+    $latest_version = 5;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -587,8 +587,28 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 5: Add discount to customer_transactions
+    // ----------------------------------------------------
+    $custTxnPath = getCSVPath('customer_transactions');
+    if (file_exists($custTxnPath)) {
+        $fp_mig = fopen($custTxnPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('discount', $headers)) {
+                $data = readCSV('customer_transactions');
+                foreach ($data as &$row) {
+                    $row['discount'] = '0';
+                }
+                $newHeaders = array_merge($headers, ['discount']);
+                writeCSV('customer_transactions', $data, array_unique($newHeaders));
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', '4');
+    updateSetting('db_schema_version', '5');
 }
 
 // Run Migrations (only runs if version < latest)
