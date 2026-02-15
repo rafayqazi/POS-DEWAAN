@@ -306,7 +306,10 @@ foreach($all_txns_inv as $tx) {
         </div>
     </div>
 
-    <div class="flex gap-3 w-full lg:w-auto">
+    <div class="flex flex-wrap gap-3 w-full lg:w-auto">
+        <button onclick="printCatalog()" class="w-full lg:w-auto bg-teal-800 text-white px-6 py-2.5 rounded-xl hover:bg-teal-900 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
+            <i class="fas fa-file-pdf mr-2"></i> Download Product Catalog
+        </button>
         <button onclick="printReport()" class="w-full lg:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
@@ -1128,6 +1131,22 @@ function printReport() {
         printWindow.close();
     }, 500);
 }
+
+function printCatalog() {
+    const element = document.getElementById('catalogPrintableArea');
+    const content = element.innerHTML;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write('<html><head><title>Product Catalog</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; padding: 20px; }</style></head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
 </script>
 
 <!-- Printable Area -->
@@ -1186,6 +1205,51 @@ function printReport() {
         <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
             <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
             <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        </div>
+    </div>
+</div>
+
+<!-- Catalog Printable Area -->
+<div id="catalogPrintableArea" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif; max-width: 800px; margin: auto;">
+        <div style="text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
+            <h1 style="color: #0f766e; margin: 0; font-size: 32px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+            <p style="color: #666; margin: 10px 0; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Product Catalog</p>
+            <p style="color: #888; margin: 5px 0 0 0; font-size: 12px;">Date: <?= date('d M Y') ?></p>
+        </div>
+
+        <?php 
+        // Group products by category
+        $grouped_products = [];
+        foreach ($products as $p) {
+            $cat = !empty($p['category']) ? $p['category'] : 'General';
+            $grouped_products[$cat][] = $p['name'];
+        }
+        ksort($grouped_products);
+        ?>
+
+        <?php foreach ($grouped_products as $category => $items): ?>
+            <div style="margin-bottom: 30px;">
+                <h2 style="color: #0d9488; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px; font-size: 18px; text-transform: uppercase;">
+                    <?= htmlspecialchars($category) ?>
+                </h2>
+                <div style="columns: 2; column-gap: 40px;">
+                    <?php sort($items); ?>
+                    <ul style="list-style-type: none; padding: 0; margin: 0;">
+                        <?php foreach ($items as $item_name): ?>
+                            <li style="padding: 4px 0; border-bottom: 1px dotted #f0f0f0; break-inside: avoid; font-size: 14px; color: #333;">
+                                <i style="color: #0d9488; margin-right: 10px;">•</i> <?= htmlspecialchars($item_name) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <div style="border-top: 1px solid #ddd; margin-top: 50px; padding-top: 20px; text-align: center; font-size: 11px; color: #666;">
+            <p style="margin: 0; font-weight: bold; color: #0f766e;">Software by Abdul Rafay</p>
+            <p style="margin: 5px 0 0 0;">WhatsApp: <span style="font-weight: 600;">03000358189 / 03710273699</span></p>
+            <p style="margin: 10px 0 0 0; font-size: 9px; opacity: 0.7;">Generated via <?= getSetting('business_name', 'POS-DEWAAN') ?> Management System</p>
         </div>
     </div>
 </div>

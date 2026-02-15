@@ -139,6 +139,34 @@ foreach($dealer_txns as $t) {
 }
 $total_debt_dealers = $dealer_purchases - $dealer_payments;
 
+// Calculate Advance Balances for Dealers
+$dealers_data = readCSV('dealers');
+$dealer_map = [];
+foreach($dealers_data as $d) $dealer_map[$d['id']] = $d['name'];
+
+$dealer_balances_agg = [];
+foreach($dealer_txns as $t) {
+    if(!isset($dealer_balances_agg[$t['dealer_id']])) $dealer_balances_agg[$t['dealer_id']] = 0;
+    $dealer_balances_agg[$t['dealer_id']] += (float)($t['debit'] ?? 0);
+    $dealer_balances_agg[$t['dealer_id']] -= (float)($t['credit'] ?? 0);
+}
+
+$total_advance_balance = 0;
+$advance_dealer_details = [];
+foreach($dealer_balances_agg as $did => $bal) {
+    if ($bal < 0) {
+        $abs_bal = abs($bal);
+        $total_advance_balance += $abs_bal;
+        $advance_dealer_details[] = [
+            'name' => $dealer_map[$did] ?? 'Unknown Dealer',
+            'amount' => $abs_bal
+        ];
+    }
+}
+usort($advance_dealer_details, function($a, $b) {
+    return $b['amount'] - $a['amount'];
+});
+
 $expenses_data = readCSV('expenses');
 $expenses_today = 0;
 $expenses_month = 0;
@@ -304,6 +332,13 @@ $report_ranges = [
         <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($dealer_payments_today) ?></p>
         <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Total payments to all dealers</p>
     </a>
+
+    <!-- Advance Dealer Balance Card -->
+    <div onclick="showAdvanceDealerDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-emerald-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
+        <h3 class="text-emerald-500 text-xs uppercase font-bold tracking-wider">Advance Balance (Credit)</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($total_advance_balance) ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Advance paid to dealers (Click to view)</p>
+    </div>
 </div>
 
 <!-- Detailed Profit & Debt Analysis -->
@@ -711,6 +746,30 @@ function showDiscountDetails() {
     renderDiscountTable(discountData);
 }
 
+const advanceDealerData = <?= json_encode($advance_dealer_details) ?>;
+function showAdvanceDealerDetails() {
+    document.getElementById('advanceDealersModal').classList.remove('hidden');
+    renderAdvanceDealersTable(advanceDealerData);
+}
+
+function renderAdvanceDealersTable(data) {
+    const tbody = document.getElementById('advanceDealersTableBody');
+    tbody.innerHTML = '';
+    if(data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-8 text-center text-gray-400 font-bold">No dealers with advance balance found.</td></tr>`;
+        return;
+    }
+    data.forEach((item, index) => {
+        tbody.innerHTML += `
+            <tr class="hover:bg-emerald-50/30 transition border-b border-gray-50 text-sm">
+                <td class="p-4 pl-6 text-[10px] font-bold text-gray-400">${index + 1}</td>
+                <td class="p-4 font-bold text-gray-800">${item.name}</td>
+                <td class="p-4 text-right pr-6 font-black text-emerald-600">${formatCurrencyJS(item.amount)}</td>
+            </tr>
+        `;
+    });
+}
+
 const discountData = <?= json_encode($discount_details_30d) ?>;
 function renderDiscountTable(data) {
     const tbody = document.getElementById('discountsTableBody');
@@ -828,6 +887,33 @@ function printReturnReport() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
 }
 </script>
+
+<!-- Advance Dealers Details Modal -->
+<div id="advanceDealersModal" class="fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-emerald-600 text-white">
+            <div>
+                <h3 class="text-xl font-bold">Dealer Advance Balances</h3>
+                <p class="text-xs opacity-80 mt-1">Dealers to whom we have paid advance or have a surplus credit</p>
+            </div>
+            <button onclick="document.getElementById('advanceDealersModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 bg-white">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 bg-gray-50/50">
+                        <th class="p-4 pl-6">Sr #</th>
+                        <th class="p-4">Dealer Name</th>
+                        <th class="p-4 text-right pr-6">Advance Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="advanceDealersTableBody" class="divide-y divide-gray-50"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 
 <!-- Returns Details Modal -->

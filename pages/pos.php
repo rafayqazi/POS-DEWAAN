@@ -337,6 +337,7 @@ $categories = readCSV('categories');
 
 <script>
 let cart = [];
+let isBelowCostConfirmed = false;
 
 function addToCart(id, name, price, unit, stock, buyPrice) {
     const sId = String(id);
@@ -530,9 +531,14 @@ function validateTotalPrice() {
     let minTotal = 0;
     cart.forEach(item => { minTotal += (item.buy_price || 0) * item.qty; });
     const warning = document.getElementById('priceWarning');
-    if (customTotal > 0 && customTotal < minTotal) warning.classList.remove('hidden');
-    else warning.classList.add('hidden');
-    return (customTotal >= minTotal);
+    if (customTotal > 0 && customTotal < minTotal) {
+        warning.classList.remove('hidden');
+        return false; // Below cost
+    } else {
+        warning.classList.add('hidden');
+        isBelowCostConfirmed = false; // Reset if price becomes valid
+        return true; // OK
+    }
 }
 
 function updateStockLabels() {
@@ -620,7 +626,15 @@ document.getElementById('productSearch').addEventListener('keydown', function(e)
 
 document.getElementById('checkoutForm').onsubmit = function(e) {
     if (cart.length === 0) { showAlert("Cart is empty!", "Error"); return false; }
-    if (!validateTotalPrice()) { showAlert("Below cost price!", "Error"); return false; }
+    
+    const isBelowCost = !validateTotalPrice();
+    if (isBelowCost && !isBelowCostConfirmed) {
+        showConfirm("You are selling things below cost! Are you ready to proceed?", () => {
+            isBelowCostConfirmed = true;
+            document.getElementById('submitBtn').click(); // Re-trigger submit
+        }, "Soft Validation Warning");
+        return false;
+    }
     
     const method = document.getElementById('paymentMethod').value;
     const cust = document.getElementById('customerSelect').value;
