@@ -58,39 +58,84 @@ $business_phone = getSetting('business_phone', '0300-0000000');
     <title>Receipt #<?= $sale_id ?></title>
     <link rel="icon" type="image/png" href="../<?= getSetting('business_favicon', 'assets/img/favicon.png') ?>">
     <style>
-        @page { size: auto; margin: 0; }
-        body { font-family: 'Courier New', Courier, monospace; color: #000; margin: 0; padding: 20px; background: #f3f4f6; }
-        .receipt-container { background: #fff; width: 350px; margin: 0 auto; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
+        @page { 
+            size: 80mm 200mm; 
+            margin: 0; 
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            color: #000; 
+            padding: 20px; 
+            background: #f3f4f6; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .receipt-container { 
+            background: #fff; 
+            width: 80mm; 
+            max-width: 80mm;
+            margin: 0 auto; 
+            padding: 10mm 5mm; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            border-radius: 8px; 
+            box-sizing: border-box;
+        }
         .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 15px; }
-        .header h1 { margin: 0; font-size: 22px; text-transform: uppercase; }
-        .header p { margin: 2px 0; font-size: 12px; }
+        .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+        .header p { margin: 2px 0; font-size: 11px; }
         
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; line-height: 1.2; }
         .info-label { font-weight: bold; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
-        th { border-bottom: 1px dashed #000; padding: 5px 0; text-align: left; }
-        td { padding: 5px 0; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        th { border-bottom: 1px dashed #000; padding: 5px 0; text-align: left; font-weight: bold; }
+        td { padding: 4px 0; vertical-align: top; word-break: break-word; }
         
         .text-right { text-align: right; }
-        .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
         
-        .totals-container { margin-top: 10px; }
-        .total-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 2px; }
-        .grand-total { font-weight: bold; font-size: 16px; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
+        .totals-container { margin-top: 5px; }
+        .total-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; line-height: 1.4; }
+        .grand-total { font-weight: bold; font-size: 15px; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
         
-        .footer { text-align: center; margin-top: 25px; font-size: 10px; font-style: italic; }
+        .footer { text-align: center; margin-top: 20px; font-size: 10px; padding-bottom: 10px; }
+        .footer p { margin: 2px 0; }
         
-        .no-print { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: #fff; text-decoration: none; }
+        .no-print { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; width: 350px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: #fff; text-decoration: none; font-family: sans-serif; font-size: 13px; }
         .btn-print { background: #0d9488; }
         .btn-pdf { background: #ef4444; }
         .btn-close { background: #6b7280; }
 
         @media print {
-            body { background: #fff; padding: 0; }
-            .receipt-container { box-shadow: none; width: 100%; padding: 0; }
-            .no-print { display: none; }
+            @page {
+                size: 80mm 200mm;
+                margin: 0;
+            }
+            html, body {
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+            .receipt-container { 
+                box-shadow: none !important; 
+                width: 80mm !important; 
+                margin: 0 !important; 
+                padding: 5mm !important;
+                border-radius: 0 !important;
+                border: none !important;
+            }
+            .no-print { display: none !important; }
+            * { transition: none !important; }
         }
     </style>
 </head>
@@ -219,5 +264,20 @@ $business_phone = getSetting('business_phone', '0300-0000000');
     </div>
 
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+    function downloadPDF() {
+        const element = document.getElementById('receiptContent');
+        const opt = {
+            margin:       0,
+            filename:     'Receipt_<?= $sale_id ?>.pdf',
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 3, useCORS: true, logging: false, letterRendering: true },
+            jsPDF:        { unit: 'mm', format: [80, 250], orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save();
+    }
+    </script>
 </body>
 </html>
