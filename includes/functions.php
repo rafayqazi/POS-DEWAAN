@@ -9,7 +9,18 @@ function redirect($url) {
 }
 
 function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+    if (!isset($_SESSION['user_id'])) return false;
+
+    // Auto-logout after 24 hours from login
+    if (isset($_SESSION['login_time'])) {
+        if (time() - $_SESSION['login_time'] > 86400) {
+            session_unset();
+            session_destroy();
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 function requireLogin() {
@@ -368,5 +379,233 @@ function getGlobalNotifications() {
     }
 
     return $notifications;
+}
+
+/**
+ * Software Tracking System
+ */
+function getMachineMAC() {
+    $os = strtoupper(substr(PHP_OS, 0, 3));
+    $output = "";
+    
+    // Check if shell_exec is even available
+    if (!function_exists('shell_exec')) return "No shell_exec";
+
+    try {
+        if ($os === 'WIN') {
+            // Method 1: getmac
+            $output = @shell_exec('getmac');
+            if (preg_match('/([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}/', $output, $matches)) {
+                return $matches[0];
+            }
+            // Method 2: ipconfig /all (Fallback)
+            $output = @shell_exec('ipconfig /all');
+            if (preg_match('/Physical Address.*?([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}/i', $output, $matches)) {
+                $mac = explode(': ', $matches[0]);
+                return end($mac);
+            }
+        } else {
+            $output = @shell_exec('/sbin/ifconfig || /sbin/ip link show');
+            if (preg_match('/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/', $output, $matches)) {
+                return $matches[0];
+            }
+        }
+    } catch (Exception $e) { }
+    
+    return "Not Found";
+}
+
+function getSystemTrackingData() {
+    $ip = @file_get_contents('https://api.ipify.org') ?: '0.0.0.0';
+    return [
+        'machine_name'     => gethostname(),
+        'mac_address'      => getMachineMAC(),
+        'os_info'          => php_uname(),
+        'public_ip'        => $ip,
+        'local_ip'         => $_SERVER['SERVER_ADDR'] ?? '127.0.0.1',
+        'software_url'     => ($_SERVER['HTTP_HOST'] ?? 'localhost') . ($_SERVER['REQUEST_URI'] ?? '/'),
+        'username'         => $_SESSION['username'] ?? 'Unknown',
+        'business_name'    => getSetting('business_name', 'N/A'),
+        'business_address' => getSetting('business_address', 'N/A'),
+        'business_phone'   => getSetting('business_phone', 'N/A'),
+        'timestamp'        => date('Y-m-d H:i:s')
+    ];
+}
+
+function sendTrackingHeartbeat() {
+    $url = "https://script.google.com/macros/s/AKfycbzTtbwCMDERuHgjWPk9SyQLK2BDnzM35bzLRuNxOJg-IXVH8sE3tR1dOvdKMeF1MGcrFQ/exec"; 
+    $lockFile = dirname(__FILE__) . '/.security_dat.php';
+
+    $data = getSystemTrackingData();
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10); 
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    $response = @curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // Handle Remote Blocking
+    $cleanResponse = trim($response);
+    if ($cleanResponse === 'BLOCKED') {
+        $_SESSION['system_blocked'] = true;
+        @file_put_contents($lockFile, '<?php /* Security Lock Active */ return true; ?>');
+    } else if ($httpCode == 200 && ($cleanResponse === 'Logged' || strpos($cleanResponse, 'Logged') !== false)) {
+        // Only unblock if we successfully talked to the server and it didn't say BLOCKED
+        unset($_SESSION['system_blocked']);
+        if (file_exists($lockFile)) @unlink($lockFile);
+    }
+
+    $_SESSION['tracked_today'] = true;
+}
+
+/**
+ * Check if the system is remotely blocked
+ */
+function checkSystemBlock() {
+    $lockFile = dirname(__FILE__) . '/.security_dat.php';
+    $isBlocked = (isset($_SESSION['system_blocked']) && $_SESSION['system_blocked'] === true) || file_exists($lockFile);
+
+    if ($isBlocked) {
+        // Agar blocked hai toh UI dikhayein
+        echo '<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Access Restricted</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+            <style>
+                @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap");
+                body { font-family: "Plus Jakarta Sans", sans-serif; }
+            </style>
+        </head>
+        <body class="bg-gray-950 flex items-center justify-center min-h-screen p-6 overflow-hidden">
+            <div class="absolute inset-0 opacity-20 pointer-events-none">
+                <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600 rounded-full blur-[120px]"></div>
+                <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]"></div>
+            </div>
+            
+            <div class="max-w-md w-full bg-white/10 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/10 shadow-2xl text-center relative z-10 transition-all transform hover:scale-[1.02]">
+                <div class="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/30 group">
+                    <i class="fas fa-shield-alt text-4xl text-red-500 animate-pulse"></i>
+                </div>
+                
+                <h1 class="text-4xl font-extrabold text-white mb-4 tracking-tight">Access Restricted</h1>
+                <p class="text-gray-400 mb-8 leading-relaxed text-lg">
+                    You are either selling or using pirated software. You are not allowed to use this software for free.
+                </p>
+                
+                <div class="space-y-4 mb-10">
+                    <div class="bg-black/20 p-6 rounded-2xl border border-white/5 group transition-all hover:bg-black/40">
+                        <span class="block text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-2 font-bold text-red-500">Notice</span>
+                        <span class="text-white font-semibold text-sm">Please contact the developer to authorize your license.</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <button onclick="document.getElementById(\'contactModal\').classList.remove(\'hidden\')" class="inline-flex items-center justify-center w-full px-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition shadow-lg shadow-white/10 group">
+                        <i class="fas fa-id-card mr-3 text-sm group-hover:rotate-12 transition"></i> Contact Developer
+                    </button>
+                </div>
+                
+                <p class="mt-8 text-xs text-gray-500 uppercase tracking-widest font-medium opacity-50">Authorized Personnel Only</p>
+            </div>
+
+            <!-- Contact Modal -->
+            <div id="contactModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all">
+                <div class="max-w-sm w-full bg-gray-900 border border-white/10 rounded-[2rem] p-8 shadow-2xl relative animate-in fade-in zoom-in duration-300">
+                    <button onclick="document.getElementById(\'contactModal\').classList.add(\'hidden\')" class="absolute top-6 right-6 text-gray-500 hover:text-white transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                    
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+                            <i class="fas fa-address-book text-2xl text-blue-500"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white">Developer Contact</h2>
+                        <p class="text-gray-400 text-sm mt-1">Get in touch for license activation</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-1 gap-3">
+                            <a href="https://wa.me/923000358189" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-green-600/10 hover:border-green-600/30 transition group">
+                                <i class="fab fa-whatsapp w-10 text-xl text-green-500 group-hover:scale-110 transition"></i>
+                                <div class="text-left ml-2">
+                                    <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">WhatsApp 1</span>
+                                    <span class="text-white text-sm font-semibold">0300-0358189</span>
+                                </div>
+                            </a>
+                            <a href="https://wa.me/923710273699" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-green-600/10 hover:border-green-600/30 transition group">
+                                <i class="fab fa-whatsapp w-10 text-xl text-green-500 group-hover:scale-110 transition"></i>
+                                <div class="text-left ml-2">
+                                    <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">WhatsApp 2</span>
+                                    <span class="text-white text-sm font-semibold">0371-0273699</span>
+                                </div>
+                            </a>
+                        </div>
+                        
+                        <a href="https://www.linkedin.com/in/abdulrafayqazi/" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-blue-600/10 hover:border-blue-600/30 transition group">
+                            <i class="fab fa-linkedin w-10 text-xl text-blue-400 group-hover:scale-110 transition"></i>
+                            <div class="text-left ml-2">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">LinkedIn</span>
+                                <span class="text-white text-sm font-semibold">@abdulrafayqazi</span>
+                            </div>
+                        </a>
+
+                        <a href="https://web.facebook.com/rafeH.QAZI" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-blue-700/10 hover:border-blue-700/30 transition group">
+                            <i class="fab fa-facebook w-10 text-xl text-blue-600 group-hover:scale-110 transition"></i>
+                            <div class="text-left ml-2">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">Facebook</span>
+                                <span class="text-white text-sm font-semibold">@rafeH.QAZI</span>
+                            </div>
+                        </a>
+
+                        <a href="https://www.instagram.com/abdulrafayqazi/" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-pink-600/10 hover:border-pink-600/30 transition group">
+                            <i class="fab fa-instagram w-10 text-xl text-pink-500 group-hover:scale-110 transition"></i>
+                            <div class="text-left ml-2">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">Instagram</span>
+                                <span class="text-white text-sm font-semibold">@abdulrafayqazi</span>
+                            </div>
+                        </a>
+
+                        <a href="https://github.com/rafayqazi" target="_blank" class="flex items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-gray-700/10 hover:border-gray-700/30 transition group">
+                            <i class="fab fa-github w-10 text-xl text-white group-hover:scale-110 transition"></i>
+                            <div class="text-left ml-2">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold tracking-tight">GitHub</span>
+                                <span class="text-white text-sm font-semibold">@rafayqazi</span>
+                            </div>
+                        </a>
+                    </div>
+
+                    <p class="mt-8 text-[10px] text-gray-600 text-center uppercase tracking-widest font-bold">Checking License Status...</p>
+                </div>
+            </div>
+
+            <script>
+                // Background mein check karein ke admin ne unblock toh nahi kiya
+                setInterval(() => {
+                    fetch(\'heartbeat_check.php\')
+                        .then(() => {
+                            // Page reload karein taake agar unblock ho gaya ho toh software khul jaye
+                            location.reload();
+                        });
+                }, 5000); // Har 5 seconds baad check karein
+            </script>
+        </body>
+        </html>';
+        exit;
+    }
+}
+
+// Global block check - Skip for heartbeat script to allow unblocking
+if (basename($_SERVER['PHP_SELF']) !== 'heartbeat_check.php') {
+    checkSystemBlock();
 }
 ?>

@@ -3,6 +3,7 @@ require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
 requireLogin();
+sendTrackingHeartbeat();
 
 $pageTitle = "Dashboard";
 include 'includes/header.php';
@@ -817,5 +818,12 @@ function closeDebtorsModal() {
 
 <?php 
 include 'includes/footer.php';
+echo '<script>
+fetch("heartbeat_check.php")
+    .then(r => r.text())
+    .then(t => { 
+        if(t.trim().includes("BLOCK")) location.reload(); 
+    });
+</script>';
 echo '</main></div></body></html>'; 
 ?>

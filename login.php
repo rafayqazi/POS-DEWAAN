@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['user_role'] = 'Admin';
             $_SESSION['check_updates'] = true;
             $_SESSION['show_welcome'] = true;
+            $_SESSION['login_time'] = time(); // Record login time
             redirect('index.php');
             $found = true;
         }
@@ -38,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $_SESSION['related_id'] = $u['related_id'] ?? '';
                         $_SESSION['check_updates'] = true; 
                         $_SESSION['show_welcome'] = true; 
+                        $_SESSION['login_time'] = time(); // Record login time
                         redirect('index.php');
                         $found = true;
                         break;

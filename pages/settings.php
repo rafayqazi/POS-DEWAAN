@@ -560,7 +560,7 @@ $categories = readCSV('categories');
                         <label class="block text-gray-700 font-bold mb-2 text-xs uppercase tracking-wider">Customer Recovery Notification Period</label>
                         <p class="text-gray-500 text-xs mb-4">Set how many days before a payment is due you want to be notified on the dashboard.</p>
                         <?php $current_recovery = getSetting('recovery_notify_days', '7'); ?>
-                        <select name="recovery_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none">
+                        <select name="recovery_notify_days" class="w-full rounded-xl border-gray-200 border p-3 focus:ring-2 focus:ring-primary focus:border-primary transition outline-none shadow-sm bg-gray-50 focus:bg-white appearance-none mb-6">
                             <option value="7" <?= $current_recovery == '7' ? 'selected' : '' ?>>1 Week (7 Days)</option>
                             <option value="15" <?= $current_recovery == '15' ? 'selected' : '' ?>>15 Days</option>
                             <option value="30" <?= $current_recovery == '30' ? 'selected' : '' ?>>1 Month (30 Days)</option>

@@ -293,7 +293,7 @@ foreach($all_txns_inv as $tx) {
 <div class="mb-6 flex flex-col lg:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
     <!-- Search and Filters -->
     <div class="flex flex-col md:flex-row items-center gap-3 flex-1 w-full">
-        <div class="relative w-full max-w-md">
+        <div class="relative w-full max-w-2xl">
             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 <i class="fas fa-search text-xs"></i>
             </span>
@@ -320,8 +320,8 @@ foreach($all_txns_inv as $tx) {
     </div>
 
     <div class="flex flex-wrap gap-3 w-full lg:w-auto">
-        <button onclick="printCatalog()" class="w-full lg:w-auto bg-teal-800 text-white px-6 py-2.5 rounded-xl hover:bg-teal-900 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
-            <i class="fas fa-file-pdf mr-2"></i> Download Product Catalog
+        <button onclick="openCatalogPreview()" class="w-full lg:w-auto bg-teal-800 text-white px-6 py-2.5 rounded-xl hover:bg-teal-900 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
+            <i class="fas fa-file-pdf mr-2"></i> Product Catalog
         </button>
         <button onclick="printReport()" class="w-full lg:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95 font-bold text-sm">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
@@ -1148,12 +1148,20 @@ function printReport() {
     }, 500);
 }
 
-function printCatalog() {
-    const element = document.getElementById('catalogPrintableArea');
-    const content = element.innerHTML;
+function openCatalogPreview() {
+    const content = document.getElementById('catalogPrintableArea').innerHTML;
+    document.getElementById('catalogPreviewBody').innerHTML = content;
+    document.getElementById('catalogPreviewModal').classList.remove('hidden');
+}
 
+function closeCatalogPreview() {
+    document.getElementById('catalogPreviewModal').classList.add('hidden');
+}
+
+function printCatalog() {
+    const content = document.getElementById('catalogPreviewBody').innerHTML;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write('<html><head><title>Product Catalog</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; padding: 20px; }</style></head><body>');
+    printWindow.document.write('<html><head><title>Product Catalog</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; padding: 20px; } .hidden { display: none !important; }</style></head><body>');
     printWindow.document.write(content);
     printWindow.document.write('</body></html>');
     printWindow.document.close();
@@ -1266,6 +1274,42 @@ function printCatalog() {
             <p style="margin: 0; font-weight: bold; color: #0f766e;">Software by Abdul Rafay</p>
             <p style="margin: 5px 0 0 0;">WhatsApp: <span style="font-weight: 600;">03000358189 / 03710273699</span></p>
             <p style="margin: 10px 0 0 0; font-size: 9px; opacity: 0.7;">Generated via <?= getSetting('business_name', 'POS-DEWAAN') ?> Management System</p>
+        </div>
+    </div>
+</div>
+
+<!-- Catalog Preview Modal -->
+<div id="catalogPreviewModal" class="fixed inset-0 bg-black bg-opacity-70 hidden z-[100] flex items-center justify-center backdrop-blur-md">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden m-4 transform transition-all scale-100 border border-white/20">
+        <!-- Modal Header -->
+        <div class="bg-teal-700 p-6 flex justify-between items-center text-white shrink-0 shadow-lg">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                    <i class="fas fa-file-invoice text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold tracking-tight">Catalog Preview</h3>
+                    <p class="text-[10px] opacity-70 uppercase tracking-widest font-bold">Review before printing</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="printCatalog()" class="bg-white text-teal-700 px-6 py-2.5 rounded-xl hover:bg-teal-50 shadow-md flex items-center transition active:scale-95 font-black text-xs uppercase tracking-widest">
+                    <i class="fas fa-print mr-2"></i> Print / Download
+                </button>
+                <button onclick="closeCatalogPreview()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Modal Body (Printable Area) -->
+        <div id="catalogPreviewBody" class="flex-1 overflow-auto bg-gray-100 p-8">
+            <!-- Content will be injected here via JS -->
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="p-4 bg-gray-50 border-t flex justify-center shrink-0">
+             <p class="text-[9px] text-gray-400 font-bold uppercase tracking-[0.3em]">Precision Preview System v2.0</p>
         </div>
     </div>
 </div>

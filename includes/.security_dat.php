@@ -1,0 +1,1 @@
+<?php /* Security Lock Active */ return true; ?>
