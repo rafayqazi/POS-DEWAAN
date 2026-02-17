@@ -177,11 +177,11 @@ $categories = readCSV('categories');
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 sticky top-0 z-10 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <tr>
-                        <th class="px-3 py-2 border-b border-gray-200">Item</th>
-                        <th class="px-2 py-2 border-b border-gray-200 w-16 text-center">Qty</th>
-                        <th class="px-2 py-2 border-b border-gray-200 w-20 text-center">Price</th>
-                        <th class="px-3 py-2 border-b border-gray-200 text-right">Total</th>
-                        <th class="px-2 py-2 border-b border-gray-200 w-8"></th>
+                        <th class="px-3 py-1.5 border-b border-gray-200">Item</th>
+                        <th class="px-2 py-1.5 border-b border-gray-200 w-16 text-center">Qty</th>
+                        <th class="px-2 py-1.5 border-b border-gray-200 w-20 text-center">Price</th>
+                        <th class="px-3 py-1.5 border-b border-gray-200 text-right">Total</th>
+                        <th class="px-2 py-1.5 border-b border-gray-200 w-8"></th>
                     </tr>
                 </thead>
                 <tbody id="cartItems" class="text-xs divide-y divide-gray-100">
@@ -195,10 +195,10 @@ $categories = readCSV('categories');
         </div>
 
         <!-- Checkout Footer (Compact) -->
-        <div class="border-t border-gray-200 bg-gray-50/30 p-3 space-y-2.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
+        <div class="border-t border-gray-200 bg-gray-50/30 p-2 space-y-1.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
             
             <!-- Discount -->
-            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm">
                 <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Discount (Rs.)</span>
                 <input type="number" id="discountInput" value="0"
                        class="w-28 bg-transparent border-none p-0 text-lg font-black text-red-600 text-right focus:ring-0 outline-none" 
@@ -206,7 +206,7 @@ $categories = readCSV('categories');
             </div>
 
             <!-- Grand Total -->
-            <div class="flex justify-between items-center bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-xl px-3 py-2 shadow-inner">
+            <div class="flex justify-between items-center bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-xl px-3 py-1.5 shadow-inner">
                 <span class="text-[10px] font-black text-teal-800 uppercase tracking-widest">Grand Total</span>
                 <div class="flex items-baseline gap-1">
                     <span class="text-xs font-bold text-teal-700">Rs.</span>
@@ -383,28 +383,28 @@ function renderCart() {
     // Display newest items at the top
     tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}) => `
         <tr class="group hover:bg-gray-50 transition-colors">
-            <td class="px-3 py-2 border-b border-gray-100">
+            <td class="px-3 py-1 border-b border-gray-100">
                 <div class="font-bold text-gray-800 leading-tight">${item.name}</div>
                 <div class="text-[9px] text-gray-400 mt-0.5">${item.unit}</div>
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
+            <td class="px-2 py-1 border-b border-gray-100 text-center">
                 <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" max="${item.max_stock}" 
-                       class="w-12 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none ${item.qty >= item.max_stock ? 'text-red-600' : 'text-gray-700'}" 
+                       class="w-12 p-0.5 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none ${item.qty >= item.max_stock ? 'text-red-600' : 'text-gray-700'}" 
                        oninput="updateQty(${index}, this.value)">
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
+            <td class="px-2 py-1 border-b border-gray-100 text-center">
                 <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
-                       class="w-16 p-1 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
+                       class="w-16 p-0.5 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
                        oninput="updateUnitPrice(${index}, this.value)">
             </td>
-            <td class="px-3 py-2 border-b border-gray-100 text-right font-mono font-bold text-gray-700">
+            <td class="px-3 py-1 border-b border-gray-100 text-right font-mono font-bold text-gray-700">
                 <input type="number" id="total-${index}" value="${Math.round(item.total)}" 
-                       class="w-20 p-1 text-right font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none bg-gray-50 group-hover:bg-white" 
+                       class="w-18 p-0.5 text-right font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none bg-gray-50 group-hover:bg-white" 
                        oninput="updateItemTotal(${index}, this.value)">
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-right">
+            <td class="px-2 py-1 border-b border-gray-100 text-right">
                 <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 transition-colors">
-                    <i class="fas fa-times"></i>
+                    <i class="fas fa-times text-[10px]"></i>
                 </button>
             </td>
         </tr>

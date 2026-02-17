@@ -106,7 +106,7 @@ $default_to = date('Y-m-d');
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
     <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-l-4 border-blue-500 glass">
         <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Stock IN (ITEMS)</h3>
         <p id="statIn" class="text-3xl font-black text-blue-600 tracking-tighter mt-1">0</p>
@@ -126,6 +126,11 @@ $default_to = date('Y-m-d');
         <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Expiry Alerts</h3>
         <p id="statExpiry" class="text-3xl font-black text-red-600 tracking-tighter mt-1">0</p>
         <div class="mt-4 text-[9px] text-gray-400 font-bold uppercase tracking-wider">Items Near or Expired</div>
+    </div>
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-l-4 border-purple-500 glass">
+        <h3 class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Total Stock items</h3>
+        <p id="statTotalStock" class="text-3xl font-black text-purple-600 tracking-tighter mt-1">0</p>
+        <div class="mt-4 text-[9px] text-gray-400 font-bold uppercase tracking-wider">Total Units in Hand</div>
     </div>
 </div>
 
@@ -171,6 +176,7 @@ function renderInventory() {
     let totalOutUnits = 0;
     let totalStockValueAmount = 0;
     let totalExpiryAlerts = 0;
+    let totalCurrentStockTotal = 0;
 
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -241,6 +247,7 @@ function renderInventory() {
         totalInUnits += stockInPeriod;
         totalOutUnits += stockOutPeriod;
         totalStockValueAmount += currentStock * (parseFloat(p.buy_price) || 0);
+        totalCurrentStockTotal += currentStock;
 
         // Expiry Badge
         let expiryBadge = '<span class="text-gray-400 italic text-[10px]">No Expiry</span>';
@@ -295,6 +302,7 @@ function renderInventory() {
     document.getElementById('statOut').innerText = totalOutUnits.toLocaleString();
     document.getElementById('statValue').innerText = 'Rs. ' + totalStockValueAmount.toLocaleString();
     document.getElementById('statExpiry').innerText = totalExpiryAlerts;
+    document.getElementById('statTotalStock').innerText = totalCurrentStockTotal.toLocaleString();
 }
 
 function setQuickRange() {

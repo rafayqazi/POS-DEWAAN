@@ -187,6 +187,7 @@ include '../includes/header.php';
 <script>
 let products = <?= json_encode($products) ?>;
 let cart = [];
+let isBelowCostConfirmed = false;
 
 // Initialize Cart with current items
 <?php foreach($current_items as $item): 
@@ -537,7 +538,7 @@ document.getElementById('updateSaleForm').onsubmit = function(e) {
         return false;
     }
 
-    // Check individual items strictly
+    // Check individual items & Total price for "Soft Validation"
     let invalidItems = [];
     cart.forEach(item => {
         if (parseFloat(item.price) < (parseFloat(item.buy_price) || 0)) {
@@ -545,15 +546,23 @@ document.getElementById('updateSaleForm').onsubmit = function(e) {
         }
     });
 
-    if (invalidItems.length > 0) {
-        showAlert(`You cannot save this sale! The following items are priced below their purchase price: \n\n - ${invalidItems.join('\n - ')}\n\nPlease correct the prices to proceed.`, 'Validation Error');
-        return false;
-    }
+    const isBelowTotalCost = !validateTotalPrice();
 
-    if (!validateTotalPrice()) {
-        if (!confirm("Warning: Total amount is below the total cost price. Are you sure you want to proceed?")) {
-            return false;
+    if ((invalidItems.length > 0 || isBelowTotalCost) && !isBelowCostConfirmed) {
+        let msg = "";
+        if (invalidItems.length > 0) {
+            msg = `The following items are priced below their purchase price:\n- ${invalidItems.join('\n- ')}\n\n`;
         }
+        if (isBelowTotalCost) {
+            msg += "The total sale amount is also below the total cost price.\n\n";
+        }
+        msg += "Are you sure you want to proceed with these prices?";
+
+        showConfirm(msg, () => {
+            isBelowCostConfirmed = true;
+            document.querySelector('#updateSaleForm button[type="submit"]').click();
+        }, "Soft Validation Warning");
+        return false;
     }
 
     const totalAmount = parseFloat(document.getElementById('total_amount_input').value) || 0;

@@ -186,6 +186,19 @@ include '../includes/header.php';
 $products = readCSV('products');
 $units = readCSV('units');
 $categories = readCSV('categories');
+$restocks_all = readCSV('restocks');
+
+// Map latest restock date to product_id
+$latest_restock_dates = [];
+foreach ($restocks_all as $r) {
+    $pid = $r['product_id'];
+    $r_date = $r['date'] ?? '';
+    if (!empty($r_date)) {
+        if (!isset($latest_restock_dates[$pid]) || strtotime($r_date) > strtotime($latest_restock_dates[$pid])) {
+            $latest_restock_dates[$pid] = $r_date;
+        }
+    }
+}
 
 // Filtering
 if (isset($_GET['filter']) && $_GET['filter'] == 'low') {
@@ -374,8 +387,11 @@ foreach($all_txns_inv as $tx) {
                             data-unit="<?= strtolower(htmlspecialchars($product['unit'])) ?>">
                             <td class="p-4 text-gray-400 font-mono text-xs text-center"><?= $sn++ ?></td>
                             <td class="p-4">
+                                <?php 
+                                $disp_date = $latest_restock_dates[$product['id']] ?? $product['created_at'];
+                                ?>
                                 <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded uppercase">
-                                    <?= date('d M Y', strtotime($product['created_at'])) ?>
+                                    <?= date('d M Y', strtotime($disp_date)) ?>
                                 </span>
                             </td>
                             <td class="p-4 font-bold text-gray-800">

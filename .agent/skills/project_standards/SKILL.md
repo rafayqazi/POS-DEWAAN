@@ -19,3 +19,10 @@ description: Mandatory UI, UX, and design patterns for the POS-DEWAAN project.
 - **Theme & Palette**: Every new page or component MUST strictly follow the project's established theme and color palette. 
 - **Colors**: Use the primary Teal (`#0f766e`), secondary dark Teal (`#134e4a`), and accent Amber (`#f59e0b`) as defined in `header.php`.
 - **Aesthetics**: Maintain the "Premium" look using rounded corners (`rounded-2xl` for cards, `rounded-xl` for buttons), subtle glassmorphism (`glass` class), and consistent spacing.
+
+## Printing Standards
+
+### Thermal Receipt Optimization
+- **Device Support**: All receipt printing MUST be optimized for the **MP-300 Smart Bluetooth Printer** (80mm width).
+- **Dynamic Height**: PDF generation for receipts MUST use dynamic height calculation based on content to eliminate excessive white space at the bottom. The standard width is 80mm.
+- **Footer Styling**: Developer information in the footer should be minimal (8px) and positioned at the very bottom with sufficient spacing from the receipt content.

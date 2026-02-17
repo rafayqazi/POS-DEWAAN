@@ -16,7 +16,8 @@ if (!$dataDir) {
 }
 
 $zip = new ZipArchive();
-$filename = "backup_" . date("Y-m-d_H-i-s") . ".zip";
+$business_name = getSetting('business_name', 'Fashion Shines POS');
+$filename = $business_name . " - Backup - " . date("Y-m-d") . ".zip";
 $filepath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $filename;
 
 if ($zip->open($filepath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {

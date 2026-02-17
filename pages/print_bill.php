@@ -49,6 +49,10 @@ foreach ($products as $p) $p_map[$p['id']] = $p;
 $business_name = getSetting('business_name', 'Fashion Shines');
 $business_address = getSetting('business_address', 'Faisalabad, Pakistan');
 $business_phone = getSetting('business_phone', '0300-0000000');
+
+$cust_name = $customer ? $customer['name'] : 'Walk-in';
+$sale_date = date('d-M-Y', strtotime($sale['sale_date']));
+$pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +63,7 @@ $business_phone = getSetting('business_phone', '0300-0000000');
     <link rel="icon" type="image/png" href="../<?= getSetting('business_favicon', 'assets/img/favicon.png') ?>">
     <style>
         @page { 
-            size: 80mm 200mm; 
+            size: 80mm auto; 
             margin: 0; 
         }
         html, body {
@@ -117,7 +121,7 @@ $business_phone = getSetting('business_phone', '0300-0000000');
 
         @media print {
             @page {
-                size: 80mm 200mm;
+                size: 80mm auto;
                 margin: 0;
             }
             html, body {
@@ -258,8 +262,10 @@ $business_phone = getSetting('business_phone', '0300-0000000');
 
         <div class="footer">
             <p>Thank you for your business!</p>
-            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
-            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+            <div style="margin-top: 30px; font-size: 8px; color: #4b5563; line-height: 1.4;">
+                <p style="margin: 0; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Software by Abdul Rafay</p>
+                <p style="margin: 2px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+            </div>
         </div>
     </div>
 
@@ -268,12 +274,19 @@ $business_phone = getSetting('business_phone', '0300-0000000');
     <script>
     function downloadPDF() {
         const element = document.getElementById('receiptContent');
+        
+        // Calculate height in mm
+        // 80mm is our width. We need to find the height that preserves the aspect ratio or just measure it.
+        // html2pdf uses a default DPI of 96. 1mm = 3.78px approx.
+        const heightPx = element.offsetHeight;
+        const heightMm = Math.ceil(heightPx / 3.78) + 10; // Add 10mm buffer
+
         const opt = {
             margin:       0,
-            filename:     'Receipt_<?= $sale_id ?>.pdf',
+            filename:     '<?= addslashes($pdf_filename) ?>',
             image:        { type: 'jpeg', quality: 1 },
             html2canvas:  { scale: 3, useCORS: true, logging: false, letterRendering: true },
-            jsPDF:        { unit: 'mm', format: [80, 250], orientation: 'portrait' }
+            jsPDF:        { unit: 'mm', format: [80, heightMm], orientation: 'portrait' }
         };
 
         html2pdf().set(opt).from(element).save();
