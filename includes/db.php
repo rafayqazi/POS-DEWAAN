@@ -180,9 +180,11 @@ function updateCSV($table, $id, $new_data) {
 
         flock($fp, LOCK_UN);
         fclose($fp);
+        return true;
     } elseif ($fp) {
         fclose($fp);
     }
+    return false;
 }
 
 /**
@@ -222,9 +224,11 @@ function deleteCSV($table, $id) {
 
         flock($fp, LOCK_UN);
         fclose($fp);
+        return true;
     } elseif ($fp) {
         fclose($fp);
     }
+    return false;
 }
 
 /**
@@ -410,7 +414,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 5;
+    $latest_version = 7;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -514,16 +518,16 @@ function runMigrations() {
         }
     }
 
-    // Add returned_qty to sale_items.csv
+    // Add returned_qty and unit to sale_items.csv
     $saleItemsPath = getCSVPath('sale_items');
     if (file_exists($saleItemsPath)) {
         $fp_mig = fopen($saleItemsPath, 'r');
         if ($fp_mig) {
             $headers = fgetcsv($fp_mig);
             fclose($fp_mig);
-            if ($headers && !in_array('returned_qty', $headers)) {
+            if ($headers && (!in_array('returned_qty', $headers) || !in_array('unit', $headers))) {
                 $data = readCSV('sale_items');
-                $newHeaders = array_merge($headers, ['returned_qty']);
+                $newHeaders = array_merge($headers, ['returned_qty', 'unit']);
                 writeCSV('sale_items', $data, array_unique($newHeaders));
             }
         }
@@ -607,8 +611,49 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 6: Add factors and AVCO to products
+    // ----------------------------------------------------
+    $prodPath = getCSVPath('products');
+    if (file_exists($prodPath)) {
+        $fp_mig = fopen($prodPath, 'r');
+        if ($fp_mig) {
+            $headers = fgetcsv($fp_mig);
+            fclose($fp_mig);
+            if ($headers && !in_array('factor_level2', $headers)) {
+                $data = readCSV('products');
+                foreach ($data as &$p) {
+                    if (!isset($p['factor_level2'])) $p['factor_level2'] = '1';
+                    if (!isset($p['factor_level3'])) $p['factor_level3'] = '1';
+                    if (!isset($p['avg_buy_price'])) $p['avg_buy_price'] = $p['buy_price'] ?? '0';
+                }
+                $newHeaders = array_merge($headers, ['factor_level2', 'factor_level3', 'avg_buy_price']);
+                writeCSV('products', $data, array_unique($newHeaders));
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // MIGRATION 7: Add unit to sale_items.csv headers
+    // ----------------------------------------------------
+    if ($current_version < 7) {
+        $saleItemsPath = getCSVPath('sale_items');
+        if (file_exists($saleItemsPath)) {
+            $fp_mig = fopen($saleItemsPath, 'r');
+            if ($fp_mig) {
+                $headers = fgetcsv($fp_mig);
+                fclose($fp_mig);
+                if ($headers && !in_array('unit', $headers)) {
+                    $data = readCSV('sale_items');
+                    $newHeaders = array_merge($headers, ['unit']);
+                    writeCSV('sale_items', $data, array_unique($newHeaders));
+                }
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', '5');
+    updateSetting('db_schema_version', '7');
 }
 
 // Run Migrations (only runs if version < latest)

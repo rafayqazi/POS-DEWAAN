@@ -82,7 +82,9 @@ $sales_map = [];
 foreach($all_sales as $s) $sales_map[$s['id']] = $s;
 
 $products_map = [];
-foreach($all_products as $p) $products_map[$p['id']] = $p['name'];
+foreach($all_products as $p) $products_map[$p['id']] = $p;
+
+$units = readCSV('units');
 
 $sale_items_grouped = [];
 foreach($all_sale_items as $si) {
@@ -376,6 +378,7 @@ usort($ledger, function($a, $b) {
     const returnItemsMap = <?= json_encode($return_items_grouped) ?>;
     const initialBalance = <?= $total_due ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
+    const availableUnits = <?= json_encode($units) ?>;
 
     let currentPage_Ledger = 1;
     const pageSize_Ledger = 200;
@@ -384,6 +387,64 @@ usort($ledger, function($a, $b) {
     const formatCurrency = (amount) => {
         return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
     };
+
+    function getUnitHierarchyJS(unitName) {
+        if (!unitName) return [];
+        let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
+        if (!startNode) return [];
+        let root = startNode;
+        while(root.parent_id != 0) {
+            let parent = availableUnits.find(u => u.id == root.parent_id);
+            if(!parent) break;
+            root = parent;
+        }
+        let chain = [];
+        let current = root;
+        while(current) {
+            chain.push(current);
+            let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
+            if(!next) break;
+            current = next;
+        }
+        return chain;
+    }
+
+    function getBaseMultiplierForProductJS(unitName, p) {
+        const chain = getUnitHierarchyJS(p.unit);
+        let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
+        if (targetIdx === -1) return 1;
+        const f2 = parseFloat(p.factor_level2 || 1) || 1;
+        const f3 = parseFloat(p.factor_level3 || 1) || 1;
+        if (targetIdx === 0) {
+            if (chain.length > 2) return f2 * f3;
+            if (chain.length > 1) return f2;
+        } else if (targetIdx === 1) {
+            if (chain.length > 2) return f3;
+        }
+        return 1;
+    }
+
+    function formatStockHierarchyJS(qty, p) {
+        qty = parseFloat(qty);
+        const unitName = p.unit || 'Units';
+        if (qty <= 0) return `0 ${unitName}`;
+        const chain = getUnitHierarchyJS(unitName);
+        if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
+        let remaining = qty;
+        let parts = [];
+        chain.forEach((u, i) => {
+            let mult = getBaseMultiplierForProductJS(u.name, p);
+            let count = Math.floor(remaining / mult);
+            if (count > 0) {
+                parts.push(`<b>${count}</b> <span class="text-[9px] uppercase opacity-70">${u.name}</span>`);
+                remaining = remaining % mult;
+            }
+        });
+        let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
+        const baseUnit = chain[chain.length - 1].name;
+        display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+        return display;
+    }
 
     function applyQuickDate(type) {
         const today = new Date();
@@ -547,11 +608,27 @@ usort($ledger, function($a, $b) {
             const items = saleItemsMap[t.sale_id] || [];
             if (items.length > 0) {
                 return items.map(item => {
-                    const pName = productsMap[item.product_id] || 'Unknown Product';
-                    if (isPrint) return `${pName} x ${item.quantity}`;
-                    return `<div class="flex items-start justify-between gap-2 text-[11px] mb-1.5 border-b border-gray-50 pb-1 last:border-0">
-                                <span class="font-bold text-gray-700 flex-1 leading-tight">${pName}</span>
-                                <span class="text-teal-600 font-black whitespace-nowrap">x ${item.quantity}</span>
+                    const p = productsMap[item.product_id];
+                    const pName = p ? p.name : 'Unknown Product';
+                    
+                    // Hierarchical Display logic
+                    let qtyDisplay = item.quantity;
+                    if(p && p.unit) {
+                        const chain = getUnitHierarchyJS(p.unit);
+                        if(chain.length > 1) {
+                            const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
+                            qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
+                        } else {
+                            qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
+                        }
+                    } else {
+                        qtyDisplay = `x ${item.quantity}`;
+                    }
+
+                    if (isPrint) return `${pName} (${qtyDisplay})`;
+                    return `<div class="flex flex-col text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0">
+                                <span class="font-bold text-gray-800 leading-tight">${pName}</span>
+                                <div class="mt-1">${qtyDisplay}</div>
                             </div>`;
                 }).join(isPrint ? ', ' : '');
             }

@@ -34,13 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
             
             $idx = $product_map[$pid];
             $current_stock = (float)$all_products[$idx]['stock_quantity'];
-            $qty_needed = (float)$item['qty'];
             
-            if ($current_stock < $qty_needed) {
+            // Convert sold qty into base units
+            $sold_unit = $item['unit'] ?? $all_products[$idx]['unit'];
+            $multiplier = getBaseMultiplier($sold_unit, $all_products[$idx]);
+            $qty_needed_base = (float)$item['qty'] * $multiplier;
+            
+            if ($current_stock < $qty_needed_base) {
                 $name = $all_products[$idx]['name'] ?? 'Unknown Item';
-                $error_items[] = "$name (Available: $current_stock)";
+                $available_readable = formatStockHierarchy($current_stock, $all_products[$idx]['unit']);
+                $error_items[] = "$name (Available: $available_readable)";
             } else {
-                $all_products[$idx]['stock_quantity'] = $current_stock - $qty_needed;
+                $all_products[$idx]['stock_quantity'] = $current_stock - $qty_needed_base;
             }
         }
         
@@ -91,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 'sale_id' => $sale_id,
                 'product_id' => $item['id'],
                 'quantity' => $item['qty'],
+                'unit' => $item['unit'], // Store the unit used in this sale
                 'price_per_unit' => $item['price'],
                 'buy_price' => $cost_price,
                 'avg_buy_price' => $avco_price,
@@ -104,11 +110,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
 $customers = readCSV('customers');
 $products = readCSV('products');
 $categories = readCSV('categories');
+$units = readCSV('units');
 ?>
 
 <div class="h-[calc(100vh-60px)] mb-0 flex flex-col lg:flex-row gap-4">
-    <!-- LEFT: Product Explorer -->
-    <div class="flex-1 flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <!-- LEFT: Product Explorer (40%) -->
+    <div class="lg:w-[40%] flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <!-- Search Header -->
         <div class="p-4 border-b border-gray-100 flex gap-3">
             <div class="flex-1 relative">
@@ -116,7 +123,7 @@ $categories = readCSV('categories');
                 <input type="text" id="productSearch" autofocus placeholder="Search products..." 
                        class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm transition-all">
             </div>
-            <select id="categoryFilter" class="px-4 py-2 rounded-md border border-gray-200 text-sm text-gray-600 focus:border-teal-500 outline-none">
+            <select id="categoryFilter" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 focus:border-teal-500 outline-none bg-gray-50">
                 <option value="all">All Categories</option>
                 <?php foreach($categories as $cat): ?>
                 <option value="<?= htmlspecialchars($cat['name']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
@@ -131,12 +138,13 @@ $categories = readCSV('categories');
                 if ($p['stock_quantity'] <= 0) continue; 
             ?>
                 <div class="product-card bg-white border border-gray-100 p-2.5 rounded-lg hover:border-teal-400 hover:bg-teal-50/50 cursor-pointer transition-all flex items-center gap-4 group"
-                     onclick="addToCart(<?= $p['id'] ?>, '<?= addslashes($p['name']) ?>', <?= $p['sell_price'] ?>, '<?= $p['unit'] ?>', <?= $p['stock_quantity'] ?>, <?= $p['buy_price'] ?>)"
-                     data-name="<?= strtolower($p['name']) ?>"
-                     data-category="<?= $p['category'] ?>">
+                     onclick='handleProductClick(this)'
+                     data-product="<?= htmlspecialchars(json_encode($p)) ?>"
+                     data-name="<?= strtolower(htmlspecialchars($p['name'])) ?>"
+                     data-category="<?= htmlspecialchars($p['category']) ?>">
                     
                     <div class="flex-1 min-w-0">
-                        <h4 class="font-bold text-gray-800 text-sm truncate group-hover:text-teal-700" title="<?= $p['name'] ?>"><?= $p['name'] ?></h4>
+                        <h4 class="font-bold text-gray-800 text-base lg:text-lg truncate group-hover:text-teal-700" title="<?= $p['name'] ?>"><?= $p['name'] ?></h4>
                         <div class="flex items-center gap-2 mt-0.5">
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider"><?= $p['category'] ?></span>
                             <span class="text-[10px] text-gray-400 font-medium italic">Unit: <?= $p['unit'] ?></span>
@@ -147,13 +155,14 @@ $categories = readCSV('categories');
                         <div class="min-w-[80px]">
                             <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Availability</span>
                             <span id="stock-label-<?= $p['id'] ?>" data-id="<?= $p['id'] ?>" data-stock="<?= $p['stock_quantity'] ?>"
-                                  class="text-xs font-black <?= $p['stock_quantity'] < 5 ? 'text-red-500' : 'text-teal-600' ?>">
-                                <?= $p['stock_quantity'] ?> <?= $p['unit'] ?>
+                                  data-unit="<?= $p['unit'] ?>" data-f2="<?= (float)($p['factor_level2'] ?? 1) ?>" data-f3="<?= (float)($p['factor_level3'] ?? 1) ?>"
+                                  class="text-xs font-black <?= $p['stock_quantity'] < 10 ? 'text-red-500' : 'text-teal-600' ?>">
+                                <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
                             </span>
                         </div>
-                        <div class="min-w-[100px] bg-gray-50 px-3 py-1 rounded border border-gray-100 group-hover:bg-teal-100 group-hover:border-teal-200 transition-colors">
-                            <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Sell Price</span>
-                            <span class="block font-black text-gray-800 text-sm">Rs. <?= number_format((float)$p['sell_price']) ?></span>
+                        <div class="min-w-[120px] bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 group-hover:bg-teal-100 group-hover:border-teal-200 transition-colors">
+                            <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sell Price</span>
+                            <span class="block font-black text-gray-800 text-base">Rs. <?= number_format((float)$p['sell_price']) ?></span>
                         </div>
                     </div>
                 </div>
@@ -162,29 +171,29 @@ $categories = readCSV('categories');
         </div>
     </div>
 
-    <!-- RIGHT: Checkout Panel (Widened and UX Enhanced) -->
-    <div class="w-full lg:w-[540px] bg-white rounded-lg border border-gray-200 shadow-xl flex flex-col h-full relative">
+    <!-- RIGHT: Checkout Panel (60% UX Enhanced) -->
+    <div class="lg:w-[60%] bg-white rounded-lg border border-gray-200 shadow-xl flex flex-col h-full relative">
         <!-- Header -->
         <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-teal-50/30">
-            <h2 class="text-sm font-black text-teal-800 uppercase tracking-widest flex items-center">
-                <i class="fas fa-shopping-cart mr-2 text-teal-600"></i> Current Sale
+            <h2 class="text-base font-black text-teal-800 uppercase tracking-widest flex items-center">
+                <i class="fas fa-shopping-cart mr-2 text-teal-600"></i> Current Checkout
             </h2>
-            <button onclick="clearCart()" class="text-[10px] text-red-400 hover:text-red-600 font-bold uppercase hover:underline transition-colors">Clear All</button>
+            <button onclick="clearCart()" class="text-xs text-red-400 hover:text-red-600 font-black uppercase hover:underline transition-colors">Clear All</button>
         </div>
 
         <!-- Cart Table -->
         <div class="flex-1 overflow-y-auto" id="cartContainer">
             <table class="w-full text-left border-collapse">
-                <thead class="bg-gray-50 sticky top-0 z-10 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <thead class="bg-gray-50 sticky top-0 z-10 text-xs font-black text-gray-500 uppercase tracking-widest">
                     <tr>
-                        <th class="px-3 py-1.5 border-b border-gray-200">Item</th>
-                        <th class="px-2 py-1.5 border-b border-gray-200 w-16 text-center">Qty</th>
-                        <th class="px-2 py-1.5 border-b border-gray-200 w-20 text-center">Price</th>
-                        <th class="px-3 py-1.5 border-b border-gray-200 text-right">Total</th>
-                        <th class="px-2 py-1.5 border-b border-gray-200 w-8"></th>
+                        <th class="px-4 py-3 border-b border-gray-200">Item Details</th>
+                        <th class="px-2 py-3 border-b border-gray-200 w-24 text-center">Qty</th>
+                        <th class="px-2 py-3 border-b border-gray-200 w-32 text-center">Unit Price</th>
+                        <th class="px-4 py-3 border-b border-gray-200 text-right">Subtotal</th>
+                        <th class="px-2 py-3 border-b border-gray-200 w-10"></th>
                     </tr>
                 </thead>
-                <tbody id="cartItems" class="text-xs divide-y divide-gray-100">
+                <tbody id="cartItems" class="text-sm divide-y divide-gray-100">
                     <!-- JS Injected -->
                 </tbody>
             </table>
@@ -198,21 +207,19 @@ $categories = readCSV('categories');
         <div class="border-t border-gray-200 bg-gray-50/30 p-2 space-y-1.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
             
             <!-- Discount -->
-            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm">
-                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Discount (Rs.)</span>
+            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Discount (Rs.)</span>
                 <input type="number" id="discountInput" value="0"
-                       class="w-28 bg-transparent border-none p-0 text-lg font-black text-red-600 text-right focus:ring-0 outline-none" 
+                       class="w-32 bg-transparent border-none p-0 text-xl font-black text-red-600 text-right focus:ring-0 outline-none" 
                        oninput="updateTotals()" min="0">
             </div>
 
             <!-- Grand Total -->
-            <div class="flex justify-between items-center bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-xl px-3 py-1.5 shadow-inner">
-                <span class="text-[10px] font-black text-teal-800 uppercase tracking-widest">Grand Total</span>
+            <div class="flex justify-between items-center bg-gradient-to-br from-teal-500 to-teal-700 border border-teal-600 rounded-xl px-6 py-3 shadow-lg mb-1">
+                <span class="text-xs font-black text-white uppercase tracking-widest">Net Payable</span>
                 <div class="flex items-baseline gap-1">
-                    <span class="text-xs font-bold text-teal-700">Rs.</span>
-                    <input type="number" id="grandTotal" value="0"
-                           class="w-28 bg-transparent border-none p-0 text-xl font-black text-teal-900 text-right focus:ring-0 outline-none" 
-                           oninput="handleTotalChange()" min="0">
+                    <span class="text-sm font-bold text-teal-100">Rs.</span>
+                    <span id="grandTotalDisplay" class="text-4xl font-black text-white tracking-tight">0</span>
                 </div>
             </div>
             
@@ -338,20 +345,129 @@ $categories = readCSV('categories');
 <script>
 let cart = [];
 let isBelowCostConfirmed = false;
+const availableUnits = <?= json_encode($units) ?>;
 
-function addToCart(id, name, price, unit, stock, buyPrice) {
+function getUnitHierarchyJS(unitName) {
+    if (!unitName) return [];
+    let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (!startNode) return [];
+
+    let root = startNode;
+    while(root.parent_id != 0) {
+        let parent = availableUnits.find(u => u.id == root.parent_id);
+        if(!parent) break;
+        root = parent;
+    }
+
+    let chain = [];
+    let current = root;
+    while(current) {
+        chain.push(current);
+        let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
+        if(!next) break;
+        current = next;
+    }
+    return chain;
+}
+
+function getBaseMultiplierForProductJS(unitName, p) {
+    const chain = getUnitHierarchyJS(p.primaryUnit || p.unit);
+    let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (targetIdx === -1) return 1;
+
+    const f2 = parseFloat(p.f2 || p.factor_level2 || 1) || 1;
+    const f3 = parseFloat(p.f3 || p.factor_level3 || 1) || 1;
+
+    if (targetIdx === 0) {
+        if (chain.length > 2) return f2 * f3;
+        if (chain.length > 1) return f2;
+    } else if (targetIdx === 1) {
+        if (chain.length > 2) return f3;
+    }
+    return 1;
+}
+
+function formatStockHierarchyJS(qty, p) {
+    qty = parseFloat(qty);
+    const unitName = p.primaryUnit || p.unit || 'Units';
+    if (qty <= 0) return `0 ${unitName}`;
+
+    const chain = getUnitHierarchyJS(unitName);
+    if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[8px] opacity-60 uppercase">${unitName}</span>`;
+
+    let remaining = qty;
+    let parts = [];
+    let factors = [];
+    
+    chain.forEach((u, i) => {
+        let mult = getBaseMultiplierForProductJS(u.name, p);
+        
+        // 1. Hierarchical breakdown
+        let count = Math.floor(remaining / mult);
+        if (count > 0) {
+            parts.push(`<b>${count}</b> <span class="text-[8px] opacity-60 uppercase">${u.name}</span>`);
+            remaining = remaining % mult;
+        }
+
+        // 2. Build factors for clarity (requested by user)
+        if (i === 0 && chain.length > 1) {
+            const f2 = parseFloat(p.f2 || p.factor_level2 || 1) || 1;
+            factors.push(`1 ${u.name} = ${f2} ${chain[1].name}`);
+        }
+        if (i === 1 && chain.length > 2) {
+            const f3 = parseFloat(p.f3 || p.factor_level3 || 1) || 1;
+            factors.push(`1 ${u.name} = ${f3} ${chain[2].name}`);
+        }
+    });
+
+    let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
+    
+    // Absolute total in base unit
+    const baseUnit = chain[chain.length - 1].name;
+    display += ` <span class="text-[8px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+    
+    // Factor descriptions
+    if (factors.length > 0) {
+        display += ` <div class="text-[7px] text-gray-400 font-medium leading-none mt-0.5 opacity-80">Factors: ${factors.join(' | ')}</div>`;
+    }
+    
+    return display;
+}
+
+function handleProductClick(card) {
+    const p = JSON.parse(card.dataset.product);
+    addToCart(p.id, p.name, p.sell_price, p.unit, p.stock_quantity, p.buy_price, p.factor_level2, p.factor_level3);
+}
+
+function addToCart(id, name, price, unit, stock, buyPrice, f2, f3) {
     const sId = String(id);
     let existing = cart.find(i => String(i.id) === sId);
+    
+    const productMock = { primaryUnit: unit, f2: f2, f3: f3 };
+
     if (existing) {
-        if (existing.qty + 1 > stock) {
-            showAlert(`Only ${stock} units available.`, 'Inventory Alert');
+        let multiplier = getBaseMultiplierForProductJS(existing.unit, productMock);
+        if ((existing.qty + 1) * multiplier > stock) {
+            showAlert(`Not enough stock available.`, 'Inventory Alert');
             return;
         }
         existing.qty++;
         existing.total = existing.qty * existing.price;
     } else {
         if (stock < 0.01) { showAlert("Out of stock!", 'Empty Shelf'); return; }
-        cart.push({ id: sId, name, price, unit, qty: 1, total: price, max_stock: stock, buy_price: parseFloat(buyPrice) || 0 });
+        cart.push({ 
+            id: sId, 
+            name, 
+            price, 
+            unit: unit, 
+            qty: 1, 
+            total: price, 
+            max_stock_base: parseFloat(stock), 
+            buy_price_base: parseFloat(buyPrice) / getBaseMultiplierForProductJS(unit, productMock),
+            primaryUnit: unit,
+            f2: f2,
+            f3: f3
+        });
     }
     updateStockLabels();
     renderCart();
@@ -382,29 +498,42 @@ function renderCart() {
     
     // Display newest items at the top
     tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}) => `
-        <tr class="group hover:bg-gray-50 transition-colors">
-            <td class="px-3 py-1 border-b border-gray-100">
-                <div class="font-bold text-gray-800 leading-tight">${item.name}</div>
-                <div class="text-[9px] text-gray-400 mt-0.5">${item.unit}</div>
+        <tr class="group hover:bg-teal-50/30 transition-colors">
+            <td class="px-3 py-2 border-b border-gray-100">
+                <div class="font-bold text-gray-800 text-sm tracking-tight leading-tight">${item.name}</div>
+                <div class="text-[9px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">${item.primaryUnit}</div>
             </td>
-            <td class="px-2 py-1 border-b border-gray-100 text-center">
-                <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" max="${item.max_stock}" 
-                       class="w-12 p-0.5 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none ${item.qty >= item.max_stock ? 'text-red-600' : 'text-gray-700'}" 
-                       oninput="updateQty(${index}, this.value)">
+            <td class="px-2 py-2 border-b border-gray-100 text-center">
+                <div class="flex flex-col gap-1 items-center">
+                    <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" 
+                           class="w-16 px-1 py-1 text-center font-bold border border-gray-200 rounded text-sm focus:border-teal-500 outline-none transition-all" 
+                           oninput="updateQty(${index}, this.value)">
+                    <select onchange="updateItemUnit(${index}, this.value)" class="text-[10px] border-none bg-gray-50 rounded px-1 py-0.5 outline-none font-bold text-teal-600">
+                        ${getUnitHierarchyJS(item.primaryUnit).map((u, i) => `<option value="${u.name}" ${u.name === item.unit ? 'selected' : ''}>${'&nbsp;'.repeat(i)}${u.name}</option>`).join('')}
+                    </select>
+                </div>
             </td>
-            <td class="px-2 py-1 border-b border-gray-100 text-center">
+            <td class="px-2 py-2 border-b border-gray-100 text-center">
                 <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
-                       class="w-16 p-0.5 text-center font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none" 
+                       class="w-20 px-1 py-1 text-center font-semibold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none transition-all" 
                        oninput="updateUnitPrice(${index}, this.value)">
             </td>
-            <td class="px-3 py-1 border-b border-gray-100 text-right font-mono font-bold text-gray-700">
-                <input type="number" id="total-${index}" value="${Math.round(item.total)}" 
-                       class="w-18 p-0.5 text-right font-bold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none bg-gray-50 group-hover:bg-white" 
-                       oninput="updateItemTotal(${index}, this.value)">
+            <td class="px-3 py-2 border-b border-gray-100 text-right">
+                <div class="flex flex-col items-end">
+                    <span class="text-sm font-bold text-gray-700">Rs. ${Math.round(item.total).toLocaleString()}</span>
+                    ${(() => {
+                        const chain = getUnitHierarchyJS(item.primaryUnit);
+                        if (chain.length <= 1) return '';
+                        const mult = getBaseMultiplierForProductJS(item.unit, item);
+                        const totalBase = item.qty * mult;
+                        const baseUnit = chain[chain.length-1].name;
+                        return `<span class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded uppercase tracking-tighter mt-0.5">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</span>`;
+                    })()}
+                </div>
             </td>
-            <td class="px-2 py-1 border-b border-gray-100 text-right">
+            <td class="px-2 py-2 border-b border-gray-100 text-center">
                 <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 transition-colors">
-                    <i class="fas fa-times text-[10px]"></i>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </td>
         </tr>
@@ -446,7 +575,9 @@ function updateItemTotal(index, newTotal) {
 function updateQty(index, newQty) {
     let qty = parseFloat(newQty);
     if (isNaN(qty) || qty < 0) qty = 0;
-    if (qty > cart[index].max_stock) qty = cart[index].max_stock;
+    
+    const mult = getBaseMultiplierForProductJS(cart[index].unit, cart[index]);
+    if (qty * mult > cart[index].max_stock_base) qty = cart[index].max_stock_base / mult;
     
     cart[index].qty = qty;
     cart[index].total = cart[index].qty * cart[index].price;
@@ -479,20 +610,13 @@ function updateTotals() {
     const discount = parseFloat(document.getElementById('discountInput').value) || 0;
     let total = Math.max(0, Math.round(subtotal - discount));
     
-    const grandTotalInput = document.getElementById('grandTotal');
-    
-    if (!grandTotalInput.dataset.manualEdit || grandTotalInput.value == '') {
-        grandTotalInput.value = total;
-        delete grandTotalInput.dataset.manualEdit;
-    }
-    
-    const currentTotal = parseInt(grandTotalInput.value) || total;
-    document.getElementById('inputTotal').value = currentTotal;
+    document.getElementById('grandTotalDisplay').innerText = total.toLocaleString();
+    document.getElementById('inputTotal').value = total;
     document.getElementById('inputDiscount').value = discount;
     document.getElementById('cartData').value = JSON.stringify(cart);
     
     if (document.getElementById('paymentMethod').value === 'Cash') {
-        document.getElementById('paidAmount').value = currentTotal;
+        document.getElementById('paidAmount').value = total;
     }
     
     validateTotalPrice();
@@ -527,11 +651,11 @@ function calculateDebt() {
 }
 
 function validateTotalPrice() {
-    const customTotal = parseInt(document.getElementById('grandTotal').value) || 0;
+    const currentTotal = parseInt(document.getElementById('inputTotal').value) || 0;
     let minTotal = 0;
     cart.forEach(item => { minTotal += (item.buy_price || 0) * item.qty; });
     const warning = document.getElementById('priceWarning');
-    if (customTotal > 0 && customTotal < minTotal) {
+    if (currentTotal > 0 && currentTotal < minTotal) {
         warning.classList.remove('hidden');
         return false; // Below cost
     } else {
@@ -542,24 +666,40 @@ function validateTotalPrice() {
 }
 
 function updateStockLabels() {
+    let cartUsage = {};
+    cart.forEach(item => {
+        let mult = getBaseMultiplierForProductJS(item.unit, item);
+        cartUsage[item.id] = (cartUsage[item.id] || 0) + (item.qty * mult);
+    });
+
     document.querySelectorAll('.product-card').forEach(card => {
         const label = card.querySelector('[id^="stock-label-"]');
         if (!label) return;
-        const max = parseFloat(label.dataset.stock);
-        label.innerText = `${max} left`;
-        label.className = `text-[10px] font-bold ${max < 5 ? 'text-red-600' : 'text-teal-600'}`;
-        card.classList.remove('opacity-50', 'pointer-events-none');
+        const id = label.dataset.id;
+        const totalBase = parseFloat(label.dataset.stock);
+        const usedBase = cartUsage[id] || 0;
+        const remainingBase = totalBase - usedBase;
+        
+        label.innerHTML = remainingBase <= 0 ? 
+            '<span class="text-red-500 font-bold">Out of Stock</span>' : 
+            formatStockHierarchyJS(remainingBase, { primaryUnit: label.dataset.unit, factor_level2: label.dataset.f2, factor_level3: label.dataset.f3 });
+        
+        if (remainingBase <= 0) card.classList.add('opacity-50', 'pointer-events-none');
+        else card.classList.remove('opacity-50', 'pointer-events-none');
     });
+}
 
-    cart.forEach(item => {
-        const label = document.getElementById('stock-label-' + item.id);
-        if (label) {
-            const max = parseFloat(label.dataset.stock);
-            const rem = max - item.qty;
-            label.innerText = `${rem.toFixed(1)} ${item.unit}`;
-            if (rem <= 0) label.closest('.product-card').classList.add('opacity-50', 'pointer-events-none');
-        }
-    });
+function updateItemUnit(index, newUnit) {
+    const oldUnit = cart[index].unit;
+    const oldMult = getBaseMultiplierForProductJS(oldUnit, cart[index]);
+    const newMult = getBaseMultiplierForProductJS(newUnit, cart[index]);
+    
+    cart[index].unit = newUnit;
+    cart[index].price = (cart[index].price / oldMult) * newMult;
+    cart[index].total = cart[index].qty * cart[index].price;
+    
+    renderCart();
+    updateStockLabels();
 }
 
 function handlePaymentChange(method) {
@@ -579,10 +719,6 @@ function handlePaymentChange(method) {
     calculateDebt();
 }
 
-function handleTotalChange() {
-    document.getElementById('grandTotal').dataset.manualEdit = 'true';
-    updateTotals();
-}
 
 function handleCustomerChange(val) {
     const fields = document.getElementById('newCustomerFields');

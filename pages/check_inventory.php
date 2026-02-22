@@ -13,6 +13,7 @@ $categories = readCSV('categories');
 $restocks = readCSV('restocks');
 $sales = readCSV('sales');
 $sale_items = readCSV('sale_items');
+$units = readCSV('units');
 
 // Map sales to dates for easier lookup
 $sales_date_map = [];
@@ -163,6 +164,90 @@ const products = <?= json_encode($products) ?>;
 const restocks = <?= json_encode($restocks) ?>;
 const sales = <?= json_encode($sales_date_map) ?>;
 const saleItems = <?= json_encode($sale_items) ?>;
+const availableUnits = <?= json_encode($units) ?>;
+
+function getUnitHierarchyJS(unitName) {
+    if (!unitName) return [];
+    let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (!startNode) return [];
+    let root = startNode;
+    while(root.parent_id != 0) {
+        let parent = availableUnits.find(u => u.id == root.parent_id);
+        if(!parent) break;
+        root = parent;
+    }
+    let chain = [];
+    let current = root;
+    while(current) {
+        chain.push(current);
+        let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
+        if(!next) break;
+        current = next;
+    }
+    return chain;
+}
+
+function getBaseMultiplierForProductJS(unitName, p) {
+    const chain = getUnitHierarchyJS(p.unit);
+    let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (targetIdx === -1) return 1;
+    const f2 = parseFloat(p.factor_level2 || 1) || 1;
+    const f3 = parseFloat(p.factor_level3 || 1) || 1;
+    if (targetIdx === 0) {
+        if (chain.length > 2) return f2 * f3;
+        if (chain.length > 1) return f2;
+    } else if (targetIdx === 1) {
+        if (chain.length > 2) return f3;
+    }
+    return 1;
+}
+
+function formatStockHierarchyJS(qty, p) {
+    qty = parseFloat(qty);
+    const unitName = p.unit || 'Units';
+    if (qty <= 0) return `0 ${unitName}`;
+
+    const chain = getUnitHierarchyJS(unitName);
+    if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
+
+    let remaining = qty;
+    let parts = [];
+    let factors = [];
+    
+    chain.forEach((u, i) => {
+        let mult = getBaseMultiplierForProductJS(u.name, p);
+        
+        // 1. Hierarchical breakdown
+        let count = Math.floor(remaining / mult);
+        if (count > 0) {
+            parts.push(`<b>${count}</b> <span class="text-[9px] uppercase opacity-70">${u.name}</span>`);
+            remaining = remaining % mult;
+        }
+
+        // 2. Build factors for clarity (requested by user)
+        if (i === 0 && chain.length > 1) {
+            const f2 = parseFloat(p.factor_level2 || 1) || 1;
+            factors.push(`1 ${u.name} = ${f2} ${chain[1].name}`);
+        }
+        if (i === 1 && chain.length > 2) {
+            const f3 = parseFloat(p.factor_level3 || 1) || 1;
+            factors.push(`1 ${u.name} = ${f3} ${chain[2].name}`);
+        }
+    });
+
+    let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
+    
+    // Absolute total in base unit
+    const baseUnit = chain[chain.length - 1].name;
+    display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+    
+    // Factor descriptions
+    if (factors.length > 0) {
+        display += ` <div class="text-[7px] text-gray-400 font-medium leading-none mt-0.5 opacity-80">Factors: ${factors.join(' | ')}</div>`;
+    }
+    
+    return display;
+}
 
 function renderInventory() {
     const from = document.getElementById('invDateFrom').value;
@@ -276,10 +361,10 @@ function renderInventory() {
                 </td>
                 <td class="p-6 text-center font-mono text-[11px] text-gray-500">${latestDate}</td>
                 <td class="p-6 text-center font-bold text-gray-700">Rs. ${latestPrice.toLocaleString()}</td>
-                <td class="p-6 text-center font-semibold text-gray-500">${startStockAtPeriod.toLocaleString()}</td>
-                <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + stockInPeriod.toLocaleString() : '-'}</td>
-                <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + stockOutPeriod.toLocaleString() : '-'}</td>
-                <td class="p-6 text-center font-black text-teal-700 bg-teal-50/30">${finalStockAtPeriod.toLocaleString()}</td>
+                <td class="p-6 text-center font-semibold text-gray-500">${formatStockHierarchyJS(startStockAtPeriod, p)}</td>
+                <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + formatStockHierarchyJS(stockInPeriod, p) : '-'}</td>
+                <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + formatStockHierarchyJS(stockOutPeriod, p) : '-'}</td>
+                <td class="p-6 text-center font-black text-teal-700 bg-teal-50/30">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
                 <td class="p-6 text-center">
                     <div class="flex flex-col items-center gap-1">
                         ${expiryBadge}

@@ -30,7 +30,8 @@ if (isset($_REQUEST['id'])) {
             if ($item['sale_id'] == $sale_id) {
                 foreach ($products as &$p) {
                     if ($p['id'] == $item['product_id']) {
-                        $p['stock_quantity'] = (float)$p['stock_quantity'] + (float)$item['quantity'];
+                        $multiplier = getBaseMultiplier($item['unit'] ?? $p['unit'], $p);
+                        $p['stock_quantity'] = (float)$p['stock_quantity'] + ((float)$item['quantity'] * $multiplier);
                         break;
                     }
                 }
@@ -57,8 +58,8 @@ if (isset($_REQUEST['id'])) {
     // Save all changes
     writeCSV('products', $products);
     writeCSV('customer_transactions', array_values($all_customer_txns));
-    writeCSV('sales', array_values($all_sales), ['id', 'customer_id', 'total_amount', 'paid_amount', 'payment_method', 'sale_date', 'remarks']);
-    writeCSV('sale_items', array_values($all_sale_items), ['id', 'sale_id', 'product_id', 'quantity', 'price_per_unit', 'total_price', 'buy_price', 'avg_buy_price']);
+    writeCSV('sales', array_values($all_sales));
+    writeCSV('sale_items', array_values($all_sale_items));
     
     $msg = $reverted_count > 1 ? "$reverted_count sales reverted and stock restored" : "Sale reverted and stock restored";
     $redirect = $_REQUEST['ref'] ?? '../pages/sales_history.php';

@@ -4,30 +4,41 @@ require_once '../includes/functions.php';
 
 requireLogin();
 
-$message = '';
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     requirePermission('manage_dealers');
-    $data = [
-        'name' => cleanInput($_POST['name']),
-        'phone' => cleanInput($_POST['phone']),
-        'address' => cleanInput($_POST['address']),
-        'created_at' => date('Y-m-d H:i:s')
-    ];
-    insertCSV('dealers', $data);
-    $message = "Dealer added successfully!";
-}
+    $action = $_POST['action'];
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'edit') {
-    requirePermission('manage_dealers');
-    $id = $_POST['id'];
-    $data = [
-        'name' => cleanInput($_POST['name']),
-        'phone' => cleanInput($_POST['phone']),
-        'address' => cleanInput($_POST['address'])
-    ];
-    updateCSV('dealers', $id, $data);
-    $message = "Dealer updated successfully!";
+    if ($action == 'add') {
+        $data = [
+            'name'       => cleanInput($_POST['name']),
+            'phone'      => cleanInput($_POST['phone']),
+            'address'    => cleanInput($_POST['address']),
+            'created_at' => date('Y-m-d H:i:s')
+        ];
+        $newId = insertCSV('dealers', $data);
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'dealer' => array_merge(['id' => $newId], $data)]);
+            exit;
+        }
+    }
+
+    if ($action == 'edit') {
+        $id = $_POST['id'];
+        $data = [
+            'name'    => cleanInput($_POST['name']),
+            'phone'   => cleanInput($_POST['phone']),
+            'address' => cleanInput($_POST['address'])
+        ];
+        updateCSV('dealers', $id, $data);
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'dealer' => array_merge(['id' => $id], $data)]);
+            exit;
+        }
+    }
 }
 
 $pageTitle = "Dealer Management";
@@ -99,7 +110,7 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
     </div>
 </div>
 
-<?php if ($message): ?>
+<?php if (!empty($message)): ?>
     <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm flex items-center">
         <i class="fas fa-check-circle mr-3"></i>
         <?= $message ?>
@@ -131,27 +142,24 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
 <div id="addDealerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Dealer</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="add">
-            <div class="space-y-4">
-                <div>
-                     <label class="block text-sm font-medium text-gray-700">Dealer/Company Name</label>
-                     <input type="text" name="name" required class="w-full rounded-lg border p-2 focus:ring-teal-500">
-                </div>
-                <div>
-                     <label class="block text-sm font-medium text-gray-700">Phone</label>
-                     <input type="text" name="phone" class="w-full rounded-lg border p-2 focus:ring-teal-500">
-                </div>
-                <div>
-                     <label class="block text-sm font-medium text-gray-700">Address</label>
-                     <textarea name="address" rows="2" class="w-full rounded-lg border p-2 focus:ring-teal-500"></textarea>
-                </div>
+        <div class="space-y-4">
+            <div>
+                 <label class="block text-sm font-medium text-gray-700">Dealer/Company Name</label>
+                 <input type="text" id="add_dealer_name" required class="w-full rounded-lg border p-2 focus:ring-teal-500">
             </div>
-            <div class="mt-6 flex justify-end space-x-3">
-                <button type="button" onclick="document.getElementById('addDealerModal').classList.add('hidden')" class="text-gray-600 px-4 py-2 rounded hover:bg-gray-100">Cancel</button>
-                <button type="submit" class="bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700">Save Dealer</button>
+            <div>
+                 <label class="block text-sm font-medium text-gray-700">Phone</label>
+                 <input type="text" id="add_dealer_phone" class="w-full rounded-lg border p-2 focus:ring-teal-500">
             </div>
-        </form>
+            <div>
+                 <label class="block text-sm font-medium text-gray-700">Address</label>
+                 <textarea id="add_dealer_address" rows="2" class="w-full rounded-lg border p-2 focus:ring-teal-500"></textarea>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button type="button" onclick="document.getElementById('addDealerModal').classList.add('hidden')" class="text-gray-600 px-4 py-2 rounded hover:bg-gray-100">Cancel</button>
+            <button onclick="saveAddDealer()" class="bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700">Save Dealer</button>
+        </div>
     </div>
 </div>
 
@@ -162,28 +170,25 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
             <h3 class="text-lg font-bold">Edit Dealer</h3>
             <button onclick="document.getElementById('editDealerModal').classList.add('hidden')" class="hover:bg-blue-700 p-1 rounded-full px-2">&times;</button>
         </div>
-        <form method="POST" class="p-6">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="id" id="edit_id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Dealer/Company Name</label>
-                    <input type="text" name="name" id="edit_name" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Phone Number</label>
-                    <input type="text" name="phone" id="edit_phone" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Location / Address</label>
-                    <textarea name="address" id="edit_address" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"></textarea>
-                </div>
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="edit_id">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Dealer/Company Name</label>
+                <input type="text" id="edit_name" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
             </div>
-            <div class="mt-8 flex gap-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Phone Number</label>
+                <input type="text" id="edit_phone" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Location / Address</label>
+                <textarea id="edit_address" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"></textarea>
+            </div>
+            <div class="mt-4 flex gap-3">
                 <button type="button" onclick="document.getElementById('editDealerModal').classList.add('hidden')" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition">Cancel</button>
-                <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">Update Dealer</button>
+                <button onclick="saveEditDealer()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">Update Dealer</button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -297,8 +302,67 @@ function editDealer(dealer) {
 
 function confirmDeleteDealer(id, name) {
     showConfirm(`Are you sure you want to delete dealer "${name}"?`, () => {
-        window.location.href = `../actions/delete_dealer.php?id=${id}`;
+        fetch(`../actions/delete_dealer.php?id=${id}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                allDealers = allDealers.filter(d => d.id != id);
+                renderDealers();
+                showAlert('Dealer deleted successfully.', 'Success');
+            } else {
+                showAlert(data.message || 'Delete failed.', 'Error');
+            }
+        });
     }, 'Delete Dealer');
+}
+
+async function saveAddDealer() {
+    const name = document.getElementById('add_dealer_name').value.trim();
+    if (!name) { showAlert('Name is required.', 'Error'); return; }
+    const fd = new FormData();
+    fd.append('action',  'add');
+    fd.append('name',    name);
+    fd.append('phone',   document.getElementById('add_dealer_phone').value);
+    fd.append('address', document.getElementById('add_dealer_address').value);
+    const res = await fetch('dealers.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+        allDealers.push(data.dealer);
+        allDealers.sort((a, b) => a.name.localeCompare(b.name));
+        document.getElementById('addDealerModal').classList.add('hidden');
+        document.getElementById('add_dealer_name').value = '';
+        document.getElementById('add_dealer_phone').value = '';
+        document.getElementById('add_dealer_address').value = '';
+        renderDealers();
+        showAlert(`Dealer "${data.dealer.name}" added!`, 'Success');
+    } else {
+        showAlert(data.message || 'Failed to add dealer.', 'Error');
+    }
+}
+
+async function saveEditDealer() {
+    const id   = document.getElementById('edit_id').value;
+    const name = document.getElementById('edit_name').value.trim();
+    if (!name) { showAlert('Name is required.', 'Error'); return; }
+    const fd = new FormData();
+    fd.append('action',  'edit');
+    fd.append('id',      id);
+    fd.append('name',    name);
+    fd.append('phone',   document.getElementById('edit_phone').value);
+    fd.append('address', document.getElementById('edit_address').value);
+    const res = await fetch('dealers.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+        const idx = allDealers.findIndex(d => d.id == id);
+        if (idx !== -1) allDealers[idx] = {...allDealers[idx], ...data.dealer};
+        document.getElementById('editDealerModal').classList.add('hidden');
+        renderDealers();
+        showAlert('Dealer updated!', 'Success');
+    } else {
+        showAlert(data.message || 'Failed to update dealer.', 'Error');
+    }
 }
 
 document.getElementById('dealerSearch').addEventListener('input', function(e) {

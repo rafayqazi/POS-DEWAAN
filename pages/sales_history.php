@@ -69,6 +69,7 @@ foreach($all_sales as $s) {
         $formatted_items[] = [
             'p_name' => $p_name_map[$i['product_id']] ?? 'Unknown',
             'qty' => (float)$i['quantity'],
+            'unit' => $i['unit'] ?? '',
             'returned_qty' => (float)($i['returned_qty'] ?? 0)
         ];
     }
@@ -209,7 +210,7 @@ foreach($all_sales as $s) {
                 <div class="flex flex-col border-b border-gray-50 pb-1 last:border-0 mb-1">
                     <div class="flex justify-between gap-4 text-[11px]">
                         <span class="font-bold text-gray-600 truncate max-w-[150px]">${i.p_name}</span>
-                        <span class="text-teal-600 font-black whitespace-nowrap">x ${i.qty}</span>
+                        <span class="text-teal-600 font-black whitespace-nowrap">x ${i.qty} ${i.unit}</span>
                     </div>
                     ${i.returned_qty > 0 ? `
                     <div class="flex justify-between text-[10px] text-red-500 font-bold -mt-0.5">

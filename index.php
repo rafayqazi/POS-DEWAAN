@@ -3,7 +3,8 @@ require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
 requireLogin();
-sendTrackingHeartbeat();
+// NOTE: sendTrackingHeartbeat() is now called asynchronously via JS (actions/async_check.php)
+// to avoid blocking the page render. Do NOT call it here.
 
 $pageTitle = "Dashboard";
 include 'includes/header.php';
@@ -119,14 +120,7 @@ foreach ($dealer_balances as $bal) {
     if ($bal > 0) $total_dealer_debt += $bal;
 }
 
-// 2. Automatic Update Check (once per session login)
-if (isset($_SESSION['check_updates']) && $_SESSION['check_updates']) {
-    $update_status = getUpdateStatus();
-    $_SESSION['update_available'] = $update_status['available'];
-    $_SESSION['check_updates'] = false;
-}
-
-// 3. Expiry Notifications Logic
+// 2. Expiry Notifications Logic
 $notify_days = (int)getSetting('expiry_notify_days', '7');
 $expiry_threshold = date('Y-m-d', strtotime("+$notify_days days"));
 $expiring_products = [];
@@ -137,15 +131,29 @@ foreach ($products as $p) {
 }
 $expiring_count = count($expiring_products);
 
-// 4. Recovery Notifications Logic
+// 3. Recovery Notifications Logic
 $recovery_alert_count = count($due_customers_alert);
 $dismissed = $_SESSION['dismissed_alerts'] ?? [];
 
-// Final Update Status check for lockdown & countdown
+// 4. Update Status — Use SESSION CACHE ONLY (no blocking network call on page load)
+// The actual network check runs async via JS calling actions/async_check.php after page renders.
 if (isset($_GET['updated']) && $_GET['updated'] == '1') {
     $update_status = ['available' => false, 'overdue' => false, 'time_left' => 0];
+} elseif (isset($_SESSION['cached_update_status'])) {
+    // Use fast session cache — no network needed
+    $update_status = $_SESSION['cached_update_status'];
+    // Re-apply grace-period timing from cached detection time
+    $update_status['overdue'] = false;
+    $update_status['time_left'] = 0;
+    if (!empty($update_status['available']) && !empty($update_status['first_detected'])) {
+        $current_time = time() + ($_SESSION['time_offset'] ?? 0);
+        $deadline = (int)$update_status['first_detected'] + 60;
+        $update_status['overdue'] = $current_time > $deadline;
+        $update_status['time_left'] = max(0, $deadline - $current_time);
+    }
 } else {
-    $update_status = getUpdateStatus();
+    // No cache yet — default to no update (async check will populate the cache)
+    $update_status = ['available' => false, 'overdue' => false, 'time_left' => 0];
 }
 $_SESSION['update_overdue'] = $update_status['available'] && $update_status['overdue'];
 ?>
@@ -164,7 +172,58 @@ async function dismissAlert(alertId, element) {
         console.error("Failed to dismiss alert", e);
     }
 }
+
+/**
+ * Background check: heartbeat + update status.
+ * Runs AFTER page has rendered so it never blocks the UI.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // Fire-and-forget — we don't await, we don't block
+    fetch('actions/async_check.php')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data || !data.update || !data.update.available) return;
+
+            // If we didn't show an update banner initially (no cache), inject one now
+            const existingBanner = document.getElementById('updateBanner');
+            if (existingBanner) return; // Already showing from session cache
+
+            const timeLeft = data.update.time_left || 0;
+            const banner = document.createElement('div');
+            banner.id = 'updateBanner';
+            banner.className = 'mb-8 p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-teal-500/5 gap-4 border-l-8 border-l-teal-500 animate-in slide-in-from-top-4 duration-500';
+            banner.innerHTML = `
+                <div class="flex items-center gap-6">
+                    <div class="w-14 h-14 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
+                        <i class="fas fa-cloud-download-alt text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-teal-900">Software Update Available</h4>
+                        <p class="text-teal-700/80 text-sm font-medium">A new version is ready. Update within <strong id="updateCountdown" class="text-teal-900 font-black">--:--:--</strong> to avoid lockout.</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="startSeamlessUpdate()" class="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-900/10 active:scale-95 text-sm uppercase tracking-wide flex items-center gap-2">
+                        <i class="fas fa-cloud-download-alt"></i> Update Now
+                    </button>
+                </div>
+            `;
+
+            // Insert before main content (after any existing alert cards)
+            const mainContent = document.querySelector('.grid');
+            if (mainContent && mainContent.parentNode) {
+                mainContent.parentNode.insertBefore(banner, mainContent);
+            }
+
+            // Start countdown
+            startUpdateCountdown(timeLeft);
+        })
+        .catch(() => {
+            // Silently fail — this is background only
+        });
+});
 </script>
+
 
 <?php if (hasPermission('view_business_alerts')): ?>
 <?php if ($low_stock > 0 && !in_array('low_stock', $dismissed)): ?>
@@ -250,7 +309,7 @@ async function dismissAlert(alertId, element) {
 
 
 <?php if (isset($update_status['available']) && $update_status['available']): ?>
-<div class="mb-8 p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-teal-500/5 gap-4 border-l-8 border-l-teal-500">
+<div id="updateBanner" class="mb-8 p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] flex flex-col md:flex-row items-start md:items-center justify-between group shadow-sm shadow-teal-500/5 gap-4 border-l-8 border-l-teal-500">
     <div class="flex items-center gap-6">
         <div class="w-14 h-14 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform shrink-0">
             <i class="fas fa-cloud-download-alt text-xl"></i>

@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dealer_id = cleanInput($_POST['dealer_id']);
     $amount_paid = (float)cleanInput($_POST['amount_paid']);
     $date = cleanInput($_POST['date']) ?: date('Y-m-d');
-    $expiry_date = cleanInput($_POST['expiry_date'] ?? '');
+    $selected_unit = cleanInput($_POST['selected_unit'] ?? '');
     $remarks = cleanInput($_POST['remarks'] ?? '');
 
     // Validation: Ensure Sell Price >= Buy Price (Prevent Loss)
@@ -36,23 +36,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($found_index === -1) return false; // Product not found
         
         $product = $all_products[$found_index];
-        $old_stock = (float)$product['stock_quantity'];
-        $old_buy_price = (float)$product['buy_price'];
+        $restock_unit = !empty($selected_unit) ? $selected_unit : $product['unit'];
+        $multiplier = getBaseMultiplier($restock_unit, $product); 
+        $add_quantity_base = $add_quantity * $multiplier;
+        $price_per_base = $new_buy_price / $multiplier;
+
+        $old_stock = (float)$product['stock_quantity']; // Always in base
+        $old_buy_price = (float)$product['buy_price']; // Normalized? No, UI shows product unit price
         $old_sell_price = (float)$product['sell_price'];
         
-        // Calculate AVCO
-        $current_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : $old_buy_price;
+        // Calculate AVCO in Base Units
+        $current_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : ($old_buy_price / $multiplier);
         
         $total_old_value = $old_stock * $current_avco;
-        $total_new_value = $add_quantity * $new_buy_price;
-        $total_quantity = $old_stock + $add_quantity;
+        $total_new_value = $add_quantity_base * $price_per_base;
+        $total_quantity = $old_stock + $add_quantity_base;
         
-        $avg_buy_price = ($total_quantity > 0) ? ($total_old_value + $total_new_value) / $total_quantity : $new_buy_price;
+        $avg_buy_price_base = ($total_quantity > 0) ? ($total_old_value + $total_new_value) / $total_quantity : $price_per_base;
+        $avg_buy_price_product = $avg_buy_price_base * $multiplier;
         
         // Update Product
         $all_products[$found_index]['stock_quantity'] = $total_quantity;
         $all_products[$found_index]['buy_price'] = $new_buy_price;
-        $all_products[$found_index]['avg_buy_price'] = number_format($avg_buy_price, 2, '.', '');
+        $all_products[$found_index]['avg_buy_price'] = number_format($avg_buy_price_product, 2, '.', '');
         $all_products[$found_index]['sell_price'] = $new_sell_price;
         // Update expiry and remarks to the latest one
         if(!empty($expiry_date)) $all_products[$found_index]['expiry_date'] = $expiry_date;
@@ -93,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'product_id' => $product_id,
         'product_name' => $product_name,
         'quantity' => $add_quantity,
+        'unit' => $selected_unit,
         'new_buy_price' => $new_buy_price,
         'old_buy_price' => $old_buy_price,
         'new_sell_price' => $new_sell_price,

@@ -772,6 +772,15 @@
                     resultsContainer.classList.add('hidden');
                 }
             });
+
+            // Intercept Ctrl+F / Cmd+F to focus the app search bar
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            });
         });
     </script>
 

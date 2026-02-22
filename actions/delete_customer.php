@@ -4,10 +4,12 @@ require_once '../includes/functions.php';
 
 requireLogin();
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
 
-    // 1. Calculate Balance
+    // Calculate Balance
     $txns = readCSV('customer_transactions');
     $balance = 0;
     foreach ($txns as $t) {
@@ -17,11 +19,16 @@ if (isset($_GET['id'])) {
     }
 
     if ($balance > 1) {
-        $_SESSION['error'] = "Cannot delete customer: This customer has an outstanding debt of " . formatCurrency($balance) . ". Please clear the debt first.";
+        $msg = "Cannot delete customer: Outstanding debt of " . formatCurrency($balance) . ". Please clear the debt first.";
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => $msg]);
+            exit;
+        }
+        $_SESSION['error'] = $msg;
         redirect('../pages/customers.php');
     }
 
-    // 2. Perform Deletion
     // Delete transactions first
     $remaining_txns = array_filter($txns, function($t) use ($id) {
         return $t['customer_id'] != $id;
@@ -31,8 +38,19 @@ if (isset($_GET['id'])) {
     // Delete customer
     deleteCSV('customers', $id);
 
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'message' => 'Customer deleted successfully.']);
+        exit;
+    }
+
     $_SESSION['success'] = "Customer and their transaction history deleted successfully.";
     redirect('../pages/customers.php');
 } else {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'No ID provided.']);
+        exit;
+    }
     redirect('../pages/customers.php');
 }

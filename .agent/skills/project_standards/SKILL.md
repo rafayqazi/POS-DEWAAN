@@ -26,3 +26,10 @@ description: Mandatory UI, UX, and design patterns for the POS-DEWAAN project.
 - **Device Support**: All receipt printing MUST be optimized for the **MP-300 Smart Bluetooth Printer** (80mm width).
 - **Dynamic Height**: PDF generation for receipts MUST use dynamic height calculation based on content to eliminate excessive white space at the bottom. The standard width is 80mm.
 - **Footer Styling**: Developer information in the footer should be minimal (8px) and positioned at the very bottom with sufficient spacing from the receipt content.
+29: 
+30: ## Logic & Data Synchronization
+31: 
+32: ### Cross-Module Consistency
+33: - **Interconnected Modules**: Any change to **Inventory**, **POS**, **Restocking**, or **Sales History** must be treated as a change to the entire "Selling Cycle".
+34: - **Mandatory Verification**: Whenever the AI modifies any of these modules, it MUST proactively check and update related files (e.g., if updating POS stock deduction, check `inventory.php`, `restock_process.php`, `edit_sale.php`, and `functions.php`) to ensure that hierarchical units, factors, and stock levels remain synchronized across the system.
+35: - **Data Preservation**: Ensure that units used at the time of a transaction (Sale or Restock) are stored in the database to allow accurate stock restoration during edits or reverts, even if product conversion factors change later.

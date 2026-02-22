@@ -4,28 +4,46 @@ require_once '../includes/functions.php';
 
 requireLogin();
 
-$message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add') {
-    requirePermission('manage_customers');
-    insertCSV('customers', [
-        'name' => cleanInput($_POST['name']),
-        'phone' => cleanInput($_POST['phone']),
-        'address' => cleanInput($_POST['address']),
-        'created_at' => date('Y-m-d H:i:s')
-    ]);
-    $message = "Customer added successfully!";
-}
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'edit') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     requirePermission('manage_customers');
-    $id = $_POST['id'];
-    $data = [
-        'name' => cleanInput($_POST['name']),
-        'phone' => cleanInput($_POST['phone']),
-        'address' => cleanInput($_POST['address'])
-    ];
-    updateCSV('customers', $id, $data);
-    $message = "Customer updated successfully!";
+    $action = $_POST['action'];
+
+    if ($action == 'add') {
+        $newId = insertCSV('customers', [
+            'name'       => cleanInput($_POST['name']),
+            'phone'      => cleanInput($_POST['phone']),
+            'address'    => cleanInput($_POST['address']),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'customer' => [
+                'id' => $newId,
+                'name' => cleanInput($_POST['name']),
+                'phone' => cleanInput($_POST['phone']),
+                'address' => cleanInput($_POST['address']),
+                'created_at' => date('Y-m-d H:i:s')
+            ]]);
+            exit;
+        }
+    }
+
+    if ($action == 'edit') {
+        $id = $_POST['id'];
+        $data = [
+            'name'    => cleanInput($_POST['name']),
+            'phone'   => cleanInput($_POST['phone']),
+            'address' => cleanInput($_POST['address'])
+        ];
+        updateCSV('customers', $id, $data);
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'customer' => array_merge(['id' => $id], $data)]);
+            exit;
+        }
+    }
 }
 
 $pageTitle = "Customer Management";
@@ -111,7 +129,7 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
     </div>
 </div>
 
-<?php if ($message): ?>
+<?php if (!empty($message)): ?>
     <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm flex items-center">
         <i class="fas fa-check-circle mr-3"></i>
         <?= $message ?>
@@ -148,29 +166,26 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <form method="POST" class="p-6">
-            <input type="hidden" name="action" value="add">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
-                    <input type="text" name="name" placeholder="Enter customer name" required class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
-                    <input type="text" name="phone" placeholder="e.g. 03001234567" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Residential Address</label>
-                    <textarea name="address" placeholder="Enter full address" rows="3" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm"></textarea>
-                </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
+                <input type="text" id="add_name" placeholder="Enter customer name" required class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
             </div>
-            <div class="mt-8 flex justify-end gap-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
+                <input type="text" id="add_phone" placeholder="e.g. 03001234567" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Residential Address</label>
+                <textarea id="add_address" placeholder="Enter full address" rows="3" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition shadow-sm"></textarea>
+            </div>
+            <div class="mt-4 flex justify-end gap-3">
                 <button type="button" onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="px-5 py-2 rounded-lg text-gray-500 font-semibold hover:bg-gray-100 transition">Cancel</button>
-                <button type="submit" class="bg-amber-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-amber-700 shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
+                <button onclick="saveAddCustomer()" class="bg-amber-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-amber-700 shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
                     Create Account
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -181,28 +196,25 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
             <h3 class="text-lg font-bold">Edit Customer</h3>
             <button onclick="document.getElementById('editCustomerModal').classList.add('hidden')" class="hover:bg-blue-700 p-1 rounded-full px-2">&times;</button>
         </div>
-        <form method="POST" class="p-6">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="id" id="edit_id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Customer Name</label>
-                    <input type="text" name="name" id="edit_name" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Phone Number</label>
-                    <input type="text" name="phone" id="edit_phone" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Location / Address</label>
-                    <textarea name="address" id="edit_address" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"></textarea>
-                </div>
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="edit_id">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Customer Name</label>
+                <input type="text" id="edit_name" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
             </div>
-            <div class="mt-8 flex gap-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Phone Number</label>
+                <input type="text" id="edit_phone" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Location / Address</label>
+                <textarea id="edit_address" rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"></textarea>
+            </div>
+            <div class="mt-4 flex gap-3">
                 <button type="button" onclick="document.getElementById('editCustomerModal').classList.add('hidden')" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition">Cancel</button>
-                <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">Update Customer</button>
+                <button onclick="saveEditCustomer()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">Update Customer</button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -366,8 +378,69 @@ function confirmDelete(id, balance) {
 
 function proceedDelete() {
     const id = document.getElementById('delete_customer_id').value;
-    if (id) {
-        window.location.href = '../actions/delete_customer.php?id=' + id;
+    if (!id) return;
+
+    document.getElementById('deleteModal').classList.add('hidden');
+
+    fetch(`../actions/delete_customer.php?id=${id}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            allCustomers = allCustomers.filter(c => c.id != id);
+            renderCustomers();
+            showAlert('Customer deleted successfully.', 'Success');
+        } else {
+            showAlert(data.message || 'Delete failed.', 'Error');
+        }
+    });
+}
+
+async function saveAddCustomer() {
+    const name = document.getElementById('add_name').value.trim();
+    if (!name) { showAlert('Name is required.', 'Error'); return; }
+    const fd = new FormData();
+    fd.append('action',  'add');
+    fd.append('name',    name);
+    fd.append('phone',   document.getElementById('add_phone').value);
+    fd.append('address', document.getElementById('add_address').value);
+    const res = await fetch('customers.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+        allCustomers.push(data.customer);
+        allCustomers.sort((a, b) => a.name.localeCompare(b.name));
+        document.getElementById('addCustomerModal').classList.add('hidden');
+        document.getElementById('add_name').value = '';
+        document.getElementById('add_phone').value = '';
+        document.getElementById('add_address').value = '';
+        renderCustomers();
+        showAlert(`Customer "${data.customer.name}" added!`, 'Success');
+    } else {
+        showAlert(data.message || 'Failed to add customer.', 'Error');
+    }
+}
+
+async function saveEditCustomer() {
+    const id   = document.getElementById('edit_id').value;
+    const name = document.getElementById('edit_name').value.trim();
+    if (!name) { showAlert('Name is required.', 'Error'); return; }
+    const fd = new FormData();
+    fd.append('action',  'edit');
+    fd.append('id',      id);
+    fd.append('name',    name);
+    fd.append('phone',   document.getElementById('edit_phone').value);
+    fd.append('address', document.getElementById('edit_address').value);
+    const res = await fetch('customers.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+        const idx = allCustomers.findIndex(c => c.id == id);
+        if (idx !== -1) allCustomers[idx] = {...allCustomers[idx], ...data.customer};
+        document.getElementById('editCustomerModal').classList.add('hidden');
+        renderCustomers();
+        showAlert('Customer updated!', 'Success');
+    } else {
+        showAlert(data.message || 'Failed to update customer.', 'Error');
     }
 }
 

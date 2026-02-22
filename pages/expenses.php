@@ -12,26 +12,64 @@ usort($expenses, function($a, $b) {
 });
 
 $total_expenses = 0;
+$cat_data = [];
 foreach ($expenses as $e) {
-    $total_expenses += (float)$e['amount'];
+    $amt = (float)$e['amount'];
+    $total_expenses += $amt;
+    $cat = $e['category'];
+    if (!isset($cat_data[$cat])) $cat_data[$cat] = 0;
+    $cat_data[$cat] += $amt;
 }
 
 $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellaneous', 'Food', 'Transport'];
 ?>
 
-<div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-        <div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center">
-            <i class="fas fa-wallet text-xl"></i>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+    <!-- Left Column: Total & Action -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center glass h-full min-h-[220px] relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 transition-all group-hover:scale-110"></div>
+            <div class="w-16 h-16 bg-red-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-200 mb-4 z-10">
+                <i class="fas fa-wallet text-2xl"></i>
+            </div>
+            <p class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-1 z-10">Total Expenses</p>
+            <h3 class="text-4xl font-black text-gray-800 tracking-tighter z-10"><?= formatCurrency($total_expenses) ?></h3>
+            <div class="mt-4 flex items-center gap-2 text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full z-10">
+                <i class="fas fa-arrow-down"></i> Cash Outflow
+            </div>
         </div>
-        <div>
-            <p class="text-sm text-gray-500 font-medium">Total Expenses</p>
-            <h3 class="text-2xl font-bold text-gray-800"><?= formatCurrency($total_expenses) ?></h3>
+        <button onclick="openExpenseModal()" class="w-full bg-primary text-white p-5 rounded-2xl font-black hover:bg-secondary transition-all shadow-xl shadow-teal-900/20 flex items-center justify-center gap-3 group text-lg">
+            <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center group-hover:rotate-90 transition-all">
+                <i class="fas fa-plus"></i>
+            </div>
+            Add New Record
+        </button>
+    </div>
+
+    <!-- Right Column: Breakdown Chart -->
+    <div class="lg:col-span-8 bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 glass">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h4 class="text-lg font-black text-gray-800 tracking-tight">Expense Distribution</h4>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Category breakdown for current period</p>
+            </div>
+            <div class="px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                <span class="text-[10px] font-black text-teal-700 uppercase tracking-widest">Live Sync</span>
+            </div>
+        </div>
+        <div class="relative h-64">
+            <canvas id="categoryChart"></canvas>
+            <?php if (empty($expenses)): ?>
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
+                    <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                        <i class="fas fa-chart-pie text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-bold">No data available for graph</p>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
-    <button onclick="openExpenseModal()" class="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-secondary transition-all shadow-lg shadow-teal-700/20 flex items-center gap-2">
-        <i class="fas fa-plus"></i> Add New Expense
-    </button>
 </div>
 
 <?php if (isset($_SESSION['success'])): ?>
@@ -87,12 +125,12 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
                 </button>
             </div>
             
-            <form action="../actions/save_expense.php" method="POST" class="space-y-5">
-                <input type="hidden" name="id" id="expenseId">
+            <form id="expenseForm" class="space-y-5">
+                <input type="hidden" id="expenseId">
                 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Category</label>
-                    <select name="category" id="expenseCategory" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
+                    <select id="expenseCategory" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
                         <?php foreach($categories as $cat): ?>
                             <option value="<?= $cat ?>"><?= $cat ?></option>
                         <?php endforeach; ?>
@@ -101,23 +139,23 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Title / Subject</label>
-                    <input type="text" name="title" id="expenseTitle" required placeholder="e.g. Electricity Bill Jan" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
+                    <input type="text" id="expenseTitle" required placeholder="e.g. Electricity Bill Jan" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Amount</label>
-                        <input type="number" step="0.01" name="amount" id="expenseAmount" required placeholder="0.00" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-bold text-red-600">
+                        <input type="number" step="0.01" id="expenseAmount" required placeholder="0.00" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-bold text-red-600">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Date</label>
-                        <input type="date" name="date" id="expenseDate" value="<?= date('Y-m-d') ?>" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-sm">
+                        <input type="date" id="expenseDate" value="<?= date('Y-m-d') ?>" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-sm">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Description (Optional)</label>
-                    <textarea name="description" id="expenseDescription" rows="3" placeholder="Enter more details here..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none resize-none"></textarea>
+                    <textarea id="expenseDescription" rows="3" placeholder="Enter more details here..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none resize-none"></textarea>
                 </div>
 
                 <div class="pt-4">
@@ -231,12 +269,166 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
     }
 
     function confirmDelete(id) {
-        showConfirm('Are you sure you want to delete this expense record?', () => {
-            window.location.href = '../actions/delete_expense.php?id=' + id;
+        showConfirm('Are you sure you want to delete this expense record?', async () => {
+            const res = await fetch('../actions/delete_expense.php?id=' + id, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                allExpenses = allExpenses.filter(e => e.id != id);
+                renderExpenses();
+            } else {
+                showAlert('Failed to delete expense.', 'Error');
+            }
         }, 'Confirm Delete');
     }
 
-    document.addEventListener('DOMContentLoaded', renderExpenses);
+    async function saveExpense(e) {
+        e.preventDefault();
+        const id = document.getElementById('expenseId').value;
+        const fd = new FormData();
+        if (id) fd.append('id', id);
+        fd.append('category',    document.getElementById('expenseCategory').value);
+        fd.append('title',       document.getElementById('expenseTitle').value);
+        fd.append('amount',      document.getElementById('expenseAmount').value);
+        fd.append('date',        document.getElementById('expenseDate').value);
+        fd.append('description', document.getElementById('expenseDescription').value);
+
+        const res = await fetch('../actions/save_expense.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            if (data.is_edit) {
+                const idx = allExpenses.findIndex(ex => ex.id == data.expense.id);
+                if (idx !== -1) allExpenses[idx] = data.expense;
+            } else {
+                allExpenses.unshift(data.expense);
+            }
+            closeExpenseModal();
+            renderExpenses();
+            showAlert(data.message, 'Success');
+        } else {
+            showAlert(data.message || 'Failed to save expense.', 'Error');
+        }
+    }
+
+    document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+    
+    // Chart.js Logic
+    function initCategoryChart() {
+        const catData = <?= json_encode($cat_data) ?>;
+        const labels = Object.keys(catData);
+        const data = Object.values(catData);
+
+        if (labels.length === 0) return;
+
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const colors = [
+            '#0f766e', // Teal
+            '#f59e0b', // Amber
+            '#ef4444', // Red
+            '#3b82f6', // Blue
+            '#8b5cf6', // Violet
+            '#ec4899', // Pink
+            '#10b981', // Emerald
+            '#6366f1', // Indigo
+            '#f97316'  // Orange
+        ];
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    hoverBackgroundColor: colors.map(c => c + 'dd'),
+                    borderWidth: 8,
+                    borderColor: '#ffffff',
+                    hoverOffset: 20,
+                    borderRadius: 10
+                }]
+            },
+            plugins: [{
+                id: 'centerText',
+                afterDraw: (chart) => {
+                    const { ctx, chartArea: { top, bottom, left, right, width, height } } = chart;
+                    ctx.save();
+                    const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const formattedTotal = 'Rs.' + new Intl.NumberFormat().format(total);
+                    
+                    ctx.font = 'black 16px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.fillText('TOTAL', width / 2 + left, height / 2 + top - 10);
+                    
+                    ctx.font = 'black 20px Inter';
+                    ctx.fillStyle = '#111827';
+                    ctx.fillText(formattedTotal, width / 2 + left, height / 2 + top + 15);
+                }
+            }],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '80%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        align: 'center',
+                        labels: {
+                            usePointStyle: true,
+                            pointStyle: 'rectRounded',
+                            padding: 25,
+                            font: {
+                                size: 12,
+                                weight: '800',
+                                family: "'Inter', sans-serif"
+                            },
+                            color: '#374151',
+                            generateLabels: (chart) => {
+                                const data = chart.data;
+                                return data.labels.map((label, i) => ({
+                                    text: `${label.toUpperCase()}`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    strokeStyle: data.datasets[0].backgroundColor[i],
+                                    lineWidth: 0,
+                                    hidden: isNaN(data.datasets[0].data[i]) || chart.getDatasetMeta(0).data[i].hidden,
+                                    index: i
+                                }));
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 118, 110, 0.95)',
+                        titleFont: { size: 13, weight: '900', family: "'Inter', sans-serif" },
+                        bodyFont: { size: 12, weight: '600', family: "'Inter', sans-serif" },
+                        padding: 16,
+                        cornerRadius: 15,
+                        displayColors: true,
+                        boxPadding: 8,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed || 0;
+                                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                let percentage = ((value / total) * 100).toFixed(1);
+                                return ` Rs. ${new Intl.NumberFormat().format(value)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderExpenses();
+        initCategoryChart();
+    });
 </script>
 
 <?php include '../includes/footer.php'; echo '</main></div></body></html>'; ?>

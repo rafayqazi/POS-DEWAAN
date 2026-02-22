@@ -608,4 +608,317 @@ function checkSystemBlock() {
 if (basename($_SERVER['PHP_SELF']) !== 'heartbeat_check.php') {
     checkSystemBlock();
 }
+
+/**
+ * --- Hierarchical Unit Helpers ---
+ */
+
+/**
+ * Recursively calculates the multiplier to get the smallest (base) unit for a SPECIFIC PRODUCT.
+ */
+function getBaseMultiplier($unit_id_or_name, $product = null) {
+    if (!$unit_id_or_name || !$product) return 1;
+    
+    $full_hierarchy = getUnitHierarchy($product['unit'] ?? '');
+    
+    $target_idx = -1;
+    foreach ($full_hierarchy as $i => $u) {
+        if ($u['id'] == $unit_id_or_name || strtolower($u['name']) == strtolower($unit_id_or_name)) {
+            $target_idx = $i;
+            break;
+        }
+    }
+    
+    if ($target_idx === -1) return 1;
+    
+    $multiplier = 1;
+    $f2 = (float)($product['factor_level2'] ?? 1) ?: 1;
+    $f3 = (float)($product['factor_level3'] ?? 1) ?: 1;
+
+    // Chain logic: 
+    // Top (0): m = f2 * f3
+    // Mid (1): m = f3
+    // Base (2): m = 1
+    if ($target_idx == 0) {
+        if (count($full_hierarchy) > 2) $multiplier = $f2 * $f3;
+        elseif (count($full_hierarchy) > 1) $multiplier = $f2;
+    } elseif ($target_idx == 1) {
+        if (count($full_hierarchy) > 2) $multiplier = $f3;
+    }
+    
+    return $multiplier;
+}
+
+/**
+ * Returns the full chain of units from top to bottom.
+ */
+function getUnitHierarchy($unit_id_or_name) {
+    if (!$unit_id_or_name) return [];
+    $units = readCSV('units');
+    $chain = [];
+    
+    // Find the starting unit
+    $current = null;
+    foreach ($units as $u) {
+        if ($u['id'] == $unit_id_or_name || strtolower($u['name']) == strtolower($unit_id_or_name)) {
+            $current = $u;
+            break;
+        }
+    }
+    
+    if (!$current) return [];
+    
+    // Build chain downwards
+    // Since it's a linear chain in units.csv: parent_id links
+    $buildChain = function($u) use ($units, &$buildChain, &$chain) {
+        $chain[] = $u;
+        foreach ($units as $child) {
+            if ((int)$child['parent_id'] === (int)$u['id']) {
+                $buildChain($child);
+                break; 
+            }
+        }
+    };
+    
+    $buildChain($current);
+    return $chain;
+}
+
+/**
+ * Formats qty (in base units) into a human readable hierarchy for a product.
+ * e.g. 145 items -> "1 Ctn, 0 Box, 1 Piece"
+ */
+function formatStockHierarchy($qty, $product) {
+    if (is_string($product)) {
+        // Fallback for old calls or simple units
+        return "<b>" . (float)$qty . "</b> <span class='text-[10px] uppercase opacity-70'>$product</span>";
+    }
+    
+    $qty = (float)$qty;
+    $unit_name = $product['unit'] ?? 'Units';
+    if ($qty <= 0) return "0 " . $unit_name;
+
+    $full_hierarchy = getUnitHierarchy($unit_name);
+    if (count($full_hierarchy) <= 1) {
+         return "<b>" . $qty . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
+    }
+
+    $remaining = $qty;
+    $parts = [];
+    $factors = [];
+    
+    $f2 = (float)($product['factor_level2'] ?? 1) ?: 1;
+    $f3 = (float)($product['factor_level3'] ?? 1) ?: 1;
+    
+    foreach ($full_hierarchy as $i => $u) {
+        $multiplier = getBaseMultiplier($u['id'], $product);
+        $count = floor($remaining / $multiplier);
+        if ($count > 0) {
+            $parts[] = "<b>$count</b> <span class='text-[10px] uppercase opacity-70'>{$u['name']}</span>";
+            $remaining = fmod($remaining, $multiplier);
+        }
+
+        // Build factor description list
+        if ($i == 0 && count($full_hierarchy) > 1) {
+             $child_unit = $full_hierarchy[1]['name'];
+             $factors[] = "1 " . $u['name'] . " = $f2 $child_unit";
+        }
+        if ($i == 1 && count($full_hierarchy) > 2) {
+             $child_unit = $full_hierarchy[2]['name'];
+             $factors[] = "1 " . $u['name'] . " = $f3 $child_unit";
+        }
+    }
+    
+    if (empty($parts) && $remaining >= 0) {
+        $display = "<b>" . round($remaining, 2) . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
+    } else {
+        $display = empty($parts) ? "0 $unit_name" : implode(", ", $parts);
+    }
+
+    // Always show the absolute base total (requested by user)
+    $base_unit = end($full_hierarchy)['name'];
+    $display .= " <span class='text-[10px] text-teal-600 font-bold ml-1 italic'>[Total: " . (round($qty, 2) == round($qty, 0) ? (int)$qty : round($qty, 2)) . " $base_unit]</span>";
+
+    // Show conversion factors for clarity
+    if (!empty($factors)) {
+        $display .= " <div class='text-[9px] text-gray-400 font-medium leading-none mt-0.5'>Factors: " . implode(" | ", $factors) . "</div>";
+    }
+    
+    return $display;
+}
+
+/**
+ * Builds a nested tree structure from a flat units array.
+ */
+function buildUnitTree($units, $parentId = 0) {
+    $branch = [];
+    foreach ($units as $unit) {
+        if (($unit['parent_id'] ?? 0) == $parentId) {
+            $children = buildUnitTree($units, $unit['id']);
+            if ($children) {
+                $unit['children'] = $children;
+            } else {
+                $unit['children'] = [];
+            }
+            $branch[] = $unit;
+        }
+    }
+    return $branch;
+}
+
+/**
+ * Renders unit options for a select menu with indentation.
+ */
+function renderUnitOptions($tree, $level = 0, $selectedVal = null, $useNameAsValue = false) {
+    $html = '';
+    $prefix = str_repeat('&nbsp;&nbsp;&mdash;&nbsp;', $level);
+    foreach ($tree as $unit) {
+        $val = $useNameAsValue ? $unit['name'] : $unit['id'];
+        $selected = (string)$val === (string)$selectedVal ? 'selected' : '';
+        $html .= "<option value='".htmlspecialchars($val)."' $selected>{$prefix} " . htmlspecialchars($unit['name']) . "</option>";
+        if (!empty($unit['children'])) {
+            $html .= renderUnitOptions($unit['children'], $level + 1, $selectedVal, $useNameAsValue);
+        }
+    }
+    return $html;
+}
+
+
+// --- Unit Hierarchy & Receipt Helper Functions ---
+
+function getUnitHierarchyFromList($unitName, $allUnits) {
+    if (!$unitName) return [];
+    
+    // Find start node
+    $startNode = null;
+    foreach ($allUnits as $u) {
+        if (strcasecmp($u['name'], $unitName) === 0) {
+            $startNode = $u;
+            break;
+        }
+    }
+    if (!$startNode) return [];
+
+    $root = $startNode;
+    // Walk up to root
+    while ($root['parent_id'] != 0) {
+        $parent = null;
+        foreach ($allUnits as $u) {
+            if ($u['id'] == $root['parent_id']) {
+                $parent = $u;
+                break;
+            }
+        }
+        if (!$parent) break;
+        $root = $parent;
+    }
+
+    // Now walk down from root to build chain (Replicating JS logic: picking first child each step)
+    $chain = [];
+    $current = $root;
+    
+    while ($current) {
+        $chain[] = $current;
+        $next = null;
+        foreach ($allUnits as $u) {
+            // JS: find(u => parent_id === current.id) returns the FIRST match.
+            if ($u['parent_id'] == $current['id']) {
+                $next = $u;
+                break; 
+            }
+        }
+        if (!$next) break;
+        $current = $next;
+    }
+    
+    return $chain;
+}
+
+function getBaseMultiplierFromList($unitName, $product, $allUnits) {
+    $primaryUnit = $product['unit'] ?? 'Units';
+    $chain = getUnitHierarchyFromList($primaryUnit, $allUnits);
+    
+    $targetIdx = -1;
+    foreach ($chain as $idx => $u) {
+        if (strcasecmp($u['name'], $unitName) === 0) {
+            $targetIdx = $idx;
+            break;
+        }
+    }
+    
+    if ($targetIdx === -1) return 1;
+
+    $f2 = (float)($product['factor_level2'] ?? $product['f2'] ?? 1);
+    $f3 = (float)($product['factor_level3'] ?? $product['f3'] ?? 1);
+    if ($f2 <= 0) $f2 = 1;
+    if ($f3 <= 0) $f3 = 1;
+
+    if ($targetIdx === 0) {
+        if (count($chain) > 2) return $f2 * $f3;
+        if (count($chain) > 1) return $f2;
+    } elseif ($targetIdx === 1) {
+        if (count($chain) > 2) return $f3;
+    }
+    
+    return 1;
+}
+
+function detectBestUnit($item, $product, $allUnits) {
+    if (isset($item['unit']) && $item['unit'] !== 'Units' && $item['unit'] !== '') {
+        return $item['unit'];
+    }
+    
+    if (!$product) return 'Units';
+    
+    $savedPrice = (float)$item['price_per_unit'];
+    $primaryPrice = (float)$product['sell_price'];
+    
+    $chain = getUnitHierarchyFromList($product['unit'], $allUnits);
+    
+    // 1. Simple Case
+    if (count($chain) <= 1) return $product['unit']; // Default to primary if no hierarchy
+    
+    // 2. Check Match with Primary
+    if (abs($savedPrice - $primaryPrice) < ($primaryPrice * 0.2)) {
+        return $product['unit'];
+    }
+    
+    // 3. Check Secondary
+    if (count($chain) > 1) {
+        $u2 = $chain[1];
+        $f2 = (float)($product['factor_level2'] ?? 1);
+        if ($f2 > 0) {
+            $price2 = $primaryPrice / $f2;
+            if (abs($savedPrice - $price2) < ($price2 * 0.2)) {
+                return $u2['name'];
+            }
+        }
+    }
+    
+    // 4. Check Tertiary
+    if (count($chain) > 2) {
+        $u3 = $chain[2];
+        $f2 = (float)($product['factor_level2'] ?? 1);
+        $f3 = (float)($product['factor_level3'] ?? 1);
+        if ($f2 > 0 && $f3 > 0) {
+            $price3 = $primaryPrice / ($f2 * $f3);
+            if (abs($savedPrice - $price3) < ($price3 * 0.2)) {
+                return $u3['name'];
+            }
+        }
+    }
+    
+    // 5. Fallback: If price is significantly lower than primary, assume base unit (last one)
+    $lastUnit = $chain[count($chain)-1];
+    
+    // Re-verify logic: if price is closer to base unit price?
+    $baseMult = getBaseMultiplierFromList($lastUnit['name'], $product, $allUnits);
+    $basePrice = $primaryPrice / $baseMult;
+    
+    if ($savedPrice < ($basePrice * 1.5)) { // Close to base price
+         return $lastUnit['name'];
+    }
+
+    return $product['unit'];
+}
 ?>

@@ -15,26 +15,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['restock_id'])) {
     }
 
     $product_id = $restock['product_id'];
-    $qty_to_remove = (float)$restock['quantity'];
-    $batch_price = (float)$restock['new_buy_price']; // The price at which this specific batch was bought
+    $restock_qty = (float)$restock['quantity'];
+    $restock_unit = $restock['unit'] ?? ''; // Might be empty for old records
+    $batch_price = (float)$restock['new_buy_price'];
 
     // 2. Fetch Product Data
     $product = findCSV('products', $product_id);
     if ($product) {
         $current_qty = (float)$product['stock_quantity'];
-        // 3. Calculate Reversal (Reverting Weighted Average)
-        // Current Total Value = Current Qty * Current AVCO
-        // Logic Update: We use 'avg_buy_price' if it exists, otherwise fallback to 'buy_price' (assume it was AVCO)
-        $current_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : (float)$product['buy_price'];
         
+        // Use multiplier for hierarchical units
+        $multiplier = getBaseMultiplier($restock_unit ?: $product['unit'], $product);
+        $qty_to_remove_base = $restock_qty * $multiplier;
+        $price_per_base = $batch_price / $multiplier;
+
+        // 3. Calculate Reversal (Reverting Weighted Average)
+        $current_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : (float)$product['buy_price'];
         $current_total_value = $current_qty * $current_avco;
         
-        // Value of the batch being removed = Qty * Batch Price
-        $batch_value = $qty_to_remove * $batch_price;
+        // Value of the batch being removed = Qty (Base) * Price (Base)
+        $batch_value = $qty_to_remove_base * $price_per_base;
         
         // Remaining Value
         $remaining_value = $current_total_value - $batch_value;
-        $remaining_qty = $current_qty - $qty_to_remove;
+        $remaining_qty = $current_qty - $qty_to_remove_base;
         
         if ($remaining_qty > 0) {
             $new_rectified_avco = max(0, $remaining_value / $remaining_qty);

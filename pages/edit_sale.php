@@ -33,6 +33,7 @@ $current_items = array_filter($all_sale_items, function($si) use ($sale_id) {
 $products = readCSV('products');
 $categories = readCSV('categories');
 $customers = readCSV('customers');
+$units = readCSV('units');
 
 $pageTitle = "Edit Sale #" . $sale_id;
 include '../includes/header.php';
@@ -185,34 +186,116 @@ include '../includes/header.php';
 </div>
 
 <script>
-let products = <?= json_encode($products) ?>;
-let cart = [];
-let isBelowCostConfirmed = false;
+const products = <?= json_encode($products) ?>;
+const customers = <?= json_encode($customers) ?>;
+const availableUnits = <?= json_encode($units) ?>;
 
-// Initialize Cart with current items
-<?php foreach($current_items as $item): 
-    // Find product details for initial cart display
-    $p_name = 'Unknown'; $p_unit = ''; $p_stock = 0;
-    foreach($products as $p) {
-        if ($p['id'] == $item['product_id']) {
-            $p_name = $p['name'];
-            $p_unit = $p['unit'];
-            $p_stock = (float)$p['stock_quantity'];
-            break;
-        }
+function getUnitHierarchyJS(unitName) {
+    if (!unitName) return [];
+    let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (!startNode) return [];
+    let root = startNode;
+    while(root.parent_id != 0) {
+        let parent = availableUnits.find(u => u.id == root.parent_id);
+        if(!parent) break;
+        root = parent;
     }
-?>
-cart.push({
-    id: '<?= $item['product_id'] ?>',
-    name: '<?= addslashes($p_name) ?>',
-    unit: '<?= addslashes($p_unit) ?>',
-    price: <?= $item['price_per_unit'] ?>,
-    qty: <?= $item['quantity'] ?>,
-    total: <?= $item['total_price'] ?>,
-    buy_price: <?= $item['buy_price'] ?? 0 ?>,
-    max_stock: <?= $p_stock + (float)$item['quantity'] ?>
+    let chain = [];
+    let current = root;
+    while(current) {
+        chain.push(current);
+        let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
+        if(!next) break;
+        current = next;
+    }
+    return chain;
+}
+
+function getBaseMultiplierForProductJS(unitName, p) {
+    const chain = getUnitHierarchyJS(p.primaryUnit || p.unit);
+    let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
+    if (targetIdx === -1) return 1;
+    const f2 = parseFloat(p.f2 || p.factor_level2 || 1) || 1;
+    const f3 = parseFloat(p.f3 || p.factor_level3 || 1) || 1;
+    if (targetIdx === 0) {
+        if (chain.length > 2) return f2 * f3;
+        if (chain.length > 1) return f2;
+    } else if (targetIdx === 1) {
+        if (chain.length > 2) return f3;
+    }
+    return 1;
+}
+
+const currentItemsRaw = <?= json_encode(array_values($current_items)) ?>;
+// Smart Unit Detection for Legacy Sales
+function detectBestUnit(item, p) {
+    if (item.unit && item.unit !== 'Units') return item.unit; // Start with saved unit if exists
+    if (!p) return 'Units';
+
+    const savedPrice = parseFloat(item.price_per_unit || item.price || 0);
+    const primaryPrice = parseFloat(p.sell_price);
+    
+    // Get Multipliers
+    const chain = getUnitHierarchyJS(p.unit);
+    // If chain is simple, return primary
+    if (chain.length <= 1) return p.unit;
+
+    // Check Primary
+    if (Math.abs(savedPrice - primaryPrice) < (primaryPrice * 0.2)) return p.unit;
+
+    // Check Secondary (e.g. Box)
+    if (chain.length > 1) {
+        const u2 = chain[1];
+        const f2 = parseFloat(p.factor_level2 || 1);
+        const price2 = primaryPrice / f2;
+        if (Math.abs(savedPrice - price2) < (price2 * 0.2)) return u2.name;
+    }
+
+    // Check Tertiary (e.g. Piece)
+    if (chain.length > 2) {
+        const u3 = chain[2];
+        const f2 = parseFloat(p.factor_level2 || 1);
+        const f3 = parseFloat(p.factor_level3 || 1);
+        const price3 = primaryPrice / (f2 * f3);
+        if (Math.abs(savedPrice - price3) < (price3 * 0.2)) return u3.name;
+    }
+
+    // Fallback: If price is significantly lower than primary, assume base unit (smallest)
+    const baseMult = getBaseMultiplierForProductJS(p.unit, { ...p, unit: p.unit });
+    if (savedPrice < (primaryPrice / baseMult) * 1.5) {
+         return chain[chain.length-1].name;
+    }
+
+    return p.unit;
+}
+
+let cart = currentItemsRaw.map(item => {
+    const p = products.find(x => x.id == item.product_id);
+    // Attempt to detect the correct unit if not explicitly saved (or if saved is generic)
+    const detectedUnit = detectBestUnit(item, p);
+    
+    // If we detected a different unit, we might need to adjust the display logic, 
+    // but the stored QTY is likely for that unit (e.g. 12 Pieces).
+    // So we just set the unit.
+    
+    const unitName = detectedUnit;
+    const primaryUnit = p ? p.unit : unitName;
+    
+    return {
+        id: item.product_id,
+        name: p ? p.name : (item.p_name || 'Unknown Product'),
+        qty: parseFloat(item.quantity),
+        price: parseFloat(item.price_per_unit),
+        total: parseFloat(item.total_price),
+        unit: unitName,
+        primaryUnit: primaryUnit,
+        buy_price: parseFloat(item.buy_price || 0),
+        f2: p ? p.factor_level2 : 1,
+        f3: p ? p.factor_level3 : 1,
+        max_stock_base: (p ? parseFloat(p.stock_quantity) : 0) + (parseFloat(item.quantity) * getBaseMultiplierForProductJS(unitName, p || { unit: unitName, f2: 1, f3: 1 }))
+    };
 });
-<?php endforeach; ?>
+let isBelowCostConfirmed = false;
 
 function renderProducts() {
     const search = document.getElementById('productSearch').value.toLowerCase();
@@ -229,7 +312,7 @@ function renderProducts() {
         const stock = parseFloat(p.stock_quantity) || 0;
         
         html += `
-            <div onclick="addToCart('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${price}, '${p.unit}', ${buyPrice}, ${stock})" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer group glass text-left">
+            <div onclick="addToCart('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${price}, '${p.unit}', ${buyPrice}, ${stock}, '${p.factor_level2}', '${p.factor_level3}')" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer group glass text-left">
                 <div class="h-24 bg-gray-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden">
                     ${p.image ? `<img src="../uploads/products/${p.image}" class="w-full h-full object-cover">` : `<i class="fas fa-box text-gray-200 text-3xl"></i>`}
                 </div>
@@ -245,12 +328,16 @@ function renderProducts() {
     grid.innerHTML = html;
 }
 
-function addToCart(id, name, price, unit, buyPrice = 0, stock = 9999) {
+function addToCart(id, name, price, unit, buyPrice = 0, stock = 9999, f2 = 1, f3 = 1) {
     const existingIndex = cart.findIndex(i => i.id == id);
+    const primaryUnit = unit; // Store the product's primary unit
+    const mult = getBaseMultiplierForProductJS(unit, { primaryUnit, f2, f3 });
+
     if (existingIndex !== -1) {
         const existing = cart[existingIndex];
-        if (existing.qty + 1 > existing.max_stock) {
-            showAlert(`Only ${existing.max_stock} units available.`, 'Inventory Alert');
+        const currentMult = getBaseMultiplierForProductJS(existing.unit, existing);
+        if ((existing.qty + 1) * currentMult > existing.max_stock_base) {
+            showAlert(`Only ${Math.floor(existing.max_stock_base / currentMult)} ${existing.unit} available.`, 'Inventory Alert');
             return;
         }
         existing.qty++;
@@ -261,26 +348,81 @@ function addToCart(id, name, price, unit, buyPrice = 0, stock = 9999) {
         cart.push(existing);
     } else {
         if (stock < 0.01) { showAlert("Out of stock!", 'Empty Shelf'); return; }
-        cart.push({ id, name, price, unit, qty: 1, total: price, buy_price: buyPrice, max_stock: parseFloat(stock) });
+        cart.push({ 
+            id, name, price, unit, qty: 1, total: price, buy_price: buyPrice, 
+            primaryUnit: primaryUnit, f2: f2, f3: f3,
+            max_stock_base: parseFloat(stock) + (1 * mult) // Add the current item's quantity back to stock for calculation
+        });
     }
     renderCart();
+}
+
+function updateItemUnit(id, newUnit) {
+    const item = cart.find(i => i.id == id);
+    if (item && item.unit !== newUnit) {
+        const p = products.find(x => x.id == item.id);
+        if (!p) return;
+
+        const oldMult = getBaseMultiplierForProductJS(item.unit, item);
+        const newMult = getBaseMultiplierForProductJS(newUnit, item);
+        
+        // 1. Convert Quantity (Magnitude Conservation)
+        // Base Qty = Current Qty * Old Multiplier
+        // New Qty = Base Qty / New Multiplier
+        const baseQty = item.qty * oldMult;
+        let newQty = baseQty / newMult;
+        
+        // Round nicely to avoid 0.9999999
+        newQty = parseFloat(newQty.toFixed(4)); 
+        
+        // 2. Adjust Price per Unit
+        // New Price = (Old Price / Old Mult) * New Mult
+        // Or better: Base Price * New Mult
+        // We defer to the Product's defined sell price for accuracy if available, otherwise scale existing
+        
+        let newPrice = 0;
+        // Calculate theoretical base price from current setting
+        const currentBasePrice = item.price / oldMult;
+        newPrice = currentBasePrice * newMult;
+        
+        // Round price
+        newPrice = Math.round(newPrice);
+
+        // Update Item
+        item.unit = newUnit;
+        item.qty = newQty;
+        item.price = newPrice;
+        item.total = item.qty * item.price; // Should remain roughly same
+        
+        // Validate Stock
+        // Note: max_stock_base checks are done against base units, so changing units shouldn't trigger limit
+        // unless rounding errors pushed it up.
+        if (item.qty * newMult > item.max_stock_base + 0.001) {
+             showAlert(`Stock adjusted to maximum available in ${newUnit}.`, 'Inventory Notice');
+             item.qty = Math.floor(item.max_stock_base / newMult);
+             item.total = item.qty * item.price;
+        }
+
+        renderCart();
+    }
 }
 
 function updateQty(id, delta) {
     const item = cart.find(i => i.id == id);
     if (item) {
-        if (delta > 0 && item.qty + delta > item.max_stock) {
-            showAlert(`Only ${item.max_stock} units available.`, 'Inventory Alert');
+        let newQty = item.qty + delta;
+        if (newQty < 1) newQty = 1;
+
+        const mult = getBaseMultiplierForProductJS(item.unit, item);
+        if (newQty * mult > item.max_stock_base) {
+            showAlert('Stock limit reached', 'Inventory Alert');
             return;
         }
-        item.qty += delta;
-        if (item.qty <= 0) {
-            cart = cart.filter(i => i.id != id);
-        } else {
-            item.total = item.qty * item.price;
-        }
+
+        item.qty = newQty;
+        item.total = item.qty * item.price;
+        renderCart();
     }
-    renderCart();
 }
 
 function updatePrice(id, newPrice) {
@@ -316,9 +458,15 @@ function updateItemTotal(id, newTotal) {
 function validateItemPrice(item) {
     const priceInput = document.getElementById(`price-${item.id}`);
     const errorMsg = document.getElementById(`error-${item.id}`);
-    const buyPrice = parseFloat(item.buy_price) || 0;
     
-    if (item.price < buyPrice) {
+    // Normalize purchase price based on selected unit level
+    const primaryMult = getBaseMultiplierForProductJS(item.primaryUnit, item);
+    const selectedMult = getBaseMultiplierForProductJS(item.unit, item);
+    
+    // scaledBuyPrice = (Primary Buy Price / Primary Multiplier) * Selected Multiplier
+    const scaledBuyPrice = (parseFloat(item.buy_price) / primaryMult) * selectedMult;
+    
+    if (item.price < scaledBuyPrice - 0.01) { // 0.01 epsilon for float
         priceInput.classList.add('border-red-500', 'text-red-600', 'bg-red-50');
         priceInput.classList.remove('border-gray-100', 'text-gray-500');
         if (errorMsg) {
@@ -378,7 +526,11 @@ function validateTotalPrice() {
     const finalTotal = parseFloat(document.getElementById('total_amount_input').value) || 0;
     let minCostTotal = 0;
     cart.forEach(item => { 
-        minCostTotal += (parseFloat(item.buy_price) || 0) * (parseFloat(item.qty) || 0); 
+        const primaryMult = getBaseMultiplierForProductJS(item.primaryUnit, item);
+        const selectedMult = getBaseMultiplierForProductJS(item.unit, item);
+        const scaledBuyPrice = (parseFloat(item.buy_price) / primaryMult) * selectedMult;
+        
+        minCostTotal += scaledBuyPrice * (parseFloat(item.qty) || 0); 
     });
     
     const warning = document.getElementById('priceWarning');
@@ -443,27 +595,126 @@ function calculateDebt() {
     }
 }
 
-function manualUpdateQty(id, val) {
+function syncUnitInputs(id, inputUnit, val) {
     const item = cart.find(i => i.id == id);
-    if (item) {
-        let newQty = parseFloat(val);
-        if (isNaN(newQty)) return;
-
-        if (newQty > item.max_stock) {
-            showAlert(`Only ${item.max_stock} units available.`, 'Inventory Alert');
-            newQty = item.max_stock;
-            const input = document.getElementById(`qty-input-${id}`);
-            if (input) input.value = newQty;
+    if (!item) return;
+    
+    let newQty = parseFloat(val);
+    if (isNaN(newQty)) newQty = 0;
+    
+    // 1. Update the Item to match this new input
+    // We treat the inputUnit as the new "active" unit for the item
+    const p = products.find(x => x.id == item.id);
+    
+    // Calculate new price for this unit
+    const newMult = getBaseMultiplierForProductJS(inputUnit, item);
+    // Base Price calculation: primary sell price / primary mult * new mult
+    let newPrice = 0;
+    if (p) {
+        const primaryMult = getBaseMultiplierForProductJS(p.unit, p);
+        const basePrice = parseFloat(p.sell_price) / primaryMult;
+        newPrice = basePrice * newMult;
+    } else {
+        // Fallback if product missing
+        newPrice = item.price; 
+    }
+    
+    item.unit = inputUnit;
+    item.qty = newQty;
+    item.price = Math.round(newPrice);
+    item.total = item.qty * item.price;
+    
+    // 2. Refresh the Price and Total Fields immediately
+    const priceInput = document.getElementById(`price-${item.id}`);
+    const totalInput = document.getElementById(`total-${item.id}`);
+    if (priceInput) priceInput.value = item.price;
+    if (totalInput) totalInput.value = Math.round(item.total);
+    
+    // 3. Update ALL neighbor inputs in this group (Connected Fields)
+    // We don't want to re-render the whole table because user is typing.
+    // So we calculate manually and update values.
+    const chain = getUnitHierarchyJS(item.primaryUnit);
+    chain.forEach(u => {
+        if (u.name === inputUnit) return; // Skip self
+        
+        // Convert: NewQty (in inputUnit) -> TargetQty (in u.name)
+        const targetMult = getBaseMultiplierForProductJS(u.name, item);
+        
+        // Base Qty = newQty * newMult
+        // Target = Base / targetMult
+        let targetVal = (newQty * newMult) / targetMult;
+        targetVal = parseFloat(targetVal.toFixed(4));
+        
+        // Find the input element. We need a way to select it.
+        // The render loop creates inputs. We can't easily select by ID unless we gave them IDs.
+        // Let's rely on renderCart for now? NO, renderCart loses focus.
+        // BETTER: Re-render is risky for focus. simple way: select via traversing?
+        // Let's assume we can do a full re-render IF we manage focus, but simpler is direct update.
+        // We added unique IDs? No.
+        // Let's add renderCart() but passing the focused element? Complex.
+        // Alternative: Let's assume the user finishes typing? No, "connected".
+        
+        // Let's try to update all inputs in the table row
+        // We can traverse DOM: row -> cells -> inputs
+        // This is getting complex to do purely in JS without IDs.
+        // Let's just create IDs for the inputs: `qty-${item.id}-${u.name}`
+    });
+    
+    // Retrying with IDs approach in the render function in next step if needed. 
+    // Actually, simply calling renderCart() is the standard way, BUT it resets cursor position.
+    // Given the constraints, I will implement a "Smart Update" that finds the other inputs by ID.
+    
+    // Recalculate Totals
+    calculateTotals();
+    
+    // Trigger updates for other fields
+    updateNeighborInputs(item);
+    
+    // Update Total Base Summary Display
+    const summaryDiv = document.getElementById(`total-base-summary-${item.id}`);
+    if (summaryDiv) {
+        const chain = getUnitHierarchyJS(item.primaryUnit);
+        if (chain.length > 1) {
+            const mult = getBaseMultiplierForProductJS(item.unit, item);
+            const totalBase = item.qty * mult;
+            const baseUnit = chain[chain.length-1].name;
+            summaryDiv.innerText = `Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}`;
+            summaryDiv.classList.remove('hidden');
+        } else {
+            summaryDiv.classList.add('hidden');
         }
+    }
+}
+
+function updateNeighborInputs(item) {
+    const chain = getUnitHierarchyJS(item.primaryUnit);
+    chain.forEach(u => {
+        if (u.name === item.unit) return; // Don't update the ONE user is typing in/just typed in?
+        // Wait, 'item.unit' is now the one user typed in.
         
-        item.qty = newQty;
-        item.total = item.qty * item.price;
-        
-        // Update the item total field in the row
-        const totalInput = document.getElementById(`total-${item.id}`);
-        if (totalInput) totalInput.value = Math.round(item.total);
-        
-        calculateTotals();
+        const input = document.getElementById(`qty-${item.id}-${u.name}`);
+        if(input) {
+             const currentMult = getBaseMultiplierForProductJS(item.unit, item);
+             const targetMult = getBaseMultiplierForProductJS(u.name, item);
+             let val = (item.qty * currentMult) / targetMult;
+             val = parseFloat(val.toFixed(4));
+             input.value = val;
+             
+             // Update Styling
+             input.classList.remove('border-teal-400', 'bg-teal-50', 'opacity-100');
+             input.classList.add('border-gray-200', 'opacity-60');
+             input.parentNode.classList.remove('opacity-100');
+             input.parentNode.classList.add('opacity-60');
+        }
+    });
+    
+    // Highlight the active one
+    const activeInput = document.getElementById(`qty-${item.id}-${item.unit}`);
+    if(activeInput) {
+        activeInput.classList.add('border-teal-400', 'bg-teal-50', 'opacity-100');
+        activeInput.classList.remove('border-gray-200', 'opacity-60');
+        activeInput.parentNode.classList.add('opacity-100');
+        activeInput.parentNode.classList.remove('opacity-60');
     }
 }
 
@@ -483,16 +734,49 @@ function renderCart(fullRedraw = true) {
             <tr class="group hover:bg-gray-50/50 transition">
                 <td class="py-3">
                     <div class="font-bold text-gray-800 text-xs">${item.name}</div>
-                    <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">${item.unit}</div>
-                    <div id="error-${item.id}" class="text-[8px] font-black text-red-500 uppercase mt-1 hidden"></div>
-                </td>
                 <td class="py-3">
-                    <div class="flex items-center justify-center gap-1.5 bg-gray-100/50 rounded-lg p-1 w-28 mx-auto">
-                        <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-400 hover:text-red-500 transition-colors shrink-0"><i class="fas fa-minus text-[8px]"></i></button>
-                        <input type="number" id="qty-input-${item.id}" value="${item.qty}" 
-                               oninput="manualUpdateQty('${item.id}', this.value)" 
-                               class="w-12 bg-white border border-gray-100 rounded text-center text-xs font-black text-gray-700 focus:ring-1 focus:ring-teal-500 outline-none p-1">
-                        <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-400 hover:text-teal-500 transition-colors shrink-0"><i class="fas fa-plus text-[8px]"></i></button>
+                    <div class="flex flex-col gap-1 items-start justify-center min-w-[120px]">
+                        ${(() => {
+                            const chain = getUnitHierarchyJS(item.primaryUnit);
+                            // If no hierarchy (or item not found), fallback to single input (but we still use the structure)
+                            const unitsToShow = chain.length > 0 ? chain : [{name: item.unit || 'Units'}];
+                            
+                            return unitsToShow.map(u => {
+                                // Calculate value for this unit based on current item state
+                                // We need to convert from item.unit -> u.name
+                                const currentMult = getBaseMultiplierForProductJS(item.unit, products.find(p => p.id == item.id) || {unit: item.unit});
+                                const targetMult = getBaseMultiplierForProductJS(u.name, products.find(p => p.id == item.id) || {unit: item.unit});
+                                
+                                // Base Qty = item.qty * currentMult
+                                // Target Qty = Base Qty / targetMult
+                                let val = (item.qty * currentMult) / targetMult;
+                                
+                                // Format nicer
+                                val = parseFloat(val.toFixed(4));
+                                
+                                const isSelected = u.name === item.unit;
+                                
+                                return `
+                                <div class="flex items-center gap-2 w-full group/input ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'} transition-opacity">
+                                    <input type="number" step="0.0001" 
+                                           id="qty-${item.id}-${u.name}"
+                                           value="${val}" 
+                                           onfocus="this.select()"
+                                           oninput="syncUnitInputs('${item.id}', '${u.name}', this.value)"
+                                           class="w-16 bg-white border ${isSelected ? 'border-teal-400 bg-teal-50' : 'border-gray-200'} rounded p-1 text-xs font-bold text-center outline-none focus:border-teal-500 transition-colors">
+                                    <span class="text-[9px] font-black uppercase tracking-wider text-gray-500 w-8">${u.name}</span>
+                                </div>
+                                `;
+                        }).join('');
+                        })()}
+                        ${(() => {
+                            const chain = getUnitHierarchyJS(item.primaryUnit);
+                            const hasHierarchy = chain.length > 1;
+                            const mult = getBaseMultiplierForProductJS(item.unit, item);
+                            const totalBase = item.qty * mult;
+                            const baseUnit = chain.length > 0 ? chain[chain.length-1].name : '';
+                            return `<div id="total-base-summary-${item.id}" class="mt-2 py-1 px-2 bg-teal-50 border border-teal-100 rounded text-[9px] font-black text-teal-600 uppercase tracking-tighter ${hasHierarchy ? '' : 'hidden'}" title="Total base items being sold">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</div>`;
+                        })()}
                     </div>
                 </td>
                 <td class="py-3 text-right">

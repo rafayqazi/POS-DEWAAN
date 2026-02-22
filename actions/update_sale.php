@@ -30,7 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
         foreach($old_items as $oi) {
             if (isset($p_map[$oi['product_id']])) {
                 $idx = $p_map[$oi['product_id']];
-                $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + (float)$oi['quantity'];
+                $product = $all_products[$idx];
+                $multiplier = getBaseMultiplier($oi['unit'] ?? $product['unit'], $product);
+                $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + ((float)$oi['quantity'] * $multiplier);
             }
         }
 
@@ -38,14 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
         foreach($cart as $item) {
             if (isset($p_map[$item['id']])) {
                 $idx = $p_map[$item['id']];
+                $product = $all_products[$idx];
                 $current = (float)$all_products[$idx]['stock_quantity'];
-                $needed = (float)$item['qty'];
                 
-                if ($current < $needed) {
-                    $error_items[] = "{$all_products[$idx]['name']} (Available: $current)";
-                    // We don't return false yet, we want to collect all errors
+                $multiplier = getBaseMultiplier($item['unit'] ?? $product['unit'], $product);
+                $needed_base = (float)$item['qty'] * $multiplier;
+                
+                if ($current < $needed_base) {
+                    $error_items[] = "{$product['name']} (Available: $current)";
                 } else {
-                    $all_products[$idx]['stock_quantity'] = $current - $needed;
+                    $all_products[$idx]['stock_quantity'] = $current - $needed_base;
                 }
             }
         }
@@ -97,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
             'sale_id' => $sale_id,
             'product_id' => $item['id'],
             'quantity' => $item['qty'],
+            'unit' => $item['unit'], // Store the unit used in this sale
             'price_per_unit' => $item['price'],
             'buy_price' => $buy_price,
             'avg_buy_price' => $avg_buy_price,

@@ -46,6 +46,9 @@ $products = readCSV('products');
 $p_map = [];
 foreach ($products as $p) $p_map[$p['id']] = $p;
 
+// Fetch Units for hierarchy
+$all_units = readCSV('units');
+
 $business_name = getSetting('business_name', 'Fashion Shines');
 $business_address = getSetting('business_address', 'Faisalabad, Pakistan');
 $business_phone = getSetting('business_phone', '0300-0000000');
@@ -182,20 +185,27 @@ $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
             </thead>
             <tbody>
                 <?php foreach ($items as $item): 
-                    $p_name = $p_map[$item['product_id']]['name'] ?? 'Unknown Item';
+                    $product = $p_map[$item['product_id']] ?? null;
+                    $p_name = $product['name'] ?? 'Unknown Item';
                     $returned_qty = (float)($item['returned_qty'] ?? 0);
                     $net_qty = (float)$item['quantity'] - $returned_qty;
+                    
+                    // Detect Unit
+                    $unitName = detectBestUnit($item, $product, $all_units);
                 ?>
                 <tr>
                     <td>
                         <?= htmlspecialchars($p_name) ?>
                         <?php if ($returned_qty > 0): ?>
                             <div style="color: #ef4444; font-size: 11px; font-weight: 800; margin-top: 2px;">
-                                [Returned: <?= $returned_qty ?>]
+                                [Returned: <?= $returned_qty ?> <?= htmlspecialchars($unitName) ?>]
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td class="text-right"><?= $item['quantity'] ?></td>
+                    <td class="text-right">
+                        <?= $item['quantity'] ?> 
+                        <span style="font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555;"><?= htmlspecialchars($unitName) ?></span>
+                    </td>
                     <td class="text-right"><?= number_format($item['price_per_unit']) ?></td>
                     <td class="text-right">
                         <?= number_format($item['total_price']) ?>

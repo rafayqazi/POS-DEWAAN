@@ -108,7 +108,7 @@ require_once 'includes/functions.php';
         <div class="space-y-6">
             <div class="developer-box p-6 shadow-xl">
                  <div class="flex flex-col items-center mb-6">
-                    <img src="developer.jpg" alt="Developer" class="w-24 h-24 rounded-full border-4 border-white/20 mb-4 object-cover object-top">
+                    <img src="assets/img/developer.jpg" alt="Developer" class="w-24 h-24 rounded-full border-4 border-white/20 mb-4 object-cover object-top">
                     <h3 class="font-bold text-lg">Abdul Rafay</h3>
                     <p class="text-teal-300 text-xs uppercase font-bold">Software Architect</p>
                 </div>
