@@ -170,6 +170,10 @@ $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
             <span><?= date('d-M-Y h:i A', strtotime($sale['sale_date'])) ?></span>
         </div>
         <div class="info-row">
+            <span class="info-label">Print Time:</span>
+            <span><?= date('d-M-Y h:i A') ?></span>
+        </div>
+        <div class="info-row">
             <span class="info-label">Customer:</span>
             <span><?= $customer ? htmlspecialchars($customer['name']) : 'Walk-in' ?></span>
         </div>

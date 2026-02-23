@@ -149,7 +149,16 @@ foreach ($products as $p) {
     <div class="report-header">
         <h1><?= getSetting('business_name', 'Fashion Shines') ?></h1>
         <p>Inventory Movement & Stock Position Report</p>
-        <span style="font-size: 11px; color: #94a3b8; margin-top: 8px; display: block;">Report Period: <b><?= $display_range ?></b></span>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; text-align: left;">
+             <div>
+                <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 2px;">Print Date:</span>
+                <span style="font-size: 13px; color: #0f172a; font-weight: bold;"><?= date('d M Y, h:i A') ?></span>
+             </div>
+             <div style="text-align: right;">
+                <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 2px;">Report Period:</span>
+                <span style="font-size: 13px; color: #0f172a; font-weight: bold;"><?= $display_range ?></span>
+             </div>
+        </div>
     </div>
 
     <div class="summary-grid">

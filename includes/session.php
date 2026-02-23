@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Karachi');
 /**
  * Dynamic Session Management
  * Generates a unique session name based on the application's root path
