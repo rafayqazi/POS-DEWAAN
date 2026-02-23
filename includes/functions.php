@@ -673,7 +673,7 @@ function getUnitHierarchy($unit_id_or_name) {
     $buildChain = function($u) use ($units, &$buildChain, &$chain) {
         $chain[] = $u;
         foreach ($units as $child) {
-            if ((int)$child['parent_id'] === (int)$u['id']) {
+            if ((int)($child['parent_id'] ?? 0) === (int)$u['id']) {
                 $buildChain($child);
                 break; 
             }
@@ -753,7 +753,7 @@ function formatStockHierarchy($qty, $product) {
 function buildUnitTree($units, $parentId = 0) {
     $branch = [];
     foreach ($units as $unit) {
-        if (($unit['parent_id'] ?? 0) == $parentId) {
+        if ((int)($unit['parent_id'] ?? 0) == (int)$parentId) {
             $children = buildUnitTree($units, $unit['id']);
             if ($children) {
                 $unit['children'] = $children;
@@ -801,10 +801,10 @@ function getUnitHierarchyFromList($unitName, $allUnits) {
 
     $root = $startNode;
     // Walk up to root
-    while ($root['parent_id'] != 0) {
+    while (($root['parent_id'] ?? 0) != 0) {
         $parent = null;
         foreach ($allUnits as $u) {
-            if ($u['id'] == $root['parent_id']) {
+            if ($u['id'] == ($root['parent_id'] ?? 0)) {
                 $parent = $u;
                 break;
             }
@@ -822,7 +822,7 @@ function getUnitHierarchyFromList($unitName, $allUnits) {
         $next = null;
         foreach ($allUnits as $u) {
             // JS: find(u => parent_id === current.id) returns the FIRST match.
-            if ($u['parent_id'] == $current['id']) {
+            if (($u['parent_id'] ?? 0) == $current['id']) {
                 $next = $u;
                 break; 
             }

@@ -186,11 +186,11 @@ $units = readCSV('units');
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 sticky top-0 z-10 text-xs font-black text-gray-500 uppercase tracking-widest">
                     <tr>
-                        <th class="px-4 py-3 border-b border-gray-200">Item Details</th>
-                        <th class="px-2 py-3 border-b border-gray-200 w-24 text-center">Qty</th>
-                        <th class="px-2 py-3 border-b border-gray-200 w-32 text-center">Unit Price</th>
-                        <th class="px-4 py-3 border-b border-gray-200 text-right">Subtotal</th>
-                        <th class="px-2 py-3 border-b border-gray-200 w-10"></th>
+                        <th class="px-3 py-2 border-b border-gray-200">Item Details</th>
+                        <th class="px-2 py-2 border-b border-gray-200 w-24 text-center">Qty</th>
+                        <th class="px-2 py-2 border-b border-gray-200 w-28 text-center">Unit Price</th>
+                        <th class="px-3 py-2 border-b border-gray-200 text-right">Subtotal</th>
+                        <th class="px-2 py-2 border-b border-gray-200 w-10"></th>
                     </tr>
                 </thead>
                 <tbody id="cartItems" class="text-sm divide-y divide-gray-100">
@@ -204,22 +204,22 @@ $units = readCSV('units');
         </div>
 
         <!-- Checkout Footer (Compact) -->
-        <div class="border-t border-gray-200 bg-gray-50/30 p-2 space-y-1.5 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
+        <div class="border-t border-gray-200 bg-gray-50/30 p-1.5 space-y-1 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-20">
             
             <!-- Discount -->
-            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
+            <div class="flex justify-between items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm">
                 <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Discount (Rs.)</span>
                 <input type="number" id="discountInput" value="0"
-                       class="w-32 bg-transparent border-none p-0 text-xl font-black text-red-600 text-right focus:ring-0 outline-none" 
+                       class="w-28 bg-transparent border-none p-0 text-base font-black text-red-600 text-right focus:ring-0 outline-none" 
                        oninput="updateTotals()" min="0">
             </div>
 
             <!-- Grand Total -->
-            <div class="flex justify-between items-center bg-gradient-to-br from-teal-500 to-teal-700 border border-teal-600 rounded-xl px-6 py-3 shadow-lg mb-1">
+            <div class="flex justify-between items-center bg-gradient-to-br from-teal-500 to-teal-700 border border-teal-600 rounded-lg px-4 py-2 shadow-lg mb-0.5">
                 <span class="text-xs font-black text-white uppercase tracking-widest">Net Payable</span>
                 <div class="flex items-baseline gap-1">
                     <span class="text-sm font-bold text-teal-100">Rs.</span>
-                    <span id="grandTotalDisplay" class="text-4xl font-black text-white tracking-tight">0</span>
+                    <span id="grandTotalDisplay" class="text-xl font-black text-white tracking-tight">0</span>
                 </div>
             </div>
             
@@ -458,10 +458,10 @@ function addToCart(id, name, price, unit, stock, buyPrice, f2, f3) {
         cart.push({ 
             id: sId, 
             name, 
-            price, 
+            price: parseFloat(price), 
             unit: unit, 
             qty: 1, 
-            total: price, 
+            total: parseFloat(price), 
             max_stock_base: parseFloat(stock), 
             buy_price_base: parseFloat(buyPrice) / getBaseMultiplierForProductJS(unit, productMock),
             primaryUnit: unit,
@@ -499,26 +499,26 @@ function renderCart() {
     // Display newest items at the top
     tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}) => `
         <tr class="group hover:bg-teal-50/30 transition-colors">
-            <td class="px-3 py-2 border-b border-gray-100">
+            <td class="px-3 py-1.5 border-b border-gray-100">
                 <div class="font-bold text-gray-800 text-sm tracking-tight leading-tight">${item.name}</div>
-                <div class="text-[9px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">${item.primaryUnit}</div>
+                <div class="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">${item.primaryUnit}</div>
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
-                <div class="flex flex-col gap-1 items-center">
+            <td class="px-2 py-1.5 border-b border-gray-100 text-center">
+                <div class="flex flex-col gap-0.5 items-center">
                     <input type="number" id="qty-${index}" value="${item.qty}" min="0" step="any" 
-                           class="w-16 px-1 py-1 text-center font-bold border border-gray-200 rounded text-sm focus:border-teal-500 outline-none transition-all" 
+                           class="w-14 px-1 py-0.5 text-center font-bold border border-gray-200 rounded text-sm focus:border-teal-500 outline-none transition-all" 
                            oninput="updateQty(${index}, this.value)">
-                    <select onchange="updateItemUnit(${index}, this.value)" class="text-[10px] border-none bg-gray-50 rounded px-1 py-0.5 outline-none font-bold text-teal-600">
+                    <select onchange="updateItemUnit(${index}, this.value)" class="text-[10px] border-none bg-gray-50 rounded px-1 py-0 outline-none font-bold text-teal-600">
                         ${getUnitHierarchyJS(item.primaryUnit).map((u, i) => `<option value="${u.name}" ${u.name === item.unit ? 'selected' : ''}>${'&nbsp;'.repeat(i)}${u.name}</option>`).join('')}
                     </select>
                 </div>
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
+            <td class="px-2 py-1.5 border-b border-gray-100 text-center">
                 <input type="number" id="price-${index}" value="${item.price}" min="0" step="any"
-                       class="w-20 px-1 py-1 text-center font-semibold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none transition-all" 
+                       class="w-20 px-1 py-0.5 text-center font-semibold border border-gray-200 rounded text-xs focus:border-teal-500 outline-none transition-all" 
                        oninput="updateUnitPrice(${index}, this.value)">
             </td>
-            <td class="px-3 py-2 border-b border-gray-100 text-right">
+            <td class="px-3 py-1.5 border-b border-gray-100 text-right">
                 <div class="flex flex-col items-end">
                     <span class="text-sm font-bold text-gray-700">Rs. ${Math.round(item.total).toLocaleString()}</span>
                     ${(() => {
@@ -527,11 +527,12 @@ function renderCart() {
                         const mult = getBaseMultiplierForProductJS(item.unit, item);
                         const totalBase = item.qty * mult;
                         const baseUnit = chain[chain.length-1].name;
-                        return `<span class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded uppercase tracking-tighter mt-0.5">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</span>`;
-                    })()}
+                        return `<span class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded uppercase tracking-tighter">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</span>`;
+                    })()
+                    }
                 </div>
             </td>
-            <td class="px-2 py-2 border-b border-gray-100 text-center">
+            <td class="px-2 py-1.5 border-b border-gray-100 text-center">
                 <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 transition-colors">
                     <i class="fas fa-times text-xs"></i>
                 </button>
@@ -606,7 +607,7 @@ function updateQty(index, newQty) {
 }
 
 function updateTotals() {
-    const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = cart.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
     const discount = parseFloat(document.getElementById('discountInput').value) || 0;
     let total = Math.max(0, Math.round(subtotal - discount));
     
