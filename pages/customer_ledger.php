@@ -995,9 +995,12 @@ usort($ledger, function($a, $b) {
     function printReport() {
         const element = document.getElementById('printableArea');
         const content = element.innerHTML;
+        const customerName = <?= json_encode($customer['name']) ?>;
+        const today = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+        const filename = `${customerName} - ${today}`;
 
         const printWindow = window.open('', '_blank');
-        printWindow.document.write('<html><head><title>Print Ledger</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; }</style></head><body>');
+        printWindow.document.write(`<html><head><title>${filename}</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; }</style></head><body>`);
         printWindow.document.write(content);
         printWindow.document.write('</body></html>');
         printWindow.document.close();

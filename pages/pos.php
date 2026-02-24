@@ -520,14 +520,14 @@ function renderCart() {
             </td>
             <td class="px-3 py-1.5 border-b border-gray-100 text-right">
                 <div class="flex flex-col items-end">
-                    <span class="text-sm font-bold text-gray-700">Rs. ${Math.round(item.total).toLocaleString()}</span>
+                    <span class="text-sm font-bold text-gray-700" id="total-${index}">Rs. ${Math.round(item.total).toLocaleString()}</span>
                     ${(() => {
                         const chain = getUnitHierarchyJS(item.primaryUnit);
                         if (chain.length <= 1) return '';
                         const mult = getBaseMultiplierForProductJS(item.unit, item);
                         const totalBase = item.qty * mult;
                         const baseUnit = chain[chain.length-1].name;
-                        return `<span class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded uppercase tracking-tighter">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</span>`;
+                        return `<span id="total-base-${index}" class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded uppercase tracking-tighter">Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}</span>`;
                     })()
                     }
                 </div>
@@ -551,8 +551,8 @@ function updateUnitPrice(index, newPrice) {
     cart[index].manualTotal = false; 
     
     // Update Total field in UI
-    const totalInput = document.getElementById(`total-${index}`);
-    if (totalInput) totalInput.value = Math.round(cart[index].total);
+    const totalSpan = document.getElementById(`total-${index}`);
+    if (totalSpan) totalSpan.innerText = 'Rs. ' + Math.round(cart[index].total).toLocaleString();
     
     updateTotals();
 }
@@ -586,10 +586,19 @@ function updateQty(index, newQty) {
     
     // Update UI without full re-render
     const qtyInput = document.getElementById(`qty-${index}`);
-    const totalCell = document.getElementById(`total-${index}`);
+    const totalSpan = document.getElementById(`total-${index}`);
+    const totalBaseSpan = document.getElementById(`total-base-${index}`);
     
     if (qtyInput && qtyInput.value != qty) qtyInput.value = qty;
-    if (totalCell) totalCell.value = Math.round(cart[index].total);
+    if (totalSpan) totalSpan.innerText = 'Rs. ' + Math.round(cart[index].total).toLocaleString();
+    
+    if (totalBaseSpan) {
+        const chain = getUnitHierarchyJS(cart[index].primaryUnit);
+        const mult = getBaseMultiplierForProductJS(cart[index].unit, cart[index]);
+        const totalBase = cart[index].qty * mult;
+        const baseUnit = chain[chain.length-1].name;
+        totalBaseSpan.innerText = `Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}`;
+    }
     
     // Update color
     if (qtyInput) {
