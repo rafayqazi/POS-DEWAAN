@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             ];
             $new_id = insertCSV('products', $data);
             if ($new_id && $qty > 0) {
-                $dealer_name = ($dealer_id == 'OPEN_MARKET') ? "Open Market" : (findById('dealers', $dealer_id)['name'] ?? 'Unknown');
+                $dealer_name = ($dealer_id == 'OPEN_MARKET') ? "Open Market" : (findCSV('dealers', $dealer_id)['name'] ?? 'Unknown');
                 $rid = insertCSV('restocks', ['product_id'=>$new_id,'product_name'=>$data['name'],'quantity'=>$qty,'new_buy_price'=>$price_buy,'old_buy_price'=>0,'new_sell_price'=>$price_sell,'old_sell_price'=>0,'dealer_id'=>$dealer_id,'dealer_name'=>$dealer_name,'amount_paid'=>$amount_paid,'date'=>date('Y-m-d'),'created_at'=>date('Y-m-d H:i:s')]);
                 if ($dealer_id !== 'OPEN_MARKET') {
                     insertCSV('dealer_transactions', ['dealer_id'=>$dealer_id,'date'=>date('Y-m-d'),'type'=>'Purchase','debit'=>$qty*$price_buy,'credit'=>$amount_paid,'description'=>"Initial: ".$data['name'],'created_at'=>date('Y-m-d H:i:s'),'restock_id'=>$rid]);
@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
                 'sell_price' => $sell_price
             ]);
             $dealer_id = $_POST['dealer_id'];
-            $dealer_name = ($dealer_id == 'OPEN_MARKET') ? "Open Market" : (findById('dealers', $dealer_id)['name'] ?? 'Unknown');
+            $dealer_name = ($dealer_id == 'OPEN_MARKET') ? "Open Market" : (findCSV('dealers', $dealer_id)['name'] ?? 'Unknown');
             $rid = insertCSV('restocks', [
                 'product_id' => $id, 
                 'product_name' => $product['name'], 
@@ -237,7 +237,7 @@ include '../includes/header.php';
                     <td class="p-5 text-center text-gray-300 font-mono text-xs"><?= $sn++ ?></td>
                     <td class="p-5">
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($p['name']) ?></div>
-                        <div class="text-[10px] text-gray-400 mt-0.5"><?= $latest_restocks[$p['id']] ? 'Purchased: '.date('d M Y', strtotime($latest_restocks[$p['id']])) : 'New Item' ?></div>
+                        <div class="text-[10px] text-gray-400 mt-0.5"><?= ($latest_restocks[$p['id']] ?? null) ? 'Purchased: '.date('d M Y', strtotime($latest_restocks[$p['id']])) : 'New Item' ?></div>
                         <?php if(!empty($p['expiry_date'])): ?>
                             <div class="text-[9px] text-red-500 font-bold mt-1"><i class="fas fa-calendar-times mr-1"></i>Exp: <?= date('d M Y', strtotime($p['expiry_date'])) ?></div>
                         <?php endif; ?>
