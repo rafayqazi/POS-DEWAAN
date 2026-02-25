@@ -520,7 +520,9 @@ function renderCart() {
             </td>
             <td class="px-3 py-1.5 border-b border-gray-100 text-right">
                 <div class="flex flex-col items-end">
-                    <span class="text-sm font-bold text-gray-700" id="total-${index}">Rs. ${Math.round(item.total).toLocaleString()}</span>
+                    <input type="number" id="total-input-${index}" value="${item.total.toFixed(0)}" step="any"
+                           class="w-24 px-1 py-0.5 text-right font-bold text-gray-700 border border-gray-200 rounded text-sm focus:border-teal-500 outline-none transition-all" 
+                           oninput="updateItemTotal(${index}, this.value)">
                     ${(() => {
                         const chain = getUnitHierarchyJS(item.primaryUnit);
                         if (chain.length <= 1) return '';
@@ -551,8 +553,8 @@ function updateUnitPrice(index, newPrice) {
     cart[index].manualTotal = false; 
     
     // Update Total field in UI
-    const totalSpan = document.getElementById(`total-${index}`);
-    if (totalSpan) totalSpan.innerText = 'Rs. ' + Math.round(cart[index].total).toLocaleString();
+    const totalInput = document.getElementById(`total-input-${index}`);
+    if (totalInput) totalInput.value = cart[index].total.toFixed(0);
     
     updateTotals();
 }
@@ -585,12 +587,11 @@ function updateQty(index, newQty) {
     cart[index].manualTotal = false; // Reset manual flag on qty change
     
     // Update UI without full re-render
-    const qtyInput = document.getElementById(`qty-${index}`);
-    const totalSpan = document.getElementById(`total-${index}`);
+    const totalInput = document.getElementById(`total-input-${index}`);
     const totalBaseSpan = document.getElementById(`total-base-${index}`);
     
     if (qtyInput && qtyInput.value != qty) qtyInput.value = qty;
-    if (totalSpan) totalSpan.innerText = 'Rs. ' + Math.round(cart[index].total).toLocaleString();
+    if (totalInput) totalInput.value = cart[index].total.toFixed(0);
     
     if (totalBaseSpan) {
         const chain = getUnitHierarchyJS(cart[index].primaryUnit);
