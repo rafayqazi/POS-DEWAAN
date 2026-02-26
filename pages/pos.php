@@ -579,8 +579,15 @@ function updateQty(index, newQty) {
     let qty = parseFloat(newQty);
     if (isNaN(qty) || qty < 0) qty = 0;
     
+    const qtyInput = document.getElementById(`qty-${index}`);
     const mult = getBaseMultiplierForProductJS(cart[index].unit, cart[index]);
-    if (qty * mult > cart[index].max_stock_base) qty = cart[index].max_stock_base / mult;
+    const max_qty_allowed = cart[index].max_stock_base / mult;
+
+    if (qty > max_qty_allowed) {
+        qty = max_qty_allowed;
+        if (qtyInput) qtyInput.value = qty;
+        showAlert(`Quantity capped at maximum available stock (${qty.toFixed(2)} ${cart[index].unit})`, 'Stock Limit');
+    }
     
     cart[index].qty = qty;
     cart[index].total = cart[index].qty * cart[index].price;
@@ -590,12 +597,10 @@ function updateQty(index, newQty) {
     const totalInput = document.getElementById(`total-input-${index}`);
     const totalBaseSpan = document.getElementById(`total-base-${index}`);
     
-    if (qtyInput && qtyInput.value != qty) qtyInput.value = qty;
     if (totalInput) totalInput.value = cart[index].total.toFixed(0);
     
     if (totalBaseSpan) {
         const chain = getUnitHierarchyJS(cart[index].primaryUnit);
-        const mult = getBaseMultiplierForProductJS(cart[index].unit, cart[index]);
         const totalBase = cart[index].qty * mult;
         const baseUnit = chain[chain.length-1].name;
         totalBaseSpan.innerText = `Total: ${totalBase % 1 === 0 ? totalBase : totalBase.toFixed(2)} ${baseUnit}`;
@@ -603,7 +608,7 @@ function updateQty(index, newQty) {
     
     // Update color
     if (qtyInput) {
-        if (qty >= cart[index].max_stock) {
+        if (qty >= max_qty_allowed) {
             qtyInput.classList.add('text-red-600');
             qtyInput.classList.remove('text-gray-700');
         } else {

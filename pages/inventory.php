@@ -64,10 +64,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             ];
             $new_id = insertCSV('products', $data);
             if ($new_id && $qty > 0) {
+                $purchase_date = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : date('Y-m-d');
                 $dealer_name = ($dealer_id == 'OPEN_MARKET') ? "Open Market" : (findCSV('dealers', $dealer_id)['name'] ?? 'Unknown');
-                $rid = insertCSV('restocks', ['product_id'=>$new_id,'product_name'=>$data['name'],'quantity'=>$qty,'new_buy_price'=>$price_buy,'old_buy_price'=>0,'new_sell_price'=>$price_sell,'old_sell_price'=>0,'dealer_id'=>$dealer_id,'dealer_name'=>$dealer_name,'amount_paid'=>$amount_paid,'date'=>date('Y-m-d'),'created_at'=>date('Y-m-d H:i:s')]);
+                $rid = insertCSV('restocks', [
+                    'product_id' => $new_id,
+                    'product_name' => $data['name'],
+                    'quantity' => $qty,
+                    'new_buy_price' => $price_buy,
+                    'old_buy_price' => 0,
+                    'new_sell_price' => $price_sell,
+                    'old_sell_price' => 0,
+                    'dealer_id' => $dealer_id,
+                    'dealer_name' => $dealer_name,
+                    'amount_paid' => $amount_paid,
+                    'date' => $purchase_date,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
                 if ($dealer_id !== 'OPEN_MARKET') {
-                    insertCSV('dealer_transactions', ['dealer_id'=>$dealer_id,'date'=>date('Y-m-d'),'type'=>'Purchase','debit'=>$qty*$price_buy,'credit'=>$amount_paid,'description'=>"Initial: ".$data['name'],'created_at'=>date('Y-m-d H:i:s'),'restock_id'=>$rid]);
+                    insertCSV('dealer_transactions', [
+                        'dealer_id' => $dealer_id,
+                        'date' => $purchase_date,
+                        'type' => 'Purchase',
+                        'debit' => $qty * $price_buy,
+                        'credit' => $amount_paid,
+                        'description' => "Initial: " . $data['name'],
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'restock_id' => $rid
+                    ]);
                 }
             }
             if ($isAjax) { header('Content-Type: application/json'); echo json_encode(['status' =>'success', 'message' => "Product saved!"]); exit; }
@@ -141,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             if(!empty($_POST['expiry_date'])) updateCSV('products', $id, ['expiry_date' => $_POST['expiry_date']]);
             if(!empty($_POST['remarks'])) updateCSV('products', $id, ['remarks' => $_POST['remarks']]);
             if ($dealer_id !== 'OPEN_MARKET') {
-                insertCSV('dealer_transactions', ['dealer_id' => $dealer_id, 'date' => date('Y-m-d'), 'type' => 'Restock', 'debit' => $qty * $buy_price, 'credit' => (float)$_POST['amount_paid'], 'description' => "Restock: " . $product['name'], 'created_at' => date('Y-m-d H:i:s'), 'restock_id' => $rid]);
+                insertCSV('dealer_transactions', ['dealer_id' => $dealer_id, 'date' => $_POST['date'] ?? date('Y-m-d'), 'type' => 'Restock', 'debit' => $qty * $buy_price, 'credit' => (float)$_POST['amount_paid'], 'description' => "Restock: " . $product['name'], 'created_at' => date('Y-m-d H:i:s'), 'restock_id' => $rid]);
             }
         }
         header("Location: inventory.php?msg=restocked");
@@ -334,15 +357,37 @@ include '../includes/header.php';
                         <input type="text" name="remarks" class="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-teal-500 transition" placeholder="Optional notes...">
                     </div>
                 </div>
-                <div class="bg-blue-50 p-4 rounded-2xl border">
-                    <select name="dealer_id" id="add_dealer" class="w-full p-3 bg-white border rounded-xl mb-3" onchange="fetchDealerData(this.value)">
-                        <option value="OPEN_MARKET">Open Market</option>
-                        <?php $dealers = readCSV('dealers'); foreach($dealers as $d) echo "<option value='{$d['id']}'>{$d['name']}</option>"; ?>
-                        <option value="ADD_NEW">+ New Dealer</option>
-                    </select>
-                    <div id="add_surplus_msg" class="hidden text-[10px] text-green-600 font-bold mb-2"></div>
-                    <input type="number" step="any" name="amount_paid" id="add_paid" class="p-3 bg-white border rounded-xl font-bold text-green-600 w-full" placeholder="Paid Amount">
-                    <input type="text" name="new_dealer_name" id="new_dealer_input" class="hidden w-full mt-3 p-3 bg-white border rounded-xl" placeholder="New Dealer Name">
+                <div class="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Select Dealer</label>
+                        <select name="dealer_id" id="add_dealer" class="w-full p-3 bg-white border rounded-xl transition focus:ring-2 focus:ring-teal-500" onchange="fetchDealerData(this.value, 'add')">
+                            <option value="OPEN_MARKET">Open Market</option>
+                            <?php $dealers = readCSV('dealers'); foreach($dealers as $d) echo "<option value='{$d['id']}'>{$d['name']}</option>"; ?>
+                            <option value="ADD_NEW">+ New Dealer</option>
+                        </select>
+                        <input type="text" name="new_dealer_name" id="new_dealer_input" class="hidden w-full mt-3 p-3 bg-white border rounded-xl" placeholder="New Dealer Name">
+                    </div>
+
+                    <!-- Calculation Summary -->
+                    <div id="add_calc_summary" class="hidden space-y-2 p-4 bg-teal-50/50 rounded-xl border border-teal-100/50">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-500">Current Bill:</span>
+                            <span id="add_summary_bill" class="font-bold text-gray-800">Rs. 0</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-500">Dealer Balance:</span>
+                            <span id="add_summary_bal" class="font-bold text-gray-800">Rs. 0</span>
+                        </div>
+                        <div class="pt-2 border-t border-teal-100 flex justify-between text-sm">
+                            <span class="font-bold text-teal-800 uppercase text-[10px]">Projected Balance:</span>
+                            <span id="add_summary_new_bal" class="font-black text-teal-700">Rs. 0</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Amount Paid</label>
+                        <input type="number" step="any" name="amount_paid" id="add_paid" class="p-3 bg-white border rounded-xl font-bold text-green-600 w-full focus:ring-2 focus:ring-green-500 transition" placeholder="Paid Amount">
+                    </div>
                 </div>
                 <button type="submit" class="w-full py-4 bg-teal-600 text-white rounded-2xl font-bold">Save Product</button>
             </form>
@@ -412,13 +457,35 @@ include '../includes/header.php';
                 </div>
             </div>
             <input type="text" name="remarks" class="w-full p-3 bg-gray-50 border rounded-xl text-xs" placeholder="Restock notes / Batch no...">
-            <div class="p-4 bg-gray-50 rounded-2xl border">
-                <div class="flex justify-between mb-2"><span>Total Bill:</span><b id="restock_total_amount">Rs. 0</b></div>
-                <input type="number" name="amount_paid" id="restock_amount_paid" class="p-3 bg-white border rounded-xl font-bold text-green-600 w-full" placeholder="Paid">
-                <select name="dealer_id" class="w-full mt-3 p-3 border rounded-xl">
-                    <option value="OPEN_MARKET">Open Market</option>
-                    <?php foreach(readCSV('dealers') as $d) echo "<option value='{$d['id']}'>{$d['name']}</option>"; ?>
-                </select>
+            <div class="p-6 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Select Dealer</label>
+                    <select name="dealer_id" id="restock_dealer" class="w-full p-3 bg-white border rounded-xl" onchange="fetchDealerData(this.value, 'restock')">
+                        <option value="OPEN_MARKET">Open Market</option>
+                        <?php foreach(readCSV('dealers') as $d) echo "<option value='{$d['id']}'>{$d['name']}</option>"; ?>
+                    </select>
+                </div>
+
+                <!-- Calculation Summary -->
+                <div id="restock_calc_summary" class="hidden space-y-2 p-4 bg-orange-50/50 rounded-xl border border-orange-100/50">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-500">Current Bill:</span>
+                        <span id="restock_summary_bill" class="font-bold text-gray-800">Rs. 0</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-500">Dealer Balance:</span>
+                        <span id="restock_summary_bal" class="font-bold text-gray-800">Rs. 0</span>
+                    </div>
+                    <div class="pt-2 border-t border-orange-100 flex justify-between text-sm">
+                        <span class="font-bold text-orange-800 uppercase text-[10px]">Projected Balance:</span>
+                        <span id="restock_summary_new_bal" class="font-black text-orange-700">Rs. 0</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Amount Paid</label>
+                    <input type="number" name="amount_paid" id="restock_amount_paid" class="p-3 bg-white border rounded-xl font-bold text-green-600 w-full" placeholder="Paid">
+                </div>
             </div>
             <button type="button" onclick="validateAndSubmitRestock()" class="w-full py-4 bg-orange-600 text-white rounded-2xl font-bold">Complete Restock</button>
         </form>
@@ -483,15 +550,93 @@ function updateFactorUI(prefix, saved = null) {
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { if(id==='addProductModal'&&window.needsReload) location.reload(); else document.getElementById(id).classList.add('hidden'); }
 
-let dealerBal = 0;
-function fetchDealerData(id) {
-    if(!id || id==='OPEN_MARKET') { dealerBal=0; updateTotal(); return; }
-    fetch('inventory.php?action=get_balance&dealer_id='+id).then(r=>r.json()).then(d=>{ dealerBal=parseFloat(d.balance||0); updateTotal(); });
+let dealerBalances = { add: 0, restock: 0 };
+
+function fetchDealerData(id, prefix) {
+    const summaryDiv = document.getElementById(prefix + '_calc_summary');
+    if (!id || id === 'OPEN_MARKET' || id === 'ADD_NEW') {
+        dealerBalances[prefix] = 0;
+        if (summaryDiv) summaryDiv.classList.add('hidden');
+        if (prefix === 'add') updateTotal(); else calculateRestockTotal();
+        return;
+    }
+    
+    fetch('inventory.php?action=get_balance&dealer_id=' + id)
+        .then(r => r.json())
+        .then(d => {
+            dealerBalances[prefix] = parseFloat(d.balance || 0);
+            if (summaryDiv) summaryDiv.classList.remove('hidden');
+            if (prefix === 'add') updateTotal(); else calculateRestockTotal();
+        });
 }
+
+function updateCalculationSummary(prefix, totalBill) {
+    const bal = dealerBalances[prefix];
+    const summaryDiv = document.getElementById(prefix + '_calc_summary');
+    const billSpan = document.getElementById(prefix + '_summary_bill');
+    const balSpan = document.getElementById(prefix + '_summary_bal');
+    const nextBalSpan = document.getElementById(prefix + '_summary_new_bal');
+    const paidInput = document.getElementById(prefix === 'add' ? 'add_paid' : 'restock_amount_paid');
+
+    if (!summaryDiv) return;
+
+    // Display Current Stats
+    billSpan.innerText = 'Rs. ' + totalBill.toLocaleString();
+    
+    // Balance display (Negative = Surplus, Positive = Debt)
+    if (bal < 0) {
+        balSpan.innerText = 'Surplus: Rs. ' + Math.abs(bal).toLocaleString();
+        balSpan.className = 'font-bold text-green-600';
+    } else if (bal > 0) {
+        balSpan.innerText = 'Debt: Rs. ' + bal.toLocaleString();
+        balSpan.className = 'font-bold text-red-600';
+    } else {
+        balSpan.innerText = 'Rs. 0';
+        balSpan.className = 'font-bold text-gray-800';
+    }
+
+    // Logic for suggesting paid amount and showing next balance
+    let suggestedPaid = totalBill;
+    let nextBal = bal + totalBill; // DB logic: Debt increases, Surplus decreases
+
+    if (bal < 0) { // Surplus case
+        if (Math.abs(bal) >= totalBill) {
+            suggestedPaid = 0;
+            // Next balance will still be surplus
+        } else {
+            suggestedPaid = totalBill - Math.abs(bal);
+        }
+    }
+    
+    // Update "Amount Paid" if it's currently 0 or matches previous suggestion (Auto-fill)
+    // We only auto-fill if the user hasn't manually changed it significantly
+    paidInput.value = suggestedPaid;
+
+    // Final balance view
+    const finalBal = nextBal - suggestedPaid;
+    if (finalBal < 0) {
+        nextBalSpan.innerText = 'Surplus: Rs. ' + Math.abs(finalBal).toLocaleString();
+        nextBalSpan.className = 'font-black text-green-700';
+    } else if (finalBal > 0) {
+        nextBalSpan.innerText = 'Debt: Rs. ' + finalBal.toLocaleString();
+        nextBalSpan.className = 'font-black text-red-700';
+    } else {
+        nextBalSpan.innerText = 'Zero Balance';
+        nextBalSpan.className = 'font-black text-teal-700';
+    }
+}
+
 function updateTotal() {
-    let q = parseFloat(document.getElementById('add_stock_qty').value)||0, b = parseFloat(document.getElementById('add_buy_price').value)||0, total = q*b, f = total;
-    const msg = document.getElementById('add_surplus_msg'); if(dealerBal < 0) { msg.classList.remove('hidden'); msg.innerText = 'Surplus: Rs. '+Math.abs(dealerBal); f = Math.max(0, total-Math.abs(dealerBal)); } else msg.classList.add('hidden');
-    document.getElementById('add_paid').value = f;
+    let q = parseFloat(document.getElementById('add_stock_qty').value) || 0;
+    let b = parseFloat(document.getElementById('add_buy_price').value) || 0;
+    let total = q * b;
+    
+    const dealerId = document.getElementById('add_dealer').value;
+    if (dealerId !== 'OPEN_MARKET' && dealerId !== 'ADD_NEW') {
+        updateCalculationSummary('add', total);
+    } else {
+        document.getElementById('add_paid').value = total;
+    }
 }
 
 function openEditModal(p) {
@@ -518,9 +663,18 @@ function openRestockModal(p) {
 }
 
 function calculateRestockTotal() {
-    let q = parseFloat(document.getElementById('restock_qty').value)||0, b = parseFloat(document.getElementById('restock_buy_price').value)||0;
-    document.getElementById('restock_total_amount').innerText = 'Rs. '+(q*b).toLocaleString(); document.getElementById('restock_amount_paid').value = q*b;
+    let q = parseFloat(document.getElementById('restock_qty').value) || 0;
+    let b = parseFloat(document.getElementById('restock_buy_price').value) || 0;
+    let total = q * b;
+    
     calcTotalBase('restock');
+
+    const dealerId = document.getElementById('restock_dealer').value;
+    if (dealerId !== 'OPEN_MARKET') {
+        updateCalculationSummary('restock', total);
+    } else {
+        document.getElementById('restock_amount_paid').value = total;
+    }
 }
 function validateAndSubmitRestock() { document.querySelector('#restockProductModal form').submit(); }
 
