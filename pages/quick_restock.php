@@ -14,6 +14,18 @@ $units = readCSV('units');
 usort($products, function($a, $b) {
     return strcasecmp($a['name'], $b['name']);
 });
+
+// Auto-open product from inventory.php redirect
+$auto_open_product = null;
+$auto_open_id = $_GET['open'] ?? '';
+if (!empty($auto_open_id)) {
+    foreach ($products as $p) {
+        if ($p['id'] == $auto_open_id) {
+            $auto_open_product = $p;
+            break;
+        }
+    }
+}
 ?>
 
 <div class="max-w-6xl mx-auto px-4">
@@ -862,4 +874,11 @@ usort($products, function($a, $b) {
     function closeOverpaymentModal() {
         document.getElementById('overpaymentModal').classList.add('hidden');
     }
+
+<?php if ($auto_open_product): ?>
+    // Auto-open restock modal for product redirected from inventory.php
+    document.addEventListener('DOMContentLoaded', function() {
+        openRestockModal(<?= json_encode($auto_open_product) ?>);
+    });
+<?php endif; ?>
 </script>

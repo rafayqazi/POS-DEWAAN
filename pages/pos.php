@@ -160,9 +160,15 @@ $units = readCSV('units');
                                 <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
                             </span>
                         </div>
-                        <div class="min-w-[120px] bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 group-hover:bg-teal-100 group-hover:border-teal-200 transition-colors">
-                            <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sell Price</span>
-                            <span class="block font-black text-gray-800 text-base">Rs. <?= number_format((float)$p['sell_price']) ?></span>
+                        <div class="flex flex-col gap-1 items-end shrink-0">
+                            <div class="min-w-[120px] bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 group-hover:bg-teal-100 group-hover:border-teal-200 transition-colors">
+                                <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sell Price</span>
+                                <span class="block font-black text-gray-800 text-base">Rs. <?= number_format((float)$p['sell_price']) ?></span>
+                            </div>
+                            <div class="min-w-[120px] bg-orange-50 px-4 py-1.5 rounded-xl border border-orange-100 group-hover:bg-orange-100 group-hover:border-orange-200 transition-colors">
+                                <span class="block text-[9px] text-orange-400 font-bold uppercase tracking-widest">Buy Price</span>
+                                <span class="block font-bold text-orange-700 text-sm">Rs. <?= number_format((float)$p['buy_price']) ?></span>
+                            </div>
                         </div>
                     </div>
                 </div>

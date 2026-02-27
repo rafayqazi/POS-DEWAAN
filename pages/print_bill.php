@@ -102,10 +102,15 @@ $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
         .info-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; line-height: 1.2; }
         .info-label { font-weight: bold; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-        th { border-bottom: 1px dashed #000; padding: 5px 0; text-align: left; font-weight: bold; }
-        td { padding: 4px 0; vertical-align: top; word-break: break-word; }
-        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; table-layout: fixed; }
+        th { border-bottom: 1px dashed #000; padding: 5px 2px; text-align: left; font-weight: bold; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+        th.col-qty   { width: 22%; text-align: right; }
+        th.col-price { width: 24%; text-align: right; }
+        th.col-total { width: 24%; text-align: right; }
+        th.col-item  { width: 30%; }
+        td { padding: 4px 2px; vertical-align: top; word-break: break-word; }
+        td.col-qty, td.col-price, td.col-total { text-align: right; white-space: nowrap; }
+        .unit-badge { display: block; font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555; margin-top: 1px; }
         .text-right { text-align: right; }
         .divider { border-top: 1px dashed #000; margin: 8px 0; }
         
@@ -181,10 +186,10 @@ $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
         <table>
             <thead>
                 <tr>
-                    <th>Item</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Price</th>
-                    <th class="text-right">Total</th>
+                    <th class="col-item">Item</th>
+                    <th class="col-qty">QTY</th>
+                    <th class="col-price">Price</th>
+                    <th class="col-total">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -198,23 +203,21 @@ $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
                     $unitName = detectBestUnit($item, $product, $all_units);
                 ?>
                 <tr>
-                    <td>
+                    <td class="col-item">
                         <?= htmlspecialchars($p_name) ?>
+                        <span class="unit-badge"><?= htmlspecialchars($unitName) ?></span>
                         <?php if ($returned_qty > 0): ?>
-                            <div style="color: #ef4444; font-size: 11px; font-weight: 800; margin-top: 2px;">
-                                [Returned: <?= $returned_qty ?> <?= htmlspecialchars($unitName) ?>]
+                            <div style="color: #ef4444; font-size: 10px; font-weight: 800; margin-top: 2px;">
+                                [Ret: <?= $returned_qty ?>]
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td class="text-right">
-                        <?= $item['quantity'] ?> 
-                        <span style="font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555;"><?= htmlspecialchars($unitName) ?></span>
-                    </td>
-                    <td class="text-right"><?= number_format($item['price_per_unit']) ?></td>
-                    <td class="text-right">
+                    <td class="col-qty"><?= $net_qty ?></td>
+                    <td class="col-price"><?= number_format($item['price_per_unit']) ?></td>
+                    <td class="col-total">
                         <?= number_format($item['total_price']) ?>
                         <?php if ($returned_qty > 0): ?>
-                            <div style="color: #ef4444; font-size: 11px; font-weight: 800; margin-top: 1px;">
+                            <div style="color: #ef4444; font-size: 10px; font-weight: 800; margin-top: 1px;">
                                 -<?= number_format($returned_qty * $item['price_per_unit']) ?>
                             </div>
                         <?php endif; ?>

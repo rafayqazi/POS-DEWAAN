@@ -781,6 +781,39 @@
                     searchInput.select();
                 }
             });
+        // Global Escape Key to close all modals
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                // 1. Close Global Alert/Confirm
+                if (typeof closeAlert === 'function') closeAlert();
+                
+                // 2. Trigger standard closing functions if they exist
+                if (typeof closeModal === 'function') closeModal();
+                if (typeof closeIssuingModal === 'function') closeIssuingModal();
+                if (typeof closeRestockModal === 'function') closeRestockModal();
+                
+                // 3. Brute force hide any visible fixed overlays/modals
+                const overlays = [
+                    'globalAlertModal', 
+                    'issuingHistoryModal', 
+                    'restockLogModal', 
+                    'addProductModal',
+                    'notificationDropdown',
+                    'userProfileDropdown',
+                    'search-results'
+                ];
+                
+                overlays.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && !el.classList.contains('hidden')) {
+                        el.classList.add('hidden');
+                        if (el.classList.contains('flex')) el.classList.remove('flex');
+                    }
+                });
+
+                // 4. Specifically for POS or other pages that might use window-level overrides
+                if (window.closeModal && typeof window.closeModal === 'function') window.closeModal();
+            }
         });
     </script>
 

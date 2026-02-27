@@ -26,6 +26,14 @@ description: Mandatory UI, UX, and design patterns for the POS-DEWAAN project.
 - **Device Support**: All receipt printing MUST be optimized for the **MP-300 Smart Bluetooth Printer** (80mm width).
 - **Dynamic Height**: PDF generation for receipts MUST use dynamic height calculation based on content to eliminate excessive white space at the bottom. The standard width is 80mm.
 - **Footer Styling**: Developer information in the footer should be minimal (8px) and positioned at the very bottom with sufficient spacing from the receipt content.
+- **Print Developer Footer (MANDATORY)**: Every page that produces a printout or PDF (e.g., `print_bill.php`, `print_sales.php`, `print_inventory_report.php`, restock logs, catalog, etc.) MUST include a small developer footer at the very bottom of the printed output. Use the following standard format:
+
+```html
+<div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+    <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
+    <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+</div>
+```
 29: 
 30: ## Logic & Data Synchronization
 31: 

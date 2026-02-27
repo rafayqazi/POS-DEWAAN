@@ -163,6 +163,18 @@ $default_to = date('Y-m-d');
 const products = <?= json_encode($products) ?>;
 const restocks = <?= json_encode($restocks) ?>;
 const sales = <?= json_encode($sales_date_map) ?>;
+<?php
+$_customers_list = readCSV('customers');
+$_cmap = [];
+foreach($_customers_list as $_c) $_cmap[$_c['id']] = $_c['name'];
+$_rawSales = readCSV('sales');
+$_salesFull = [];
+foreach($_rawSales as $_s) {
+    $_s['customer_name'] = !empty($_s['customer_id']) ? ($_cmap[$_s['customer_id']] ?? 'Walk-In') : 'Walk-In';
+    $_salesFull[$_s['id']] = $_s;
+}
+?>
+const salesFull = <?= json_encode($_salesFull) ?>;
 const saleItems = <?= json_encode($sale_items) ?>;
 const availableUnits = <?= json_encode($units) ?>;
 
@@ -372,9 +384,14 @@ function renderInventory() {
                     </div>
                 </td>
                 <td class="p-6 text-center">
-                    <button onclick="showRestockLogs('${p.id}')" class="px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-xs font-bold hover:bg-teal-600 hover:text-white transition shadow-sm border border-teal-100 flex items-center gap-2 mx-auto">
-                        <i class="fas fa-history"></i> Logs
-                    </button>
+                    <div class="flex items-center justify-center gap-2">
+                        <button onclick="showRestockLogs('${p.id}')" class="px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-xs font-bold hover:bg-teal-600 hover:text-white transition shadow-sm border border-teal-100 flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fas fa-history"></i> Stock Logs
+                        </button>
+                        <button onclick="showIssuingHistory('${p.id}')" class="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-600 hover:text-white transition shadow-sm border border-orange-100 flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fas fa-shopping-bag"></i> Sales History
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -457,9 +474,8 @@ window.onload = renderInventory;
 }
 </style>
 
-<?php include '../includes/footer.php'; ?>
+<!-- Modals rendered below, footer.php is included at end of file -->
 
-<!-- Restock Logs Modal -->
 <div id="restockLogModal" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-[100] items-center justify-center p-4 no-print">
     <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300">
         <!-- Sticky Header -->
@@ -542,9 +558,44 @@ window.onload = renderInventory;
             <tbody id="printRestockBody"></tbody>
         </table>
 
-        <div style="border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; text-align: center; font-size: 10px; color: #aaa;">
-            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
-            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        <div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+            <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
+            <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        </div>
+    </div>
+</div>
+
+<!-- Print Only Container for Issuing -->
+<div id="printIssuingContainer" class="hidden">
+    <div style="padding: 40px; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+            <div>
+                <h1 style="color: #f97316; margin: 0; font-size: 32px; font-weight: 900;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                <p style="color: #666; margin: 5px 0 0 0; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; font-size: 12px;">Product Issuing / Sales History Report</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 id="printIssuingProductName" style="margin: 0; color: #333; font-size: 20px;">Product Name</h2>
+                <p id="printIssuingGeneratedOn" style="color: #888; margin: 5px 0 0 0; font-size: 11px;">Generated on: <?= date('d M Y, h:i A') ?></p>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+            <thead>
+                <tr style="background: #f97316; color: #fff;">
+                    <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">#</th>
+                    <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">Date</th>
+                    <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">Customer</th>
+                    <th style="padding: 15px; text-align: center; font-size: 11px; text-transform: uppercase; font-weight: 900;">Qty Sold</th>
+                    <th style="padding: 15px; text-align: right; font-size: 11px; text-transform: uppercase; font-weight: 900;">Sell Price</th>
+                    <th style="padding: 15px; text-align: right; font-size: 11px; text-transform: uppercase; font-weight: 900;">Total</th>
+                </tr>
+            </thead>
+            <tbody id="printIssuingBody"></tbody>
+        </table>
+
+        <div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+            <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
+            <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>
@@ -664,4 +715,165 @@ window.onload = renderInventory;
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
     }
 </script>
+
+<!-- Issuing / Sales History Modal -->
+<div id="issuingHistoryModal" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-[100] items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white p-8 border-b border-gray-100 flex items-center justify-between z-10">
+            <div>
+                <h3 class="text-2xl font-black text-gray-800 tracking-tight" id="issuingModalTitle">Issuing History</h3>
+                <div class="flex items-center mt-1">
+                    <span class="h-2 w-2 rounded-full bg-orange-500 mr-2"></span>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]" id="issuingModalSubtitle">Customer Sales Records</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Summary Badges -->
+                <div class="hidden md:flex gap-3" id="issuingSummaryBadges">
+                    <div class="px-4 py-2 bg-orange-50 border border-orange-100 rounded-2xl text-center">
+                        <div class="text-[9px] font-black text-orange-400 uppercase tracking-widest">Total Sold</div>
+                        <div class="text-lg font-black text-orange-600" id="issuingTotalQty">0</div>
+                    </div>
+                    <div class="px-4 py-2 bg-teal-50 border border-teal-100 rounded-2xl text-center">
+                        <div class="text-[9px] font-black text-teal-400 uppercase tracking-widest">Total Revenue</div>
+                        <div class="text-lg font-black text-teal-600" id="issuingTotalRev">Rs. 0</div>
+                    </div>
+                </div>
+                <button onclick="printIssuingHistory()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm border border-orange-100">
+                    <i class="fas fa-print"></i>
+                </button>
+                <button onclick="closeIssuingModal()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-gray-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-y-auto p-8" style="max-height: calc(90vh - 120px);">
+            <div id="issuingTableContainer" class="rounded-3xl border border-gray-100 overflow-hidden shadow-sm bg-white">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-[10px] uppercase font-black tracking-widest text-gray-400 border-b border-gray-100">
+                            <th class="p-5">#</th>
+                            <th class="p-5">Date</th>
+                            <th class="p-5">Customer</th>
+                            <th class="p-5 text-center">Qty Sold</th>
+                            <th class="p-5 text-right">Sell Price</th>
+                            <th class="p-5 text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="issuingTableBody" class="divide-y divide-gray-50"></tbody>
+                </table>
+            </div>
+            <div id="issuingEmptyState" class="hidden py-20 text-center">
+                <div class="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-orange-100">
+                    <i class="fas fa-shopping-bag text-3xl text-orange-200"></i>
+                </div>
+                <p class="text-gray-400 font-bold uppercase text-xs tracking-widest">No sales found for this product</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showIssuingHistory(productId) {
+        const p = products.find(x => x.id == productId);
+        if (!p) return;
+
+        document.getElementById('issuingModalTitle').innerText = p.name;
+        document.getElementById('issuingModalSubtitle').innerText = p.category + ' • ' + p.unit;
+
+        // Gather all sale_items for this product
+        const items = saleItems.filter(si => si.product_id == productId);
+
+        const tableBody = document.getElementById('issuingTableBody');
+        const tableContainer = document.getElementById('issuingTableContainer');
+        const emptyState = document.getElementById('issuingEmptyState');
+
+        if (items.length === 0) {
+            tableContainer.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            document.getElementById('issuingTotalQty').innerText = '0';
+            document.getElementById('issuingTotalRev').innerText = 'Rs. 0';
+        } else {
+            tableContainer.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            // Sort by sale_id descending (newest first)
+            items.sort((a, b) => (parseInt(b.sale_id) || 0) - (parseInt(a.sale_id) || 0));
+
+            let totalQty = 0;
+            let totalRev = 0;
+            let rowNum = 1;
+            let html = '';
+
+            items.forEach(si => {
+                const sale = salesFull[si.sale_id];
+                const qty = parseFloat(si.quantity) || 0;
+                const price = parseFloat(si.price_per_unit || 0);
+                const total = qty * price;
+                const customer = sale ? (sale.customer_name || sale.customer || 'Walk-In') : 'Walk-In';
+                const dateStr = sale && sale.sale_date ? new Date(sale.sale_date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
+                const saleId = si.sale_id;
+
+                totalQty += qty;
+                totalRev += total;
+
+                const rowBg = rowNum % 2 === 0 ? 'background:#f9fafb;' : '';
+                html += `
+                    <tr class="hover:bg-orange-50/40 transition" style="${rowBg}">
+                        <td class="p-5 text-xs text-gray-400 font-mono">#${saleId}</td>
+                        <td class="p-5 text-sm font-bold text-gray-500 font-mono">${dateStr}</td>
+                        <td class="p-5">
+                            <div class="font-bold text-gray-800 text-sm">${customer}</div>
+                            ${sale && sale.customer_phone ? `<div class="text-[10px] text-gray-400">${sale.customer_phone}</div>` : ''}
+                        </td>
+                        <td class="p-5 text-center">
+                            <span class="px-3 py-1 bg-orange-50 text-orange-600 rounded-full font-black text-xs shadow-sm border border-orange-100">${qty % 1 === 0 ? qty : qty.toFixed(2)} ${p.unit}</span>
+                        </td>
+                        <td class="p-5 text-right font-bold text-gray-700 text-sm">Rs. ${price.toLocaleString()}</td>
+                        <td class="p-5 text-right font-black text-teal-700">Rs. ${total.toLocaleString()}</td>
+                    </tr>
+                `;
+                rowNum++;
+            });
+
+            tableBody.innerHTML = html;
+            document.getElementById('issuingTotalQty').innerText = (totalQty % 1 === 0 ? totalQty : totalQty.toFixed(2)) + ' ' + p.unit;
+            document.getElementById('issuingTotalRev').innerText = 'Rs. ' + Math.round(totalRev).toLocaleString();
+        }
+
+        document.getElementById('issuingHistoryModal').classList.remove('hidden');
+        document.getElementById('issuingHistoryModal').classList.add('flex');
+    }
+
+    function closeIssuingModal() {
+        document.getElementById('issuingHistoryModal').classList.add('hidden');
+        document.getElementById('issuingHistoryModal').classList.remove('flex');
+    }
+
+    function printIssuingHistory() {
+        const modalTitle = document.getElementById('issuingModalTitle').innerText;
+        const subtitle = document.getElementById('issuingModalSubtitle').innerText;
+        const items = document.getElementById('issuingTableBody').innerHTML;
+
+        document.getElementById('printIssuingProductName').innerText = modalTitle + " (" + subtitle + ")";
+        document.getElementById('printIssuingBody').innerHTML = items;
+
+        const printContent = document.getElementById('printIssuingContainer').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write('<html><head><title>Issuing History - ' + modalTitle + '</title>');
+        printWindow.document.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(printContent);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+    }
+
+    document.getElementById('issuingHistoryModal').addEventListener('click', function(e) {
+        if (e.target === this) closeIssuingModal();
+    });
+</script>
+
 <?php include '../includes/footer.php'; ?>
