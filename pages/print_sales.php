@@ -55,8 +55,10 @@ if ($f_type == 'range') {
 }
 
 $total_collected = 0;
+$grand_total = 0;
 foreach($sales as $s) {
     $total_collected += (float)$s['paid_amount'];
+    $grand_total += (float)$s['total_amount'];
 }
 ?>
 <!DOCTYPE html>
@@ -153,7 +155,11 @@ foreach($sales as $s) {
         </table>
 
         <div class="summary-box">
-            <div class="summary-row font-bold" style="color: #0d9488; font-size: 16px; margin-top: 10px; border-top: 1px solid #cbd5e1; pt: 10px;">
+            <div class="summary-row font-bold" style="color: #0d9488; font-size: 16px;">
+                <span>Grand Total:</span>
+                <span><?= formatCurrency($grand_total) ?></span>
+            </div>
+            <div class="summary-row font-bold" style="color: #0d9488; font-size: 14px; margin-top: 10px; border-top: 1px solid #cbd5e1; pt: 10px;">
                 <span>Total Collected:</span>
                 <span><?= formatCurrency($total_collected) ?></span>
             </div>

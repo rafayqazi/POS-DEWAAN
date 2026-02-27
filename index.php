@@ -147,7 +147,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == '1') {
     $update_status['time_left'] = 0;
     if (!empty($update_status['available']) && !empty($update_status['first_detected'])) {
         $current_time = time() + ($_SESSION['time_offset'] ?? 0);
-        $deadline = (int)$update_status['first_detected'] + 60;
+        $deadline = (int)$update_status['first_detected'] + 86400;
         $update_status['overdue'] = $current_time > $deadline;
         $update_status['time_left'] = max(0, $deadline - $current_time);
     }
