@@ -139,49 +139,54 @@ if (!empty($auto_open_id)) {
 
                 <!-- Stats Row -->
                 <div class="grid grid-cols-3 gap-3">
-                    <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col gap-1.5">
-                        <div class="flex items-center gap-1.5 text-slate-400">
-                            <i class="fas fa-warehouse text-[11px] w-4 text-center"></i>
-                            <span class="text-[9px] font-black uppercase tracking-widest">Current Stock</span>
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-slate-600">
+                            <i class="fas fa-warehouse text-[12px] w-4 text-center"></i>
+                            <span class="text-[10px] font-black uppercase tracking-widest">Current Stock</span>
                         </div>
                         <div class="text-base font-black text-slate-800 leading-snug" id="current_stock_display">—</div>
                     </div>
-                    <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex flex-col gap-1.5">
-                        <div class="flex items-center gap-1.5 text-amber-500">
-                            <i class="fas fa-tag text-[11px] w-4 text-center"></i>
-                            <span class="text-[9px] font-black uppercase tracking-widest">Old Buy Rate</span>
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-amber-700">
+                            <i class="fas fa-tag text-[12px] w-4 text-center"></i>
+                            <span class="text-[10px] font-black uppercase tracking-widest">Old Buy Rate</span>
                         </div>
-                        <div class="text-base font-black text-amber-700 leading-snug" id="current_buy_display">—</div>
+                        <div class="text-base font-black text-amber-800 leading-snug" id="current_buy_display">—</div>
                     </div>
-                    <div class="bg-teal-50 border border-teal-100 rounded-2xl p-4 flex flex-col gap-1.5">
-                        <div class="flex items-center gap-1.5 text-teal-500">
-                            <i class="fas fa-chart-line text-[11px] w-4 text-center"></i>
-                            <span class="text-[9px] font-black uppercase tracking-widest">Old Sell Rate</span>
+                    <div class="bg-teal-50 border border-teal-200 rounded-2xl p-4 flex flex-col gap-1.5">
+                        <div class="flex items-center gap-1.5 text-teal-700">
+                            <i class="fas fa-chart-line text-[12px] w-4 text-center"></i>
+                            <span class="text-[10px] font-black uppercase tracking-widest">Old Sell Rate</span>
                         </div>
-                        <div class="text-base font-black text-teal-700 leading-snug" id="current_sell_display">—</div>
+                        <div class="text-base font-black text-teal-800 leading-snug" id="current_sell_display">—</div>
                     </div>
                 </div>
 
                 <!-- Section: Quantity -->
                 <div>
                     <div class="flex items-center gap-3 mb-3">
-                        <span class="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Quantity</span>
-                        <div class="flex-1 h-px bg-gray-100"></div>
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Quantity</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <div class="grid grid-cols-[150px_1fr] gap-3">
                         <div>
-                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Unit</label>
-                            <select name="selected_unit" id="restock_unit_select" onchange="updateFactorUI('restock')" 
-                                    class="w-full px-4 py-3 bg-teal-600 text-white rounded-xl font-black uppercase tracking-widest outline-none cursor-pointer hover:bg-teal-700 transition-colors shadow-md shadow-teal-900/10 text-sm">
-                            </select>
+                            <label class="block text-[11px] font-black text-gray-600 uppercase tracking-widest mb-1.5 pl-1">Unit</label>
+                            <div class="relative">
+                                <select name="selected_unit" id="restock_unit_select" onchange="updateFactorUI('restock')" 
+                                        class="w-full pl-5 pr-10 py-4 bg-teal-600 border border-teal-700 text-white rounded-xl font-black uppercase tracking-widest outline-none cursor-pointer hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/50 transition-all shadow-md text-sm appearance-none">
+                                </select>
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                    <i class="fas fa-chevron-down text-teal-200 text-sm"></i>
+                                </div>
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Amount</label>
+                            <label class="block text-[11px] font-black text-gray-600 uppercase tracking-widest mb-1.5 pl-1">QTY</label>
                             <div class="relative">
                                 <input type="number" step="any" name="quantity" id="restock_qty" required 
-                                       class="w-full px-5 py-3 pr-28 bg-white border-2 border-gray-100 rounded-xl focus:border-teal-500 transition-all outline-none text-xl font-black placeholder:text-gray-200"
+                                       class="w-full px-5 py-3 pr-28 bg-white border-2 border-gray-300 rounded-xl focus:border-teal-500 focus:ring-4 focus:ring-teal-500/20 transition-all outline-none text-xl font-black text-gray-800 placeholder:text-gray-400"
                                        placeholder="0.00" oninput="calculateTotal()">
-                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-300 uppercase tracking-widest pointer-events-none">Numbers Only</span>
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">Numbers Only</span>
                             </div>
                         </div>
                     </div>
@@ -194,25 +199,25 @@ if (!empty($auto_open_id)) {
                 <!-- Section: Pricing -->
                 <div>
                     <div class="flex items-center gap-3 mb-3">
-                        <span class="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">New Pricing</span>
-                        <div class="flex-1 h-px bg-gray-100"></div>
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">New Pricing</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Buy Rate</label>
+                        <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                            <label class="block text-[11px] font-black text-gray-600 uppercase tracking-widest mb-2">Buy Rate</label>
                             <div class="relative">
-                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-gray-300">Rs.</span>
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-gray-400">Rs.</span>
                                 <input type="number" step="0.01" name="new_buy_price" id="restock_buy_price" required 
-                                       class="w-full pl-11 pr-3 py-2.5 bg-white border-2 border-gray-100 rounded-xl focus:border-teal-500 transition-all outline-none font-black text-lg"
+                                       class="w-full pl-11 pr-3 py-2.5 bg-white border-2 border-gray-200 rounded-xl focus:border-teal-500 transition-all outline-none font-black text-lg"
                                        oninput="calculateTotal()">
                             </div>
                         </div>
-                        <div class="bg-teal-50 border border-teal-100 rounded-2xl p-4">
-                            <label class="block text-[9px] font-black text-teal-600/60 uppercase tracking-widest mb-2">Selling Rate</label>
+                        <div class="bg-teal-50 border border-teal-200 rounded-2xl p-4">
+                            <label class="block text-[11px] font-black text-teal-700 uppercase tracking-widest mb-2">Selling Rate</label>
                             <div class="relative">
-                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-teal-300">Rs.</span>
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-teal-600">Rs.</span>
                                 <input type="number" step="0.01" name="new_sell_price" id="restock_sell_price" required 
-                                       class="w-full pl-11 pr-3 py-2.5 bg-white border-2 border-teal-100 rounded-xl focus:border-teal-600 transition-all outline-none font-black text-lg text-teal-700">
+                                       class="w-full pl-11 pr-3 py-2.5 bg-white border-2 border-teal-200 rounded-xl focus:border-teal-600 transition-all outline-none font-black text-lg text-teal-800">
                             </div>
                         </div>
                     </div>
@@ -221,14 +226,14 @@ if (!empty($auto_open_id)) {
                 <!-- Section: Logistics -->
                 <div>
                     <div class="flex items-center gap-3 mb-3">
-                        <span class="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Logistics</span>
-                        <div class="flex-1 h-px bg-gray-100"></div>
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Logistics</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <!-- Supplier Dropdown -->
                         <div class="space-y-2">
-                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <i class="fas fa-truck-moving text-teal-400 text-[10px]"></i> Supplier
+                            <label class="block text-[11px] font-black text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
+                                <i class="fas fa-truck-moving text-teal-500 text-[12px]"></i> Supplier
                             </label>
                             <div class="relative" id="dealerDropdownContainer">
                                 <button type="button" onclick="toggleDealerDropdown()" id="dealerDropdownBtn" 
@@ -278,19 +283,28 @@ if (!empty($auto_open_id)) {
                                        class="w-full rounded-xl border-teal-300 border-2 px-4 py-3 focus:border-teal-500 outline-none font-bold placeholder:text-gray-300 text-sm" 
                                        placeholder="Business Name *">
                             </div>
-                            <div id="restock_dealer_surplus_msg" class="hidden px-4 py-3 rounded-xl bg-green-50 border border-green-100 flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px]"><i class="fas fa-coins"></i></div>
-                                    <span class="text-[9px] font-black text-green-800 uppercase tracking-widest">Credit Balance</span>
+                            
+                            <!-- Calculation Summary -->
+                            <div id="restock_calc_summary" class="hidden space-y-2 p-4 bg-teal-50/50 rounded-xl border border-teal-100/50 mt-3">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-500">Current Bill:</span>
+                                    <span id="restock_summary_bill" class="font-bold text-gray-800">Rs. 0</span>
                                 </div>
-                                <span class="font-black text-green-700 text-sm" id="surplus_amount">Rs. 0</span>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-500">Dealer Balance:</span>
+                                    <span id="restock_summary_bal" class="font-bold text-gray-800">Rs. 0</span>
+                                </div>
+                                <div class="pt-2 border-t border-teal-100 flex justify-between text-sm">
+                                    <span class="font-bold text-teal-800 uppercase text-[10px]">Projected Balance:</span>
+                                    <span id="restock_summary_new_bal" class="font-black text-teal-700">Rs. 0</span>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Date -->
                         <div class="space-y-2">
-                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <i class="fas fa-calendar-check text-teal-400 text-[10px]"></i> Arrival Date
+                            <label class="block text-[11px] font-black text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
+                                <i class="fas fa-calendar-check text-teal-500 text-[12px]"></i> Arrival Date
                             </label>
                             <input type="date" name="date" value="<?= date('Y-m-d') ?>" 
                                    class="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:border-teal-500 outline-none font-bold text-gray-700 transition-all text-sm">
@@ -301,8 +315,8 @@ if (!empty($auto_open_id)) {
                 <!-- Remarks -->
                 <div>
                     <div class="flex items-center gap-3 mb-3">
-                        <span class="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Notes</span>
-                        <div class="flex-1 h-px bg-gray-100"></div>
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Remarks</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <textarea name="remarks" id="restock_remarks" rows="2"
                               class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-teal-500 transition-all outline-none font-medium text-gray-600 resize-none text-sm"
@@ -601,19 +615,23 @@ if (!empty($auto_open_id)) {
     function fetchDealerBalance(dealerId) {
         if(!dealerId || dealerId === 'ADD_NEW' || dealerId === 'OPEN_MARKET') {
             currentDealerBalance = 0;
+            document.getElementById('restock_calc_summary').classList.add('hidden');
             calculateTotal();
             return;
         }
         
+        // Pointing to inventory.php for the AJAX call since quick_restock doesn't have the handler
         fetch(`inventory.php?action=get_balance&dealer_id=${dealerId}`)
             .then(r => r.json())
             .then(data => {
                 currentDealerBalance = parseFloat(data.balance || 0);
+                document.getElementById('restock_calc_summary').classList.remove('hidden');
                 calculateTotal();
             })
             .catch(e => {
                 console.error("Balance fetch error:", e);
                 currentDealerBalance = 0;
+                document.getElementById('restock_calc_summary').classList.add('hidden');
                 calculateTotal();
             });
     }
@@ -729,6 +747,64 @@ if (!empty($auto_open_id)) {
         }
     }
 
+    function updateCalculationSummary(prefix, totalBill) {
+        const bal = currentDealerBalance;
+        const summaryDiv = document.getElementById(prefix + '_calc_summary');
+        const billSpan = document.getElementById(prefix + '_summary_bill');
+        const balSpan = document.getElementById(prefix + '_summary_bal');
+        const nextBalSpan = document.getElementById(prefix + '_summary_new_bal');
+        const paidInput = document.getElementById('amount_paid');
+
+        if (!summaryDiv) return;
+
+        // Display Current Stats
+        billSpan.innerText = 'Rs. ' + totalBill.toLocaleString();
+        
+        // Balance display (Negative = Surplus, Positive = Debt)
+        if (bal < 0) {
+            balSpan.innerText = 'Surplus: Rs. ' + Math.abs(bal).toLocaleString();
+            balSpan.className = 'font-bold text-green-600';
+        } else if (bal > 0) {
+            balSpan.innerText = 'Debt: Rs. ' + bal.toLocaleString();
+            balSpan.className = 'font-bold text-red-600';
+        } else {
+            balSpan.innerText = 'Rs. 0';
+            balSpan.className = 'font-bold text-gray-800';
+        }
+
+        // Logic for suggesting paid amount and showing next balance
+        let suggestedPaid = totalBill;
+        let nextBal = bal + totalBill; // DB logic: Debt increases, Surplus decreases
+
+        if (bal < 0) { // Surplus case
+            if (Math.abs(bal) >= totalBill) {
+                suggestedPaid = 0;
+                // Next balance will still be surplus
+            } else {
+                suggestedPaid = totalBill - Math.abs(bal);
+            }
+        }
+        
+        // Update "Amount Paid" if it's currently 0 or matches previous suggestion (Auto-fill)
+        // We only auto-fill if the user hasn't manually changed it significantly
+        if(paidInput) paidInput.value = suggestedPaid;
+
+        // Final balance view
+        const finalBal = nextBal - suggestedPaid;
+        if (finalBal < 0) {
+            nextBalSpan.innerText = 'Surplus: Rs. ' + Math.abs(finalBal).toLocaleString();
+            nextBalSpan.className = 'font-black text-green-700';
+        } else if (finalBal > 0) {
+            nextBalSpan.innerText = 'Debt: Rs. ' + finalBal.toLocaleString();
+            nextBalSpan.className = 'font-black text-red-700';
+        } else {
+            nextBalSpan.innerText = 'Zero Balance';
+            nextBalSpan.className = 'font-black text-teal-700';
+        }
+        
+        return suggestedPaid;
+    }
+
     function calculateTotal() {
         const qty = parseFloat(document.getElementById('restock_qty').value) || 0;
         const buyPrice = parseFloat(document.getElementById('restock_buy_price').value) || 0;
@@ -736,27 +812,18 @@ if (!empty($auto_open_id)) {
         const totalAmount = qty * buyPrice;
         const totalDisplay = document.getElementById('total_bill_display');
         const settlementInput = document.getElementById('amount_paid');
-        const surplusMsgPanel = document.getElementById('restock_dealer_surplus_msg');
-        const surplusDisplay = document.getElementById('surplus_amount');
         
         let finalRequired = totalAmount;
         let surplusUsed = 0;
 
-        // Surplus Logic (Negative balance means credit is available)
-        if (currentDealerBalance < 0) {
-            const availableSurplus = Math.abs(currentDealerBalance);
-            surplusMsgPanel.classList.remove('hidden');
-            surplusDisplay.innerText = 'Rs. ' + availableSurplus.toLocaleString();
-            
-            if (availableSurplus >= totalAmount) {
-                surplusUsed = totalAmount;
-                finalRequired = 0;
-            } else {
-                surplusUsed = availableSurplus;
-                finalRequired = totalAmount - availableSurplus;
+        const dealerId = document.getElementById('dealerSelect').value;
+        if (dealerId !== 'OPEN_MARKET' && dealerId !== 'ADD_NEW') {
+            finalRequired = updateCalculationSummary('restock', totalAmount);
+            if (currentDealerBalance < 0) {
+                surplusUsed = Math.min(Math.abs(currentDealerBalance), totalAmount);
             }
         } else {
-            surplusMsgPanel.classList.add('hidden');
+            if (settlementInput) settlementInput.value = totalAmount;
         }
 
         // Update UI
@@ -768,11 +835,6 @@ if (!empty($auto_open_id)) {
             } else {
                 totalDisplay.classList.remove('text-yellow-300');
             }
-        }
-
-        // Auto-populate settlement (User can still change it but default to full)
-        if (settlementInput) {
-            settlementInput.value = Math.round(finalRequired);
         }
     }
 

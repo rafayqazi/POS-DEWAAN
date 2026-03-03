@@ -39,7 +39,7 @@ $today = date('Y-m-d');
 $next_30_days = date('Y-m-d', strtotime('+30 days'));
 
 // Current date for default filters
-$default_from = date('Y-m-01');
+$default_from = date('Y-m-d', strtotime('-30 days'));
 $default_to = date('Y-m-d');
 ?>
 
@@ -52,7 +52,8 @@ $default_to = date('Y-m-d');
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
                 <option value="week">Last 7 Days</option>
-                <option value="month" selected>This Month</option>
+                <option value="30_days" selected>Last 30 Days</option>
+                <option value="month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="year">This Year</option>
             </select>
@@ -422,6 +423,8 @@ function setQuickRange() {
         toDate.setDate(toDate.getDate() - 1);
     } else if (range === 'week') {
         fromDate.setDate(fromDate.getDate() - 7);
+    } else if (range === '30_days') {
+        fromDate.setDate(fromDate.getDate() - 30);
     } else if (range === 'month') {
         fromDate.setDate(1);
     } else if (range === 'last_month') {
@@ -441,8 +444,8 @@ function setQuickRange() {
 }
 
 function resetFilters() {
-    document.getElementById('invQuickRange').value = 'month';
-    document.getElementById('invDateFrom').value = "<?= date('Y-m-01') ?>";
+    document.getElementById('invQuickRange').value = '30_days';
+    document.getElementById('invDateFrom').value = "<?= date('Y-m-d', strtotime('-30 days')) ?>";
     document.getElementById('invDateTo').value = "<?= date('Y-m-d') ?>";
     document.getElementById('invCategory').value = '';
     document.getElementById('invSearch').value = '';
