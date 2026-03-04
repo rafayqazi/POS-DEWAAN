@@ -607,11 +607,48 @@ usort($ledger, function($a, $b) {
         if (t.type === 'Sale' && t.sale_id) {
             const items = saleItemsMap[t.sale_id] || [];
             if (items.length > 0) {
+                if (isPrint) {
+                        const rows = items.map(item => {
+                            const p = productsMap[item.product_id];
+                            const pName = p ? p.name : 'Unknown Product';
+                            let qtyDisplay = item.quantity;
+                            if(p && p.unit) {
+                                const chain = getUnitHierarchyJS(p.unit);
+                                if(chain.length > 1) {
+                                    const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
+                                    qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
+                                } else {
+                                    qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
+                                }
+                            } else {
+                                qtyDisplay = `x ${item.quantity}`;
+                            }
+                            const qtyPlain = qtyDisplay.toString().replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                            const price = parseFloat(item.price_per_unit) || 0;
+                            const priceStr = price > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(price) : '-';
+                            const total = parseFloat(item.total_price) || 0;
+                            const totalStr = total > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(total) : '-';
+                            return `<tr>`
+                                + `<td style="padding:4px 8px 4px 0;font-size:10.5px;font-weight:600;color:#111;border-bottom:1px solid #f0f0f0;line-height:1.2;">${pName}</td>`
+                                + `<td style="padding:4px 8px;font-size:10.5px;color:#444;border-bottom:1px solid #f0f0f0;text-align:center;white-space:nowrap;width:1%;">${qtyPlain}</td>`
+                                + `<td style="padding:4px 8px;font-size:10.5px;color:#0d9488;font-weight:700;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;width:1%;">${priceStr}</td>`
+                                + `<td style="padding:4px 0 4px 8px;font-size:10.5px;color:#7c3aed;font-weight:700;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;width:1%;">${totalStr}</td>`
+                                + `</tr>`;
+                        }).join('');
+                        const headerStyle = "padding:3px 8px 4px 0;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #ddd;";
+                        return `<table style="width:100%;border-collapse:collapse;">`
+                            + `<thead><tr>`
+                            + `<th style="${headerStyle}padding-right:8px;text-align:left;">Name</th>`
+                            + `<th style="${headerStyle}text-align:center;width:55px;">QTY</th>`
+                            + `<th style="${headerStyle}text-align:right;padding-left:8px;width:60px;">Price</th>`
+                            + `<th style="${headerStyle}text-align:right;padding-left:8px;padding-right:0;width:70px;">Total</th>`
+                            + `</tr></thead>`
+                            + `<tbody>${rows}</tbody>`
+                            + `</table>`;
+                }
                 return items.map(item => {
                     const p = productsMap[item.product_id];
                     const pName = p ? p.name : 'Unknown Product';
-                    
-                    // Hierarchical Display logic
                     let qtyDisplay = item.quantity;
                     if(p && p.unit) {
                         const chain = getUnitHierarchyJS(p.unit);
@@ -624,13 +661,11 @@ usort($ledger, function($a, $b) {
                     } else {
                         qtyDisplay = `x ${item.quantity}`;
                     }
-
-                    if (isPrint) return `${pName} (${qtyDisplay})`;
                     return `<div class="flex flex-col text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0">
                                 <span class="font-bold text-gray-800 leading-tight">${pName}</span>
                                 <div class="mt-1">${qtyDisplay}</div>
                             </div>`;
-                }).join(isPrint ? ', ' : '');
+                }).join('');
             }
             return t.description;
         } else if (t.type === 'Return' && t.return_id) {
@@ -638,14 +673,17 @@ usort($ledger, function($a, $b) {
             if (items.length > 0) {
                 const itemsHtml = items.map(item => {
                     const pName = productsMap[item.product_id] || 'Unknown Product';
-                    if (isPrint) return `${pName} x ${item.quantity}`;
+                    if (isPrint) return `<div style="margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #ebebeb;">`
+                        + `<div style="font-weight:700;font-size:11px;color:#111;">${pName}</div>`
+                        + `<div style="font-size:10px;color:#d97706;margin-top:2px;">x ${item.quantity}</div>`
+                        + `</div>`;
                     return `<div class="flex items-start justify-between gap-2 text-[10px] mb-1 pl-2 border-l-2 border-purple-200">
                                 <span class="font-medium text-gray-600 flex-1">${pName}</span>
                                 <span class="text-orange-600 font-black">x ${item.quantity}</span>
                             </div>`;
-                }).join(isPrint ? ', ' : '');
+                }).join('');
                 
-                if (isPrint) return `${t.description} (${itemsHtml})`;
+                if (isPrint) return `<div style="font-weight:700;font-size:11px;color:#7c3aed;margin-bottom:4px;">${t.description}</div>${itemsHtml}`;
                 return `<div class="text-[11px] font-bold text-purple-600 mb-1 leading-tight">${t.description}</div>${itemsHtml}`;
             }
             return t.description;
@@ -708,7 +746,7 @@ usort($ledger, function($a, $b) {
                 html += `<tr>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${displayDate}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${getProductsHtml(t, true)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600; text-align: left; max-width: 450px;">${getProductsHtml(t, true)}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #e11d48;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #d97706;">${parseFloat(t.discount) > 0 ? formatCurrency(parseFloat(t.discount)) : '-'}</td>
