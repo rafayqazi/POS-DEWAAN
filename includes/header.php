@@ -53,6 +53,12 @@
             animation: swing 2s ease infinite;
             transform-origin: top center;
         }
+        /* Fancy Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #0f766e; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #134e4a; }
+        * { scrollbar-width: thin; scrollbar-color: #0f766e #f1f5f9; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
@@ -76,15 +82,15 @@
         <!-- Sidebar -->
         <!-- Added mobile responsive classes: fixed on mobile, translate-x-full to hide, md:relative to show -->
         <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-white shadow-2xl flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative border-r border-teal-800/50" id="sidebar">
-            <div class="p-4 flex items-center justify-between border-b border-teal-800 min-h-[6rem] bg-teal-900/20">
-                <div class="flex items-center gap-3 sidebar-text">
+            <div class="p-4 flex items-center justify-between border-b border-teal-800 min-h-[5rem] bg-teal-900/20">
+                <div class="flex items-center gap-3 sidebar-text overflow-hidden">
                     <?php $business_logo = getSetting('business_favicon', 'assets/img/logo.png'); ?>
-                    <div class="w-10 h-10 rounded-lg p-1 flex-shrink-0">
+                    <div class="w-12 h-12 rounded-xl p-1.5 flex-shrink-0 bg-white/10 border border-white/5">
                         <img src="<?= $base . $business_logo . '?v=' . time() ?>" alt="Logo" class="w-full h-full object-contain">
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-accent logo-text leading-tight"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
-                        <p class="text-[9px] text-teal-400 font-medium uppercase tracking-[0.1em]">Management System</p>
+                    <div class="min-w-0 flex-1 truncate">
+                        <h1 class="text-lg font-black tracking-tight text-accent logo-text leading-none transition-all duration-300"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
+                        <p class="text-[8px] text-teal-400 font-bold uppercase tracking-[0.1em] mt-1 opacity-70">Management System</p>
                     </div>
                 </div>
                 <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-teal-800 transition-all text-teal-400 hover:text-white outline-none ring-1 ring-teal-800 hover:ring-teal-600 flex-shrink-0 ml-2">

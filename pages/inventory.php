@@ -36,9 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         else {
             $dealer_id = cleanInput($_POST['dealer_id'] ?? '');
             if ($dealer_id === 'ADD_NEW') {
-                $new_dealer_name = cleanInput($_POST['new_dealer_name']);
-                $did = insertCSV('dealers', ['name' => $new_dealer_name, 'created_at' => date('Y-m-d H:i:s')]);
-                if($did) $dealer_id = $did;
+                $new_dealer_name = cleanInput($_POST['new_dealer_name'] ?? '');
+                if (!empty($new_dealer_name)) {
+                    $did = insertCSV('dealers', ['name' => $new_dealer_name, 'created_at' => date('Y-m-d H:i:s')]);
+                    if($did) $dealer_id = $did;
+                } else {
+                    $dealer_id = 'OPEN_MARKET'; // Fallback
+                }
             }
             $amount_paid = (float)cleanInput($_POST['amount_paid'] ?? 0);
             $unit_id = cleanInput($_POST['unit']);
@@ -47,15 +51,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             $multiplier = getBaseMultiplier($unit_id, ['unit' => $unit_id, 'factor_level2' => $f2, 'factor_level3' => $f3]);
             $base_qty = $qty * $multiplier;
 
+            $cat_input = cleanInput($_POST['category']);
+            if ($cat_input === 'ADD_NEW') {
+                $new_cat_name = cleanInput($_POST['new_category_name'] ?? '');
+                if (!empty($new_cat_name)) {
+                    $cid = insertCSV('categories', ['name' => $new_cat_name]);
+                    if ($cid) $cat_input = $new_cat_name;
+                } else {
+                    $cat_input = 'General';
+                }
+            }
+            
+            $unit_input = cleanInput($_POST['unit']);
+            if ($unit_input === 'ADD_NEW') {
+                $new_unit_name = cleanInput($_POST['new_unit_name'] ?? '');
+                if (!empty($new_unit_name)) {
+                    $uid = insertCSV('units', ['name' => $new_unit_name, 'parent_id' => 0]);
+                    if ($uid) $unit_input = $new_unit_name;
+                } else {
+                    $unit_input = 'Units';
+                }
+            }
+
             $data = [
                 'name' => cleanInput($_POST['name']),
-                'category' => cleanInput($_POST['category']),
+                'category' => $cat_input,
                 'description' => cleanInput($_POST['description'] ?? ''),
                 'buy_price' => $price_buy,
                 'avg_buy_price' => $price_buy / $multiplier, // Normalized base AVCO
                 'sell_price' => $price_sell,
                 'stock_quantity' => $base_qty,
-                'unit' => $unit_id,
+                'unit' => $unit_input,
                 'factor_level2' => $f2,
                 'factor_level3' => $f3,
                 'expiry_date' => cleanInput($_POST['expiry_date'] ?? ''),
@@ -102,9 +128,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         $f2 = (float)$_POST['factor_level2'] ?? 1; $f3 = (float)$_POST['factor_level3'] ?? 1;
         $multiplier = getBaseMultiplier($unit, ['unit'=>$unit, 'factor_level2'=>$f2, 'factor_level3'=>$f3]);
         $base_qty = $qty * $multiplier;
+        $cat_input = $_POST['category'];
+        if ($cat_input === 'ADD_NEW') {
+            $new_cat_name = cleanInput($_POST['new_category_name'] ?? '');
+            if (!empty($new_cat_name)) {
+                $cid = insertCSV('categories', ['name' => $new_cat_name]);
+                if ($cid) $cat_input = $new_cat_name;
+            } else {
+                $cat_input = 'General';
+            }
+        }
+        
+        $unit_input = $_POST['unit'];
+        if ($unit_input === 'ADD_NEW') {
+            $new_unit_name = cleanInput($_POST['new_unit_name'] ?? '');
+            if (!empty($new_unit_name)) {
+                $uid = insertCSV('units', ['name' => $new_unit_name, 'parent_id' => 0]);
+                if ($uid) $unit_input = $new_unit_name;
+            } else {
+                $unit_input = 'Units';
+            }
+        }
+
         $success = updateCSV('products', $id, [
-            'name'=>$_POST['name'], 'category'=>$_POST['category'], 'description'=>$_POST['description'], 'buy_price'=>(float)$_POST['buy_price'],
-            'sell_price'=>(float)$_POST['sell_price'], 'stock_quantity'=>$base_qty, 'unit'=>$unit,
+            'name'=>$_POST['name'], 'category'=>$cat_input, 'description'=>$_POST['description'], 'buy_price'=>(float)$_POST['buy_price'],
+            'sell_price'=>(float)$_POST['sell_price'], 'stock_quantity'=>$base_qty, 'unit'=>$unit_input,
             'factor_level2'=>$f2, 'factor_level3'=>$f3, 'expiry_date'=>$_POST['expiry_date'] ?? '', 'remarks'=>$_POST['remarks'] ?? ''
         ]);
         if ($isAjax) { header('Content-Type: application/json'); echo json_encode(['status'=>$success?'success':'error', 'message'=>$success?"Updated!":"Failed!"]); exit; }
@@ -322,15 +370,21 @@ include '../includes/header.php';
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <select name="category" id="add_category" class="p-3 bg-gray-50 border rounded-xl" onchange="checkRedirect(this)">
-                        <?php foreach($categories as $c) echo "<option value='{$c['name']}'>{$c['name']}</option>"; ?>
-                        <option value="ADD_NEW">+ New Category</option>
-                    </select>
-                    <select name="unit" id="add_unit_select" class="p-3 bg-gray-50 border rounded-xl" onchange="updateFactorUI('add'); checkRedirect(this)">
-                        <option value="">Select Unit</option>
-                        <?php foreach($units as $u) if($u['parent_id']==0) echo "<option value='{$u['name']}'>{$u['name']}</option>"; ?>
-                        <option value="ADD_NEW">+ New Unit</option>
-                    </select>
+                    <div>
+                        <select name="category" id="add_category" class="w-full p-3 bg-gray-50 border rounded-xl" onchange="checkRedirect(this)">
+                            <?php foreach($categories as $c) echo "<option value='{$c['name']}'>{$c['name']}</option>"; ?>
+                            <option value="ADD_NEW">+ New Category</option>
+                        </select>
+                        <input type="text" name="new_category_name" id="new_category_input" class="hidden w-full mt-2 p-3 bg-white border border-teal-300 rounded-xl font-bold" placeholder="New Category Name">
+                    </div>
+                    <div>
+                        <select name="unit" id="add_unit_select" class="w-full p-3 bg-gray-50 border rounded-xl" onchange="updateFactorUI('add'); checkRedirect(this)">
+                            <option value="">Select Unit</option>
+                            <?php foreach($units as $u) if($u['parent_id']==0) echo "<option value='{$u['name']}'>{$u['name']}</option>"; ?>
+                            <option value="ADD_NEW">+ New Unit</option>
+                        </select>
+                        <input type="text" name="new_unit_name" id="new_unit_input" class="hidden w-full mt-2 p-3 bg-white border border-teal-300 rounded-xl font-bold" placeholder="New Unit Name">
+                    </div>
                 </div>
                 <div id="add_factors_container" class="hidden p-4 bg-teal-50 rounded-2xl border border-teal-100 space-y-4"></div>
                 <input type="hidden" name="factor_level2" id="add_f2" value="1"><input type="hidden" name="factor_level3" id="add_f3" value="1">
@@ -362,7 +416,7 @@ include '../includes/header.php';
                 <div id="add_dealer_section" class="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
                     <div>
                         <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Select Dealer</label>
-                        <select name="dealer_id" id="add_dealer" class="w-full p-3 bg-white border rounded-xl transition focus:ring-2 focus:ring-teal-500" onchange="fetchDealerData(this.value, 'add')">
+                        <select name="dealer_id" id="add_dealer" class="w-full p-3 bg-white border rounded-xl transition focus:ring-2 focus:ring-teal-500" onchange="fetchDealerData(this.value, 'add'); checkRedirect(this)">
                             <option value="OPEN_MARKET">Open Market</option>
                             <?php $dealers = readCSV('dealers'); foreach($dealers as $d) echo "<option value='{$d['id']}'>{$d['name']}</option>"; ?>
                             <option value="ADD_NEW">+ New Dealer</option>
@@ -703,6 +757,18 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const action = document.getElementById('addProductAction').value;
         try {
+            if ((document.getElementById('add_category').value === 'ADD_NEW' && !document.getElementById('new_category_input').value.trim())) {
+                showAlert('Please enter a new category name.', 'Input Required');
+                return;
+            }
+            if ((document.getElementById('add_unit_select').value === 'ADD_NEW' && !document.getElementById('new_unit_input').value.trim())) {
+                showAlert('Please enter a new unit name.', 'Input Required');
+                return;
+            }
+            if ((document.getElementById('add_dealer').value === 'ADD_NEW' && !document.getElementById('new_dealer_input').value.trim())) {
+                showAlert('Please enter a new dealer name.', 'Input Required');
+                return;
+            }
             let r = await fetch('', {method:'POST', body:new FormData(addForm), headers:{'X-Requested-With':'XMLHttpRequest'}});
             let res = await r.json();
             showAlert(res.message, action === 'edit' ? 'Updated' : 'Success');
@@ -725,7 +791,27 @@ document.addEventListener('DOMContentLoaded', () => {
 function openCatalogPreview() { document.getElementById('catalogPreviewBody').innerHTML = document.getElementById('catalogPrintableArea').innerHTML; openModal('catalogPreviewModal'); }
 function printCatalog() { let w=window.open('','_blank'); w.document.write('<html><body>'+document.getElementById('catalogPreviewBody').innerHTML+'</body></html>'); w.document.close(); w.print(); }
 function printReport() { let w=window.open('','_blank'); w.document.write('<html><body>'+document.getElementById('printableArea').innerHTML+'</body></html>'); w.document.close(); w.print(); }
-function checkRedirect(s) { if(s.value==='ADD_NEW') location.href = s.name==='unit'?'units.php':'categories.php'; }
+function checkRedirect(s) { 
+    if(s.value==='ADD_NEW') { 
+        if(s.name === 'category') {
+            document.getElementById('new_category_input').classList.remove('hidden');
+            document.getElementById('new_category_input').focus();
+        } else if(s.name === 'unit') {
+            document.getElementById('new_unit_input').classList.remove('hidden');
+            document.getElementById('new_unit_input').focus();
+            document.getElementById('add_factors_container').classList.add('hidden');
+        } else if(s.name === 'dealer_id') {
+             document.getElementById('new_dealer_input').classList.remove('hidden');
+             document.getElementById('new_dealer_input').focus();
+        }
+        return true; 
+    } else {
+        if(s.name === 'category') document.getElementById('new_category_input').classList.add('hidden');
+        else if(s.name === 'unit') document.getElementById('new_unit_input').classList.add('hidden');
+        else if(s.name === 'dealer_id') document.getElementById('new_dealer_input').classList.add('hidden');
+    }
+    return false; 
+}
 </script>
 
 <div id="printableArea" class="hidden"><div style="padding:40px; font-family:sans-serif;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0d9488; padding-bottom:15px; margin-bottom:20px;"><div><h1 style="color:#0d9488; margin:0;"><?= getSetting('business_name') ?></h1><p style="margin:5px 0 0; color:#666;">Inventory Stock Report</p></div><div style="text-align:right;"><p style="margin:0; font-weight:bold;"><?= date('d M Y') ?></p></div></div><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#0d9488; color:#fff;"> <th style="padding:12px; border:1px solid #ddd; text-align:left;">S.No</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Product Name</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Category</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Stock</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Remarks</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Expiry</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Buy Price</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Total Value</th> </tr></thead><tbody><?php $total_val = 0; $sn=1; foreach($products as $p): $val = (float)$p['buy_price'] * (float)$p['stock_quantity']; $total_val += $val; ?> <tr><td style="padding:10px; border:1px solid #ddd;"><?= $sn++ ?></td><td style="padding:10px; border:1px solid #ddd; font-weight:bold;"><?= $p['name'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= $p['category'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= formatStockHierarchy($p['stock_quantity'], $p) ?></td><td style="padding:10px; border:1px solid #ddd; font-size:10px;"><?= $p['remarks'] ?: '-' ?></td><td style="padding:10px; border:1px solid #ddd; color:<?= (strtotime($p['expiry_date']) < time()) ? 'red' : 'black' ?>;"><?= !empty($p['expiry_date']) ? date('d-m-y', strtotime($p['expiry_date'])) : '-' ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($p['buy_price']) ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($val) ?></td></tr><?php endforeach; ?></tbody><tfoot><tr style="background:#f0fdfa; font-weight:bold;"><td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">Grand Total:</td><td style="padding:12px; border:1px solid #ddd; text-align:right; color:#0d9488;"><?= formatCurrency($total_val) ?></td></tr></tfoot></table></div></div>

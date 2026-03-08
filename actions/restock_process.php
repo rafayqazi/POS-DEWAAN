@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($found_index === -1) return false; // Product not found
         
         $product = $all_products[$found_index];
-        $restock_unit = !empty($selected_unit) ? $selected_unit : $product['unit'];
+        $restock_unit = (!empty($selected_unit) && $selected_unit !== 'ADD_NEW') ? $selected_unit : $product['unit'];
         $multiplier = getBaseMultiplier($restock_unit, $product); 
         $add_quantity_base = $add_quantity * $multiplier;
         $price_per_base = $new_buy_price / $multiplier;

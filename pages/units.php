@@ -59,9 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 $units = readCSV('units');
+$products = readCSV('products');
+$unitCounts = [];
+foreach ($products as $p) {
+    $u = $p['unit'] ?? '';
+    if ($u) {
+        $unitCounts[$u] = ($unitCounts[$u] ?? 0) + 1;
+    }
+}
 $unitTree = buildUnitTree($units);
 
-function renderUnitList($tree, $level = 0) {
+function renderUnitList($tree, $level = 0, $counts = []) {
     if (empty($tree) && $level == 0) return '<ul class="nested-sortable min-h-[50px]" data-parent-id="0"></ul>';
     if (empty($tree)) return '';
     
@@ -78,6 +86,9 @@ function renderUnitList($tree, $level = 0) {
                     </div>
                     <div>
                         <span class="font-bold text-gray-700">' . htmlspecialchars($unit['name']) . '</span>
+                        <span class="text-[9px] ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded-md font-bold uppercase transition group-hover:bg-teal-100 group-hover:text-teal-600">
+                            ' . ($counts[$unit['name']] ?? 0) . ' Products
+                        </span>
                     </div>
                 </div>
                 <div class="flex space-x-1">
@@ -91,7 +102,7 @@ function renderUnitList($tree, $level = 0) {
             </div>';
             
         // Always render a ul inside to allow children to be dropped in
-        $html .= renderUnitList($unit['children'], $level + 1);
+        $html .= renderUnitList($unit['children'], $level + 1, $counts);
         
         if (!empty($unit['children']) || $level < 3) { // Limit depth if desired, but keep it flexible
              // Recursion handles the sub-ul
@@ -187,7 +198,7 @@ function renderUnitList($tree, $level = 0) {
                 <div class="p-6 bg-gray-50/30">
                     <div id="mainUnitSortable" class="nested-sortable">
                         <?php if (count($units) > 0): ?>
-                            <?= renderUnitList($unitTree) ?>
+                            <?= renderUnitList($unitTree, 0, $unitCounts) ?>
                         <?php else: ?>
                             <div class="p-12 text-center text-gray-300">
                                 <i class="fas fa-balance-scale text-5xl mb-4 opacity-20"></i>
