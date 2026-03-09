@@ -56,8 +56,40 @@ include '../includes/header.php';
                             }
                         }
                     ?>
-                    <h2 class="font-black text-gray-800 text-xl tracking-tight"><?= htmlspecialchars($c_name) ?></h2>
-                    <p class="text-[10px] font-bold text-teal-600 uppercase tracking-widest mt-0.5">Sale #<?= $sale_id ?> • Modify Bill</p>
+                    <div class="relative group/title" id="customerDropdownContainer">
+                        <button type="button" onclick="toggleCustomerDropdown()" class="flex items-center gap-2 hover:bg-gray-100/50 p-1 -ml-1 rounded-lg transition-all group">
+                            <h2 id="header_customer_name" class="font-black text-gray-800 text-xl tracking-tight group-hover:text-teal-600"><?= htmlspecialchars($c_name) ?></h2>
+                            <i class="fas fa-edit text-[10px] text-gray-300 group-hover:text-teal-400"></i>
+                        </button>
+                        <p class="text-[10px] font-bold text-teal-600 uppercase tracking-widest mt-0.5">Sale #<?= $sale_id ?> • Modify Bill</p>
+                        
+                        <!-- Dropdown Panel -->
+                        <div id="customerDropdownPanel" class="hidden absolute left-0 top-full mt-2 z-[100] w-72 bg-white border border-gray-100 rounded-[1.5rem] shadow-2xl overflow-hidden glass animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div class="p-4 border-b border-gray-50 bg-gray-50/50">
+                                <div class="relative">
+                                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="text" id="customerSearchInput" oninput="filterCustomers(this.value)" placeholder="Search customer..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all shadow-sm">
+                                </div>
+                            </div>
+                            <div class="max-h-64 overflow-y-auto custom-scrollbar p-2" id="customerList">
+                                <div onclick="selectCustomer('', 'Walk-in Customer')" class="p-3 text-xs font-bold text-gray-400 hover:bg-teal-50 hover:text-teal-600 cursor-pointer rounded-xl transition-all flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-[10px] text-gray-400">WC</div>
+                                    Walk-in Customer
+                                </div>
+                                <?php foreach($customers as $c): ?>
+                                    <div onclick="selectCustomer('<?= $c['id'] ?>', '<?= htmlspecialchars($c['name']) ?>')" class="customer-item p-3 text-xs font-bold text-gray-600 hover:bg-teal-50 hover:text-teal-600 cursor-pointer rounded-xl transition-all flex items-center gap-3" data-name="<?= strtolower(htmlspecialchars($c['name'])) ?>">
+                                        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center text-[10px] text-teal-600">
+                                            <?= strtoupper(substr($c['name'], 0, 2)) ?>
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span><?= htmlspecialchars($c['name']) ?></span>
+                                            <span class="text-[9px] text-gray-400 font-medium"><?= htmlspecialchars($c['phone'] ?? 'No Phone') ?></span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">Active Edit</div>
             </div>
@@ -116,6 +148,7 @@ include '../includes/header.php';
         <div class="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 glass">
             <form id="updateSaleForm" action="../actions/update_sale.php" method="POST">
                 <input type="hidden" name="sale_id" value="<?= $sale_id ?>">
+                <input type="hidden" name="customer_id" id="customer_id" value="<?= $sale['customer_id'] ?? '' ?>">
                 <input type="hidden" name="cart_data" id="cart_data">
                 <input type="hidden" name="total_amount" id="total_amount_input">
                 
@@ -189,6 +222,41 @@ include '../includes/header.php';
 const products = <?= json_encode($products) ?>;
 const customers = <?= json_encode($customers) ?>;
 const availableUnits = <?= json_encode($units) ?>;
+
+function toggleCustomerDropdown() {
+    const p = document.getElementById('customerDropdownPanel');
+    p.classList.toggle('hidden');
+    if (!p.classList.contains('hidden')) {
+        document.getElementById('customerSearchInput').focus();
+    }
+}
+
+function filterCustomers(query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll('.customer-item').forEach(item => {
+        const name = item.dataset.name;
+        item.style.display = name.includes(q) ? 'flex' : 'none';
+    });
+}
+
+function selectCustomer(id, name) {
+    document.getElementById('customer_id').value = id;
+    document.getElementById('header_customer_name').innerText = name;
+    document.getElementById('customerDropdownPanel').classList.add('hidden');
+    
+    // UI Feedback
+    const btn = document.querySelector('#customerDropdownContainer button h2');
+    btn.classList.add('text-teal-600');
+    setTimeout(() => btn.classList.remove('text-teal-600'), 1000);
+}
+
+// Close dropdown on click outside
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('customerDropdownContainer');
+    if (container && !container.contains(e.target)) {
+        document.getElementById('customerDropdownPanel').classList.add('hidden');
+    }
+});
 
 function getUnitHierarchyJS(unitName) {
     if (!unitName) return [];

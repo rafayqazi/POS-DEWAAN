@@ -33,7 +33,7 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
                 <i class="fas fa-wallet text-2xl"></i>
             </div>
             <p class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-1 z-10">Total Expenses</p>
-            <h3 class="text-4xl font-black text-gray-800 tracking-tighter z-10"><?= formatCurrency($total_expenses) ?></h3>
+            <h3 id="stat_total_expenses" class="text-4xl font-black text-gray-800 tracking-tighter z-10"><?= formatCurrency($total_expenses) ?></h3>
             <div class="mt-4 flex items-center gap-2 text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full z-10">
                 <i class="fas fa-arrow-down"></i> Cash Outflow
             </div>
@@ -79,15 +79,48 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
 <?php endif; ?>
 
 <div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden glass">
-    <div class="p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center bg-gray-50/50 gap-4">
-        <h3 class="font-bold text-gray-800 flex items-center">
-            <i class="fas fa-list text-teal-500 mr-2"></i> Expense History
-        </h3>
-        <div class="relative w-full md:w-64">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                <i class="fas fa-search text-xs"></i>
-            </span>
-            <input type="text" id="expenseSearch" oninput="renderExpenses()" placeholder="Search expenses..." class="w-full pl-9 pr-4 py-2 rounded-xl border-gray-200 border focus:ring-2 focus:ring-primary focus:outline-none transition text-sm">
+    <div class="p-6 border-b border-gray-50 flex flex-col gap-6 bg-gray-50/50">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <h3 class="font-bold text-gray-800 flex items-center">
+                <i class="fas fa-list text-teal-500 mr-2"></i> Expense History
+            </h3>
+            <div class="flex items-center gap-3">
+                <button onclick="printReport()" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/10 flex items-center gap-2">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </button>
+                <div class="relative w-full md:w-64">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <i class="fas fa-search text-xs"></i>
+                    </span>
+                    <input type="text" id="expenseSearch" oninput="renderExpenses()" placeholder="Search title..." class="w-full pl-9 pr-4 py-2.5 rounded-xl border-gray-200 border focus:ring-2 focus:ring-primary focus:outline-none transition text-xs font-bold">
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters Row -->
+        <div class="flex flex-wrap items-center gap-4 py-4 border-t border-gray-100">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
+                <select id="filterCategory" onchange="renderExpenses()" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none min-w-[160px]">
+                    <option value="">All Categories</option>
+                    <?php foreach($categories as $cat): ?>
+                        <option value="<?= $cat ?>"><?= $cat ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">From Date</label>
+                <input type="date" id="filterFrom" onchange="renderExpenses()" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none h-[42px]">
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">To Date</label>
+                <input type="date" id="filterTo" onchange="renderExpenses()" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none h-[42px]">
+            </div>
+            <div class="flex flex-col gap-1.5 self-end">
+                <button onclick="resetFilters()" class="px-6 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-xs font-black hover:bg-gray-200 transition-all uppercase tracking-widest h-[42px]">
+                    Reset
+                </button>
+            </div>
         </div>
     </div>
     <div class="overflow-x-auto">
@@ -179,12 +212,29 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
 
     function renderExpenses() {
         const term = document.getElementById('expenseSearch').value.toLowerCase();
+        const catFilter = document.getElementById('filterCategory').value;
+        const fromDate = document.getElementById('filterFrom').value;
+        const toDate = document.getElementById('filterTo').value;
         
         let filtered = allExpenses.filter(e => {
-            return e.title.toLowerCase().includes(term) || 
-                   e.category.toLowerCase().includes(term) || 
-                   (e.description || '').toLowerCase().includes(term);
+            const matchesSearch = e.title.toLowerCase().includes(term) || 
+                                 e.category.toLowerCase().includes(term) || 
+                                 (e.description || '').toLowerCase().includes(term);
+            const matchesCategory = !catFilter || e.category === catFilter;
+            
+            const eDate = e.date.substring(0, 10);
+            const matchesFrom = !fromDate || eDate >= fromDate;
+            const matchesTo = !toDate || eDate <= toDate;
+
+            return matchesSearch && matchesCategory && matchesFrom && matchesTo;
         });
+
+        // Update Total Widget
+        const currentTotal = filtered.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
+        document.getElementById('stat_total_expenses').innerText = formatCurrencyJS(currentTotal);
+
+        // Update Chart
+        updateChart(filtered);
 
         const totalItems = filtered.length;
         const paginated = Pagination.paginate(filtered, currentPage_Expense, pageSize_Expense);
@@ -317,16 +367,32 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
     }
 
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+
+    let expenseChartInstance = null;
+
+    function updateChart(dataList) {
+        const catData = {};
+        dataList.forEach(e => {
+            if (!catData[e.category]) catData[e.category] = 0;
+            catData[e.category] += parseFloat(e.amount);
+        });
+
+        const labels = Object.keys(catData);
+        const dataValues = Object.values(catData);
+
+        if (!expenseChartInstance) {
+            initCategoryChart(labels, dataValues);
+        } else {
+            expenseChartInstance.data.labels = labels;
+            expenseChartInstance.data.datasets[0].data = dataValues;
+            expenseChartInstance.update();
+        }
+    }
     
     // Chart.js Logic
-    function initCategoryChart() {
-        const catData = <?= json_encode($cat_data) ?>;
-        const labels = Object.keys(catData);
-        const data = Object.values(catData);
-
-        if (labels.length === 0) return;
-
+    function initCategoryChart(initialLabels = [], initialData = []) {
         const ctx = document.getElementById('categoryChart').getContext('2d');
+        if (!ctx) return;
         const colors = [
             '#0f766e', // Teal
             '#f59e0b', // Amber
@@ -339,12 +405,12 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
             '#f97316'  // Orange
         ];
 
-        new Chart(ctx, {
+        expenseChartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: labels,
+                labels: initialLabels,
                 datasets: [{
-                    data: data,
+                    data: initialData,
                     backgroundColor: colors,
                     hoverBackgroundColor: colors.map(c => c + 'dd'),
                     borderWidth: 8,
@@ -425,9 +491,29 @@ $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellane
         });
     }
 
+    function resetFilters() {
+        document.getElementById('expenseSearch').value = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterFrom').value = '';
+        document.getElementById('filterTo').value = '';
+        renderExpenses();
+    }
+
+    function printReport() {
+        const cat = document.getElementById('filterCategory').value;
+        const from = document.getElementById('filterFrom').value;
+        const to = document.getElementById('filterTo').value;
+        
+        let url = `print_expenses.php?_t=${Date.now()}`;
+        if (cat) url += `&category=${encodeURIComponent(cat)}`;
+        if (from) url += `&from=${from}`;
+        if (to) url += `&to=${to}`;
+        
+        window.open(url, '_blank');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         renderExpenses();
-        initCategoryChart();
     });
 </script>
 

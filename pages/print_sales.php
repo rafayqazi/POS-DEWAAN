@@ -7,10 +7,22 @@ requireLogin();
 // Manual Join
 $sales = readCSV('sales');
 $customers = readCSV('customers');
+$sale_items = readCSV('sale_items');
+$products = readCSV('products');
+
 $c_map = [];
 foreach($customers as $c) $c_map[$c['id']] = $c['name'];
 
+$p_name_map = [];
+foreach($products as $p) $p_name_map[$p['id']] = $p['name'];
+
+$grouped_items = [];
+foreach($sale_items as $si) {
+    $grouped_items[$si['sale_id']][] = $si;
+}
+
 // Filtering Logic
+// ... (filtering logic same as before)
 $f_type = $_GET['f_type'] ?? 'month';
 if ($f_type == 'range' && !empty($_GET['from']) && !empty($_GET['to'])) {
     $from = $_GET['from'];
@@ -42,6 +54,7 @@ usort($sales, function($a, $b) {
 });
 
 $report_title = "Sales Report";
+// ... (title logic same as before)
 if ($f_type == 'range') {
     $report_title .= " (" . date('d M Y', strtotime($from)) . " to " . date('d M Y', strtotime($to)) . ")";
 } elseif ($f_type == 'year') {
@@ -99,10 +112,19 @@ foreach($sales as $s) {
         .badge-due { background-color: #fee2e2; color: #991b1b; }
 
         @media print {
-            body { margin: 0; padding: 1.5cm; }
+            body { margin: 0; padding: 1cm; }
             .no-print { display: none; }
             .summary-box { border: 1px solid #ccc; }
         }
+
+        /* Detailed Product Table Styles */
+        .product-mini-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10px; }
+        .product-mini-table th { background: #f8fafc; color: #64748b; padding: 4px 8px; border: 1px solid #e2e8f0; font-size: 9px; }
+        .product-mini-table td { padding: 4px 8px; border: 1px solid #e2e8f0; color: #334155; }
+        .product-name-cell { font-weight: 700; color: #1e293b; }
+        .qty-cell { font-weight: 800; color: #0d9488; text-align: center; }
+        .price-cell { text-align: right; color: #64748b; }
+        .total-cell { text-align: right; font-weight: 800; color: #7c3aed; }
     </style>
 </head>
 <body>
@@ -126,24 +148,52 @@ foreach($sales as $s) {
         <table>
             <thead>
                 <tr>
-                    <th width="40">Sr #</th>
-                    <th>Date & Time</th>
-                    <th>Customer Name</th>
-                    <th class="text-right">Total Amount</th>
-                    <th class="text-right">Paid Amount</th>
-                    <th class="text-center">Status</th>
+                    <th width="30" class="text-center">#</th>
+                    <th width="110">Date & Time</th>
+                    <th width="130">Customer</th>
+                    <th>Products & QTY (Details)</th>
+                    <th width="90" class="text-right">Total</th>
+                    <th width="80" class="text-right">Paid</th>
+                    <th width="60" class="text-center">Status</th>
                 </tr>
             </thead>
             <tbody>
                 <?php $sn = 1; foreach ($sales as $s): 
                     $is_due = $s['total_amount'] > $s['paid_amount'];
+                    $items = $grouped_items[$s['id']] ?? [];
                 ?>
                     <tr>
-                        <td class="text-center"><?= $sn++ ?></td>
-                        <td><?= date('d M Y, h:i A', strtotime($s['sale_date'])) ?></td>
-                        <td><?= isset($c_map[$s['customer_id']]) ? htmlspecialchars($c_map[$s['customer_id']]) : 'Walk-in Customer' ?></td>
-                        <td class="text-right font-bold"><?= formatCurrency((float)$s['total_amount']) ?></td>
-                        <td class="text-right"><?= formatCurrency((float)$s['paid_amount']) ?></td>
+                        <td class="text-center" style="color: #94a3b8; font-size: 10px;"><?= $sn++ ?></td>
+                        <td style="font-size: 11px;"><?= date('d M Y, h:i A', strtotime($s['sale_date'])) ?></td>
+                        <td class="font-bold"><?= isset($c_map[$s['customer_id']]) ? htmlspecialchars($c_map[$s['customer_id']]) : 'Walk-in Customer' ?></td>
+                        <td style="padding: 5px;">
+                            <?php if (!empty($items)): ?>
+                                <table class="product-mini-table">
+                                    <thead>
+                                        <tr>
+                                            <th align="left">Item Name</th>
+                                            <th width="60">QTY</th>
+                                            <th width="70">Price</th>
+                                            <th width="80">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($items as $i): ?>
+                                            <tr>
+                                                <td class="product-name-cell"><?= htmlspecialchars($p_name_map[$i['product_id']] ?? 'Unknown') ?></td>
+                                                <td class="qty-cell"><?= (float)$i['quantity'] ?> <?= htmlspecialchars($i['unit'] ?? '') ?></td>
+                                                <td class="price-cell"><?= formatCurrency((float)$i['price_per_unit']) ?></td>
+                                                <td class="total-cell"><?= formatCurrency((float)$i['total_price']) ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            <?php else: ?>
+                                <span style="color: #cbd5e1; font-style: italic;">No items found</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-right font-bold" style="color: #1e293b;"><?= formatCurrency((float)$s['total_amount']) ?></td>
+                        <td class="text-right" style="color: #059669;"><?= formatCurrency((float)$s['paid_amount']) ?></td>
                         <td class="text-center">
                             <span class="badge <?= $is_due ? 'badge-due' : 'badge-paid' ?>">
                                 <?= $is_due ? 'DUE' : 'PAID' ?>

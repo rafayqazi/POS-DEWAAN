@@ -6,6 +6,7 @@ requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     $sale_id = $_POST['sale_id'];
+    $customer_id = $_POST['customer_id'] ?? '';
     $cart = json_decode($_POST['cart_data'], true);
     $paid_amount = (float)$_POST['paid_amount'];
     $total_amount = (float)$_POST['total_amount'];
@@ -72,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     if ($sale) {
         $old_time = date('H:i:s', strtotime($sale['sale_date']));
         $sale['sale_date'] = $new_date_only . ' ' . $old_time;
+        $sale['customer_id'] = $customer_id; // Added customer_id update
         $sale['total_amount'] = $total_amount;
         $sale['paid_amount'] = $paid_amount;
         $sale['discount'] = $discount;
@@ -82,7 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
     }
 
     // 5. Update Sale Items (Clear old, Insert new)
-    // ... (rest of step 5)
     $new_sale_items_list = array_filter($all_sale_items, function($si) use ($sale_id) {
         return $si['sale_id'] != $sale_id;
     });
@@ -109,18 +110,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
         ]);
     }
 
-    // 6. Update Customer Transaction (if exists)
+    // 6. Update/Sync Customer Transaction
     $all_txns = readCSV('customer_transactions');
+    $txn_found = false;
     foreach($all_txns as $tx) {
         if (isset($tx['sale_id']) && $tx['sale_id'] == $sale_id) {
-            $tx['date'] = $new_date_only;
-            $tx['debit'] = $total_amount;
-            $tx['credit'] = $paid_amount;
-            $tx['description'] = "Sale #$sale_id Updated - $remarks";
-            $tx['due_date'] = $due_date;
-            updateCSV('customer_transactions', $tx['id'], $tx);
+            $txn_found = true;
+            if (empty($customer_id)) {
+                // Now Walk-in: Delete Transaction
+                deleteCSV('customer_transactions', $tx['id']);
+            } else {
+                // Update existing transaction
+                $tx['customer_id'] = $customer_id;
+                $tx['date'] = $new_date_only;
+                $tx['debit'] = $total_amount;
+                $tx['credit'] = $paid_amount;
+                $tx['description'] = "Sale #$sale_id Updated - $remarks";
+                $tx['due_date'] = $due_date;
+                updateCSV('customer_transactions', $tx['id'], $tx);
+            }
             break; 
         }
+    }
+
+    // If transaction wasn't found but a customer is now assigned, create it
+    if (!$txn_found && !empty($customer_id)) {
+        insertCSV('customer_transactions', [
+            'customer_id' => $customer_id,
+            'type' => 'Sale',
+            'debit' => $total_amount,
+            'credit' => $paid_amount,
+            'description' => "Sale #$sale_id Updated (Assigned Customer) - $remarks",
+            'date' => $new_date_only,
+            'created_at' => date('Y-m-d H:i:s'),
+            'sale_id' => $sale_id,
+            'due_date' => $due_date
+        ]);
     }
 
     redirect("../pages/sales_history.php?msg=Sale $sale_id updated successfully");

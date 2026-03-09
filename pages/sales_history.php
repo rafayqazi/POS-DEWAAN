@@ -70,6 +70,8 @@ foreach($all_sales as $s) {
             'p_name' => $p_name_map[$i['product_id']] ?? 'Unknown',
             'qty' => (float)$i['quantity'],
             'unit' => $i['unit'] ?? '',
+            'price' => (float)$i['price_per_unit'],
+            'total' => (float)$i['total_price'],
             'returned_qty' => (float)($i['returned_qty'] ?? 0)
         ];
     }
@@ -207,15 +209,20 @@ foreach($all_sales as $s) {
             const statusIcon = isDue ? 'fa-exclamation-circle' : 'fa-check';
 
             let itemsHtml = s.items.map(i => `
-                <div class="flex flex-col border-b border-gray-50 pb-1 last:border-0 mb-1">
-                    <div class="flex justify-between gap-4 text-[11px]">
-                        <span class="font-bold text-gray-600 truncate max-w-[150px]">${i.p_name}</span>
-                        <span class="text-teal-600 font-black whitespace-nowrap">x ${i.qty} ${i.unit}</span>
+                <div class="flex flex-col border-b border-gray-100/50 pb-2 last:border-0 mb-2">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-gray-800 text-[11px] truncate" title="${i.p_name}">${i.p_name}</span>
+                            <span class="text-[10px] text-teal-600 font-black">x ${i.qty} ${i.unit}</span>
+                        </div>
+                        <div class="flex flex-col items-end text-right shrink-0">
+                            <span class="text-[11px] font-black text-purple-600">${formatCurrency(i.total)}</span>
+                        </div>
                     </div>
                     ${i.returned_qty > 0 ? `
-                    <div class="flex justify-between text-[10px] text-red-500 font-bold -mt-0.5">
+                    <div class="flex justify-between text-[9px] text-red-500 font-black mt-1 bg-red-50 px-1.5 py-0.5 rounded">
                         <span>[Returned]</span>
-                        <span>- ${i.returned_qty}</span>
+                        <span>- ${i.returned_qty} ${i.unit}</span>
                     </div>
                     ` : ''}
                 </div>

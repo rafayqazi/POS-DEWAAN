@@ -249,6 +249,7 @@ foreach($returns_data as $r) {
             
             $return_details_30d[] = [
                 'date' => $r['date'],
+                'return_id' => $r['id'],
                 'customer' => $customer_map[$r['customer_id']] ?? 'Walk-in',
                 'p_id' => $ri['product_id'],
                 'p_name' => $products_map[$ri['product_id']]['name'] ?? 'Unknown',
@@ -845,9 +846,20 @@ function renderReturnTable(data) {
                 <td class="p-4 text-gray-600">${item.p_name}</td>
                 <td class="p-4 font-black text-orange-600 text-center">x ${item.qty}</td>
                 <td class="p-4 text-right pr-6 font-bold text-gray-900">${formatCurrencyJS(item.refund)}</td>
+                <td class="p-4 text-center">
+                    <button onclick="confirmDeleteReturn('${item.return_id}')" class="text-red-500 hover:text-red-700 transition" title="Delete Return (Restores Stock & Sale Total)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
             </tr>
         `;
     });
+}
+
+function confirmDeleteReturn(id) {
+    showConfirm('REVERT RETURN: This will delete the return record, DECREASE product stock, and ADD the refund amount back to the sale total. Continue?', () => {
+        window.location.href = `../actions/delete_return.php?id=${id}`;
+    }, 'Undo Return?');
 }
 
 function printReturnReport() {
@@ -943,6 +955,7 @@ function printReturnReport() {
                         <th class="p-4">Product Name</th>
                         <th class="p-4 text-center">Qty</th>
                         <th class="p-4 text-right pr-6">Refund</th>
+                        <th class="p-4 text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="returnsTableBody" class="divide-y divide-gray-50"></tbody>
