@@ -672,14 +672,28 @@ usort($ledger, function($a, $b) {
             const items = returnItemsMap[t.return_id] || [];
             if (items.length > 0) {
                 const itemsHtml = items.map(item => {
-                    const pName = productsMap[item.product_id] || 'Unknown Product';
+                    const p = productsMap[item.product_id];
+                    const pName = p ? p.name : 'Unknown Product';
+                    let qtyDisplay = item.quantity;
+                    if(p && p.unit) {
+                        const chain = getUnitHierarchyJS(p.unit);
+                        if(chain.length > 1) {
+                            const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
+                            qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
+                        } else {
+                            qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
+                        }
+                    } else {
+                        qtyDisplay = `x ${item.quantity}`;
+                    }
+
                     if (isPrint) return `<div style="margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #ebebeb;">`
                         + `<div style="font-weight:700;font-size:11px;color:#111;">${pName}</div>`
-                        + `<div style="font-size:10px;color:#d97706;margin-top:2px;">x ${item.quantity}</div>`
+                        + `<div style="font-size:10px;color:#d97706;margin-top:2px;">${qtyDisplay}</div>`
                         + `</div>`;
-                    return `<div class="flex items-start justify-between gap-2 text-[10px] mb-1 pl-2 border-l-2 border-purple-200">
-                                <span class="font-medium text-gray-600 flex-1">${pName}</span>
-                                <span class="text-orange-600 font-black">x ${item.quantity}</span>
+                    return `<div class="flex flex-col text-[10px] mb-2 pl-2 border-l-2 border-purple-200">
+                                <span class="font-medium text-gray-600">${pName}</span>
+                                <span class="text-orange-600 font-black mt-1">${qtyDisplay}</span>
                             </div>`;
                 }).join('');
                 
