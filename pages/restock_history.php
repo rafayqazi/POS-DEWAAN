@@ -336,6 +336,8 @@ echo '</main></div>';
                     `<div class="text-xs text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100 inline-block max-w-[200px] truncate" title="${log.remarks}"><i class="fas fa-sticky-note mr-1 text-teal-500"></i> ${log.remarks}</div>` : 
                     '';
 
+                const totalBill = parseFloat(log.new_buy_price || 0) * parseFloat(log.quantity || 0);
+
                 html += `<tr class="hover:bg-teal-50/30 transition">
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6 text-sm font-medium text-gray-500 font-mono">${dateDisplay}<br><span class="text-[10px] opacity-50">${timeDisplay}</span></td>
@@ -358,7 +360,12 @@ echo '</main></div>';
                             (log.dealer_name ? `<span class="flex items-center gap-2 text-sm font-semibold text-gray-700 italic opacity-70"><i class="fas fa-shopping-cart text-gray-300"></i>${log.dealer_name}</span>` : '<span class="text-xs text-gray-400 italic">Self Stock</span>')
                         }
                     </td>
-                    <td class="p-6 text-right">${log.amount_paid !== '' ? `<span class="font-black text-gray-800">${formatCurrency(paid)}</span>` : '<span class="text-gray-300 font-bold">-</span>'}</td>
+                    <td class="p-6 text-right">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Total: ${formatCurrency(totalBill)}</span>
+                            ${log.amount_paid !== '' ? `<span class="font-black text-gray-800">Paid: ${formatCurrency(paid)}</span>` : '<span class="text-gray-300 font-bold">-</span>'}
+                        </div>
+                    </td>
                     <td class="p-6 text-center whitespace-nowrap">
                         <button onclick='openEditModal(${JSON.stringify(log).replace(/'/g, "&apos;")})' class="text-teal-600 hover:text-teal-800 hover:bg-teal-50 p-2 rounded-lg transition mr-1"><i class="fas fa-edit"></i></button>
                         <button onclick="confirmDeleteRestock(${log.id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-trash-alt"></i></button>
@@ -371,7 +378,10 @@ echo '</main></div>';
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${log.quantity}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${formatCurrency(parseFloat(log.new_buy_price))}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${log.dealer_name || 'Self'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; font-weight: bold;">${formatCurrency(paid)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right;">
+                        <div style="font-size: 9px; color: #777;">Bill: ${formatCurrency(totalBill)}</div>
+                        <div style="font-weight: bold; color: #333;">Paid: ${formatCurrency(paid)}</div>
+                    </td>
                 </tr>`;
             });
         }

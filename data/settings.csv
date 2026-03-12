@@ -1,0 +1,7 @@
+id,key,value
+1,expiry_notify_days,30
+2,db_schema_version,7
+3,recovery_notify_days,7
+4,business_name,"Fashion Shines HN"
+5,business_address,"Address : Near AL Karam"
+6,business_phone,0313-8969407
