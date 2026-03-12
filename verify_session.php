@@ -1,12 +1,14 @@
 <?php
 // Mock session for testing
-session_start();
+require_once 'includes/session.php';
 $_SESSION['user_id'] = 1;
 
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
 echo "Current Time: " . date('Y-m-d H:i:s', time()) . "\n";
+echo "Session Name: " . session_name() . "\n";
+echo "Session Save Path: " . ini_get('session.save_path') . "\n";
 echo "Session Login Time: " . (isset($_SESSION['login_time']) ? date('Y-m-d H:i:s', $_SESSION['login_time']) : 'Not Set') . "\n";
 
 // Test 1: Just under 24 hours

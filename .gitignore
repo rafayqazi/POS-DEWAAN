@@ -1,11 +1,4 @@
+data/sessions/
+*.log
 .DS_Store
 Thumbs.db
-*.log
-node_modules/
-.vscode/
-.idea/
-.env
-data/*.csv
-*.exe
-*.zip
-*.log

@@ -12,9 +12,12 @@ if (!is_dir(__DIR__ . '/../.git')) {
 }
 define('DATA_DIR', __DIR__ . '/../data/');
 
-// Ensure data directory exists
+// Ensure data and session directories exist
 if (!is_dir(DATA_DIR)) {
     mkdir(DATA_DIR, 0777, true);
+}
+if (!is_dir(DATA_DIR . 'sessions')) {
+    mkdir(DATA_DIR . 'sessions', 0777, true);
 }
 
 // --- CSV Helper Functions ---
