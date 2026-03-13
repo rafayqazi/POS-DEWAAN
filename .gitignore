@@ -1,4 +1,4 @@
-data/sessions/
+data/
 *.log
 .DS_Store
 Thumbs.db
