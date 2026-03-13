@@ -110,9 +110,8 @@ function getUpdateStatus($force_fetch = false) {
             $status['count'] = (int)($out_c[0] ?? 0);
             $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
             
-            // Cache the GIT part of the result
+            // Cache the GIT part of the result (we'll update it again after grace period)
             $_SESSION['last_update_check'] = $current_time;
-            $_SESSION['cached_update_status'] = $status;
         }
     }
     
@@ -154,6 +153,9 @@ function getUpdateStatus($force_fetch = false) {
         // Optional: Reset detection if update is gone? 
         // No, keep it for history or manual reset.
     }
+
+    // Always persist full status (with time_left) to session cache
+    $_SESSION['cached_update_status'] = $status;
     
     return $status;
 }
