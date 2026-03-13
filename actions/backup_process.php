@@ -30,6 +30,12 @@ if ($zip->open($filepath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) 
         if (!$file->isDir()) {
             $filePath = $file->getRealPath();
             $relativePath = substr($filePath, strlen($dataDir) + 1);
+            
+            // Skip sessions directory to avoid read errors on locked files
+            if (strpos($relativePath, 'sessions' . DIRECTORY_SEPARATOR) === 0 || $relativePath === 'sessions') {
+                continue;
+            }
+
             $zip->addFile($filePath, $relativePath);
         }
     }
