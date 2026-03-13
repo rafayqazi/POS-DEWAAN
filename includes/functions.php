@@ -83,8 +83,12 @@ function getUpdateStatus($force_fetch = false) {
     if ($status === null) {
         $status = ['available' => false, 'count' => 0, 'branch' => '', 'local' => '', 'remote' => '', 'error' => ''];
         
+        // Dynamic Git command with safe.directory config to avoid "dubious ownership" errors
+        $repoPath = str_replace('\\', '/', realpath(dirname(__FILE__) . '/../'));
+        $git = "git -c safe.directory=\"$repoPath\"";
+
         // 1. Identify current branch
-        exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b, $ret_b);
+        exec("$git rev-parse --abbrev-ref HEAD 2>&1", $out_b, $ret_b);
         if ($ret_b !== 0) {
             $status['error'] = "Could not identify branch: " . implode(" ", $out_b);
             // Return defaults on error
@@ -92,17 +96,17 @@ function getUpdateStatus($force_fetch = false) {
             $status['branch'] = trim($out_b[0] ?? 'master');
             
             // 2. Explicit Fetch from origin
-            exec('git fetch origin ' . $status['branch'] . ' 2>&1', $out, $ret);
+            exec("$git fetch origin " . $status['branch'] . " 2>&1", $out, $ret);
             // Note: If fetch fails, we continue with local info, but likely won't see an update available.
             
             // 3. Hashes & Count
-            exec('git rev-parse HEAD 2>&1', $out_l);
-            exec("git rev-parse origin/" . $status['branch'] . " 2>&1", $out_r);
+            exec("$git rev-parse HEAD 2>&1", $out_l);
+            exec("$git rev-parse origin/" . $status['branch'] . " 2>&1", $out_r);
             $status['local'] = substr(trim($out_l[0] ?? ''), 0, 7);
             $status['remote'] = substr(trim($out_r[0] ?? ''), 0, 7);
             
             // 4. Count behind
-            exec("git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
+            exec("$git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
             $status['count'] = (int)($out_c[0] ?? 0);
             $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
             
@@ -155,36 +159,40 @@ function getUpdateStatus($force_fetch = false) {
 }
 
 function runUpdate() {
-    exec('git rev-parse --abbrev-ref HEAD 2>&1', $out_b);
+    // Dynamic Git command with safe.directory config to avoid "dubious ownership" errors
+    $repoPath = str_replace('\\', '/', realpath(dirname(__FILE__) . '/../'));
+    $git = "git -c safe.directory=\"$repoPath\"";
+
+    exec("$git rev-parse --abbrev-ref HEAD 2>&1", $out_b);
     $branch = trim($out_b[0] ?? 'master');
     
     // Step 1: Check for unmerged files or ongoing merge
-    exec("git ls-files -u 2>&1", $unmerged_files);
+    exec("$git ls-files -u 2>&1", $unmerged_files);
     if (!empty($unmerged_files)) {
         // There are unmerged files, abort the merge
-        exec("git merge --abort 2>&1");
+        exec("$git merge --abort 2>&1");
     }
     
     // Step 2: Reset to a clean state (hard reset to current HEAD)
     // This will discard any uncommitted changes in tracked files
-    exec("git reset --hard HEAD 2>&1");
+    exec("$git reset --hard HEAD 2>&1");
     
     // Step 3: Clean untracked files and directories (but preserve data/*.csv files)
     // -f forces clean, -d removes directories
-    exec("git clean -fd 2>&1");
+    exec("$git clean -fd 2>&1");
     
     // Step 4: Stash any remaining local changes (especially in data files)
-    exec("git stash 2>&1");
+    exec("$git stash 2>&1");
     
     // Step 5: Fetch the latest changes from remote
-    exec("git fetch origin $branch 2>&1");
+    exec("$git fetch origin $branch 2>&1");
     
     // Step 6: Force reset to remote branch (this ensures we're in sync)
-    exec("git reset --hard origin/$branch 2>&1", $reset_output, $reset_var);
+    exec("$git reset --hard origin/$branch 2>&1", $reset_output, $reset_var);
     
     if ($reset_var === 0) {
         // Success: Try to restore local data changes (CSV files)
-        exec("git stash pop 2>&1", $stash_output, $stash_var);
+        exec("$git stash pop 2>&1", $stash_output, $stash_var);
         
         // Clear the detection flag
         updateSetting('update_first_detected', '');
