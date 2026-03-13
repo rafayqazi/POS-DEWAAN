@@ -763,7 +763,7 @@ async function performUpdate() {
         const data = await r.json();
         if(data.status === 'success') {
             alert(data.message);
-            location.reload(); 
+            window.location.href = '../logout.php'; 
         } else {
             alert(data.message);
         }

@@ -626,7 +626,7 @@
                 const data = await response.json();
                 if (data.success) {
                     msg.innerHTML = "<b>Update Successful!</b> Reloading...";
-                    setTimeout(() => window.location.reload(), 2000);
+                    setTimeout(() => window.location.href = '<?= $base ?>logout.php', 2000);
                 } else {
                     alert('Update failed: ' + data.message);
                     btn.disabled = false;
