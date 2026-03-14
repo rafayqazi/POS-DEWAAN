@@ -232,10 +232,11 @@ foreach ($restocks as $r) {
     }
 }
 
-$total_inv_value = 0; $low_stock_count = 0; $category_counts = [];
+$total_inv_value = 0; $low_stock_count = 0; $nill_stock_count = 0; $category_counts = [];
 foreach ($products as $p) {
     $total_inv_value += (float)$p['buy_price'] * (float)$p['stock_quantity'];
-    if ((float)$p['stock_quantity'] < 10) $low_stock_count++;
+    if ((float)$p['stock_quantity'] <= 0) $nill_stock_count++;
+    elseif ((float)$p['stock_quantity'] < 10) $low_stock_count++;
     $cat = $p['category'] ?: 'Uncategorized';
     $category_counts[$cat] = ($category_counts[$cat] ?? 0) + 1;
 }
@@ -254,9 +255,9 @@ include '../includes/header.php';
 ?>
 
 <!-- Analytics Dashboard -->
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 mt-4">
-    <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-teal-500 group">
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8 mt-4">
+    <div class="lg:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div onclick="filterByStatus('all')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-teal-500 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-all">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Products</p>
             <h3 class="text-3xl font-black text-gray-800"><?= number_format(count($products)) ?></h3>
         </div>
@@ -264,9 +265,13 @@ include '../includes/header.php';
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
             <h3 class="text-3xl font-black text-gray-800"><?= formatCurrency($total_inv_value) ?></h3>
         </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-500 group">
+        <div onclick="filterByStatus('low')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-500 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-low">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Low Stock Alerts</p>
             <h3 class="text-3xl font-black text-red-600"><?= number_format($low_stock_count) ?></h3>
+        </div>
+        <div onclick="filterByStatus('nill')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-700 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-nill">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Nill Stock</p>
+            <h3 class="text-3xl font-black text-red-800"><?= number_format($nill_stock_count) ?></h3>
         </div>
     </div>
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
@@ -303,8 +308,15 @@ include '../includes/header.php';
                 </tr>
             </thead>
             <tbody id="inventoryTableBody" class="divide-y divide-gray-50">
-                <?php $sn = 1; foreach ($products as $p): ?>
-                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>">
+                <?php 
+                $sn = 1; 
+                foreach ($products as $p): 
+                    $stock_qty = (float)$p['stock_quantity'];
+                    $status = 'all';
+                    if ($stock_qty <= 0) $status = 'nill';
+                    elseif ($stock_qty < 10) $status = 'low';
+                ?>
+                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>" data-stock-status="<?= $status ?>">
                     <td class="p-5 text-center text-gray-300 font-mono text-xs"><?= $sn++ ?></td>
                     <td class="p-5">
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($p['name']) ?></div>
@@ -785,7 +797,47 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add_buy_price').oninput = updateTotal;
     
     new Chart(document.getElementById('categoryChart').getContext('2d'), { type:'doughnut', data:{ labels:<?= json_encode($chart_labels) ?>, datasets:[{data:<?= json_encode($chart_data) ?>, backgroundColor:['#0d9488','#3b82f6','#f59e0b','#ef4444']}] }, options:{plugins:{legend:{display:false}}, cutout:'70%'} });
-    document.getElementById('inventorySearch').oninput = (e) => { let v=e.target.value.toLowerCase(); document.querySelectorAll('.product-row').forEach(r => r.style.display = r.textContent.toLowerCase().includes(v)?'':'none'); };
+    let currentStatusFilter = 'all';
+
+    window.filterByStatus = function(status) {
+        currentStatusFilter = status;
+        
+        // Update UI of cards
+        document.querySelectorAll('.status-card').forEach(card => {
+            card.classList.remove('ring-2', 'ring-teal-500', 'bg-teal-50/30');
+            card.classList.add('border-gray-100');
+        });
+        const activeCard = document.getElementById('card-' + status);
+        if (activeCard) {
+            activeCard.classList.remove('border-gray-100');
+            activeCard.classList.add('ring-2', 'ring-teal-500', 'bg-teal-50/30');
+        }
+
+        applyFilters();
+    };
+
+    function applyFilters() {
+        const searchValue = document.getElementById('inventorySearch').value.toLowerCase();
+        
+        document.querySelectorAll('.product-row').forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            const rowStatus = row.dataset.stockStatus;
+            
+            const matchesSearch = rowText.includes(searchValue);
+            const matchesStatus = (currentStatusFilter === 'all' || rowStatus === currentStatusFilter);
+            
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    document.getElementById('inventorySearch').oninput = applyFilters;
+    
+    // Set initial "All" active
+    filterByStatus('all');
 });
 
 function openCatalogPreview() { document.getElementById('catalogPreviewBody').innerHTML = document.getElementById('catalogPrintableArea').innerHTML; openModal('catalogPreviewModal'); }
