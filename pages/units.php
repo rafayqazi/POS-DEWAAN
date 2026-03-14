@@ -69,11 +69,7 @@ foreach ($products as $p) {
 }
 $unitTree = buildUnitTree($units);
 
-function renderUnitList($tree, $level = 0, $counts = []) {
-    if (empty($tree) && $level == 0) return '<ul class="nested-sortable min-h-[50px]" data-parent-id="0"></ul>';
-    if (empty($tree)) return '';
-    
-    $parentId = $level == 0 ? 0 : $tree[0]['parent_id'];
+function renderUnitList($tree, $level = 0, $counts = [], $parentId = 0) {
     $html = '<ul class="nested-sortable space-y-2 ' . ($level > 0 ? 'ml-8 mt-2 border-l-2 border-dashed border-gray-100 pl-4' : '') . '" data-parent-id="' . $parentId . '">';
     
     foreach ($tree as $unit) {
@@ -101,13 +97,7 @@ function renderUnitList($tree, $level = 0, $counts = []) {
                 </div>
             </div>';
             
-        // Always render a ul inside to allow children to be dropped in
-        $html .= renderUnitList($unit['children'], $level + 1, $counts);
-        
-        if (!empty($unit['children']) || $level < 3) { // Limit depth if desired, but keep it flexible
-             // Recursion handles the sub-ul
-        }
-
+        $html .= renderUnitList($unit['children'] ?? [], $level + 1, $counts, $unit['id']);
         $html .= '</li>';
     }
     $html .= '</ul>';
@@ -120,7 +110,7 @@ function renderUnitList($tree, $level = 0, $counts = []) {
 
 <style>
     .nested-sortable {
-        min-height: 5px;
+        min-height: 10px;
     }
     .sortable-ghost {
         opacity: 0.4;
@@ -196,9 +186,9 @@ function renderUnitList($tree, $level = 0, $counts = []) {
                 </div>
                 
                 <div class="p-6 bg-gray-50/30">
-                    <div id="mainUnitSortable" class="nested-sortable">
+                    <div id="mainUnitSortable">
                         <?php if (count($units) > 0): ?>
-                            <?= renderUnitList($unitTree, 0, $unitCounts) ?>
+                            <?= renderUnitList($unitTree, 0, $unitCounts, 0) ?>
                         <?php else: ?>
                             <div class="p-12 text-center text-gray-300">
                                 <i class="fas fa-balance-scale text-5xl mb-4 opacity-20"></i>
