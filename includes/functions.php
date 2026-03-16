@@ -108,7 +108,7 @@ function getUpdateStatus($force_fetch = false) {
             // 4. Count behind
             exec("$git rev-list --count HEAD..origin/" . $status['branch'] . " 2>&1", $out_c);
             $status['count'] = (int)($out_c[0] ?? 0);
-            $status['available'] = ($status['count'] > 0 || ($status['local'] !== $status['remote'] && $status['remote'] != ''));
+            $status['available'] = ($status['count'] > 0);
             
             // Cache the GIT part of the result (we'll update it again after grace period)
             $_SESSION['last_update_check'] = $current_time;
