@@ -834,32 +834,133 @@ function printDiscountReport() {
 }
 
 const returnsData = <?= json_encode($return_details_30d) ?>;
+
+function filterReturns() {
+    const query = document.getElementById('returnSearchInput').value.toLowerCase();
+    const filtered = returnsData.filter(item => 
+        item.customer.toLowerCase().includes(query) || 
+        item.p_name.toLowerCase().includes(query)
+    );
+    renderReturnTable(filtered);
+}
+
 function renderReturnTable(data) {
     const tbody = document.getElementById('returnsTableBody');
     tbody.innerHTML = '';
-    data.forEach((item, index) => {
+    
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-gray-400 font-bold">No returned products found.</td></tr>`;
+        return;
+    }
+
+    // Group by customer
+    const grouped = {};
+    data.forEach(item => {
+        if (!grouped[item.customer]) {
+            grouped[item.customer] = {
+                name: item.customer,
+                total_qty: 0,
+                total_refund: 0,
+                items: []
+            };
+        }
+        grouped[item.customer].total_qty += Number(item.qty);
+        grouped[item.customer].total_refund += Number(item.refund);
+        grouped[item.customer].items.push(item);
+    });
+
+    Object.values(grouped).forEach((group, groupIndex) => {
+        const groupId = `return-group-${groupIndex}`;
+        const hasMultiple = group.items.length > 1;
+        
+        // Parent Row
         tbody.innerHTML += `
-            <tr class="hover:bg-orange-50/30 transition border-b border-gray-50 text-sm">
-                <td class="p-4 pl-6 text-[10px] font-bold text-gray-400">${index + 1}</td>
-                <td class="p-4 text-gray-600 font-medium">${item.date}</td>
-                <td class="p-4 font-bold text-gray-800">${item.customer}</td>
-                <td class="p-4 text-gray-600">${item.p_name}</td>
-                <td class="p-4 font-black text-orange-600 text-center">x ${item.qty}</td>
-                <td class="p-4 text-right pr-6 font-bold text-gray-900">${formatCurrencyJS(item.refund)}</td>
+            <tr onclick="toggleReturnGroup('${groupId}')" class="group/parent cursor-pointer hover:bg-orange-50/50 transition-colors border-b border-gray-100 bg-white">
+                <td class="p-4 pl-6 text-[10px] font-bold text-gray-400">${groupIndex + 1}</td>
+                <td class="p-4 text-gray-400 text-[10px] font-bold uppercase">${hasMultiple ? 'Mixed Dates' : group.items[0].date}</td>
+                <td class="p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-[10px] font-bold">
+                            ${group.name.charAt(0)}
+                        </div>
+                        <span class="font-bold text-gray-800">${group.name}</span>
+                        ${hasMultiple ? `<span class="bg-orange-600 text-white px-2.5 py-1 rounded-full text-[9px] font-black uppercase whitespace-nowrap shadow-sm ring-4 ring-orange-100 flex-shrink-0">${group.items.length} Returns</span>` : ''}
+                    </div>
+                </td>
+                <td class="p-4 text-gray-500 text-xs italic">${hasMultiple ? 'Multiple Products' : group.items[0].p_name}</td>
+                <td class="p-4 font-black text-orange-600 text-center">x ${group.total_qty}</td>
+                <td class="p-4 text-right pr-6">
+                    <div class="font-black text-gray-900">${formatCurrencyJS(group.total_refund)}</div>
+                    ${hasMultiple ? '<div class="text-[8px] text-gray-400 font-bold uppercase">Total Refund</div>' : ''}
+                </td>
                 <td class="p-4 text-center">
-                    <button onclick="confirmDeleteReturn('${item.return_id}')" class="text-red-500 hover:text-red-700 transition" title="Delete Return (Restores Stock & Sale Total)">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <i class="fas fa-chevron-down text-gray-300 group-hover/parent:text-orange-400 transition-transform duration-300" id="icon-${groupId}"></i>
+                </td>
+            </tr>
+            <!-- Child Container -->
+            <tr id="${groupId}" class="hidden bg-gray-50/50">
+                <td colspan="7" class="p-0 border-b border-gray-100">
+                    <div class="p-6 space-y-3">
+                        <table class="w-full text-left bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                            <thead class="bg-gray-50/80">
+                                <tr class="text-[9px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                    <th class="p-3 pl-5">Date</th>
+                                    <th class="p-3">Product Name</th>
+                                    <th class="p-3 text-center">Qty</th>
+                                    <th class="p-3 text-right">Refund</th>
+                                    <th class="p-3 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-50">
+                                ${group.items.map(item => `
+                                    <tr class="text-xs hover:bg-orange-50/20 transition">
+                                        <td class="p-3 pl-5 text-gray-500 font-medium">${item.date}</td>
+                                        <td class="p-3 font-bold text-gray-700">${item.p_name}</td>
+                                        <td class="p-3 text-center font-black text-gray-600">x ${item.qty}</td>
+                                        <td class="p-3 text-right font-bold text-gray-900">${formatCurrencyJS(item.refund)}</td>
+                                        <td class="p-3 text-center">
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button onclick="event.stopPropagation(); confirmRevertReturn('${item.return_id}')" class="w-8 h-8 rounded-lg hover:bg-orange-50 text-orange-400 hover:text-orange-600 transition flex items-center justify-center" title="Revert: Restores Stock & Sale Total">
+                                                    <i class="fas fa-undo text-xs"></i>
+                                                </button>
+                                                <button onclick="event.stopPropagation(); confirmWipeReturn('${item.return_id}')" class="w-8 h-8 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition flex items-center justify-center" title="Delete: Simply wipes the entry">
+                                                    <i class="fas fa-trash-alt text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </td>
             </tr>
         `;
     });
 }
 
-function confirmDeleteReturn(id) {
+function toggleReturnGroup(id) {
+    const row = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (row.classList.contains('hidden')) {
+        row.classList.remove('hidden');
+        icon.style.transform = 'rotate(180deg)';
+    } else {
+        row.classList.add('hidden');
+        icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+function confirmRevertReturn(id) {
     showConfirm('REVERT RETURN: This will delete the return record, DECREASE product stock, and ADD the refund amount back to the sale total. Continue?', () => {
         window.location.href = `../actions/delete_return.php?id=${id}`;
     }, 'Undo Return?');
+}
+
+function confirmWipeReturn(id) {
+    showConfirm('WIPE ENTRY: This will simply delete the return record from history. NO stock or financial changes will be made. Continue?', () => {
+        window.location.href = `../actions/wipe_return.php?id=${id}`;
+    }, 'Wipe Entry?');
 }
 
 function printReturnReport() {
@@ -943,6 +1044,14 @@ function printReturnReport() {
                 <button onclick="document.getElementById('returnsModal').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition">
                     <i class="fas fa-times text-xl"></i>
                 </button>
+            </div>
+        </div>
+        <div class="p-6 pb-0 bg-white">
+            <!-- Search Bar for Returns (Kept outside printable container) -->
+            <div class="relative group">
+                <input type="text" id="returnSearchInput" onkeyup="filterReturns()" placeholder="Search by customer name..." 
+                       class="w-full bg-gray-50 border border-gray-100 p-4 pl-12 rounded-2xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500/20 transition-all group-hover:border-orange-200">
+                <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors"></i>
             </div>
         </div>
         <div id="returnsPrintableContainer" class="p-6 overflow-y-auto flex-1 bg-white">
