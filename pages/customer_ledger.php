@@ -117,11 +117,41 @@ usort($ledger, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
 
+// --- Linked Dealer Logic ---
+$linked_dealer = null;
+$dealer_balance = 0;
+$linked_dealer_id = $customer['linked_dealer_id'] ?? '';
+
+if ($linked_dealer_id) {
+    $all_dealers = readCSV('dealers');
+    foreach ($all_dealers as $d) {
+        if ($d['id'] == $linked_dealer_id) {
+            $linked_dealer = $d;
+            break;
+        }
+    }
+
+    if ($linked_dealer) {
+        $dealer_txns = readCSV('dealer_transactions');
+        foreach ($dealer_txns as $dt) {
+            if ($dt['dealer_id'] == $linked_dealer_id) {
+                $dealer_balance += (float)($dt['debit'] ?? 0) - (float)($dt['credit'] ?? 0);
+            }
+        }
+    }
+}
 ?>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-<?= $linked_dealer ? '3' : '2' ?> gap-6 mb-6">
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-purple-500 glass">
-         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Customer Details</h3>
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex justify-between items-center">
+            Customer Details
+            <?php if (isRole('Admin')): ?>
+            <button onclick="openLinkModal()" class="text-purple-500 hover:text-purple-700 transition" title="Link to Dealer">
+                <i class="fas fa-link"></i>
+            </button>
+            <?php endif; ?>
+         </h3>
          <div class="flex items-center gap-3 mb-2">
             <p class="font-black text-gray-800 text-2xl tracking-tight"><?= htmlspecialchars($customer['name']) ?></p>
             <span id="debtClearedBadge" class="hidden inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
@@ -129,7 +159,15 @@ usort($ledger, function($a, $b) {
             </span>
          </div>
          <p class="text-xs font-bold text-gray-500"><?= htmlspecialchars($customer['phone']) ?></p>
-         <p class="text-[10px] text-gray-400 font-bold mt-1"><?= htmlspecialchars($customer['address']) ?></p>
+         <div class="flex justify-between items-end">
+            <p class="text-[10px] text-gray-400 font-bold mt-1"><?= htmlspecialchars($customer['address']) ?></p>
+            <?php if ($linked_dealer): ?>
+            <div class="bg-purple-50 px-2 py-1 rounded-lg border border-purple-100 flex items-center gap-1.5 mt-2">
+                <i class="fas fa-handshake text-purple-500 text-[10px]"></i>
+                <span class="text-[9px] font-black text-purple-600 uppercase">Linked: <?= htmlspecialchars($linked_dealer['name']) ?></span>
+            </div>
+            <?php endif; ?>
+         </div>
     </div>
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-red-500 glass flex flex-col justify-center">
          <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
@@ -138,6 +176,30 @@ usort($ledger, function($a, $b) {
          </h3>
          <p id="statTotalDue" class="text-4xl font-black text-red-600 tracking-tighter"><?= formatCurrency($total_due) ?></p>
     </div>
+    <?php if ($linked_dealer): 
+        $net_balance = $dealer_balance - $total_due;
+    ?>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-orange-500 glass flex flex-col justify-center">
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Outstanding Balance (Dealer)
+            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Jo Udhaar Dealer Ko Wapis Krna Hy)</span>
+         </h3>
+         <p class="text-4xl font-black text-orange-600 tracking-tighter"><?= formatCurrency($dealer_balance) ?></p>
+    </div>
+    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-blue-500 glass flex flex-col justify-center">
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Net Outstanding Balance
+            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Balance after Cross-Adjustment)</span>
+         </h3>
+         <?php if ($net_balance >= 0): ?>
+            <p class="text-4xl font-black text-blue-600 tracking-tighter"><?= formatCurrency($net_balance) ?></p>
+            <span class="text-[10px] font-bold text-blue-500 uppercase mt-1">Payable to Dealer</span>
+         <?php else: ?>
+            <p class="text-4xl font-black text-blue-600 tracking-tighter"><?= formatCurrency(abs($net_balance)) ?></p>
+            <span class="text-[10px] font-bold text-blue-500 uppercase mt-1">Receivable from Customer</span>
+         <?php endif; ?>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
@@ -231,6 +293,59 @@ usort($ledger, function($a, $b) {
 </div>
 
 <!-- Transaction Modal -->
+<?php if (isRole('Admin')): ?>
+<!-- Link Dealer Modal -->
+<div id="linkModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full p-8 transform transition-all glass border border-white/20">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-black text-gray-800 tracking-tight">
+                <i class="fas fa-link text-purple-500 mr-2"></i> Link Customer to Dealer
+            </h3>
+            <button onclick="closeLinkModal()" class="text-gray-400 hover:text-gray-600 transition">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <div class="mb-6">
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="dealerSearch" oninput="filterDealers(this.value)" placeholder="Search dealers by name or phone..." 
+                       class="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition shadow-sm">
+            </div>
+        </div>
+
+        <div class="max-h-[350px] overflow-y-auto pr-2 custom-scrollbar space-y-3" id="dealerList">
+            <?php 
+            $all_dealers = readCSV('dealers');
+            foreach ($all_dealers as $dealer): 
+                $is_linked = ($dealer['id'] == $linked_dealer_id);
+            ?>
+            <div class="dealer-item flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-purple-200 hover:bg-white transition group" 
+                 data-name="<?= strtolower($dealer['name']) ?>" data-phone="<?= strtolower($dealer['phone']) ?>">
+                <div>
+                    <h4 class="font-bold text-gray-800 text-sm"><?= htmlspecialchars($dealer['name']) ?></h4>
+                    <p class="text-[10px] text-gray-500 font-bold"><?= htmlspecialchars($dealer['phone']) ?></p>
+                </div>
+                <?php if ($is_linked): ?>
+                <button onclick="handleLink('<?= $dealer['id'] ?>', true)" class="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition shadow-sm">
+                    Unlink
+                </button>
+                <?php else: ?>
+                <button onclick="handleLink('<?= $dealer['id'] ?>', false)" class="px-4 py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-700 transition shadow-lg shadow-purple-900/10 opacity-0 group-hover:opacity-100">
+                    Link
+                </button>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="mt-8 flex gap-3">
+            <button onclick="closeLinkModal()" class="flex-1 px-6 py-3 bg-gray-100 text-gray-500 rounded-2xl font-bold text-xs hover:bg-gray-200 transition">CLOSE</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div id="txnModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
         <div class="flex justify-between items-center mb-4">
@@ -1063,6 +1178,57 @@ usort($ledger, function($a, $b) {
         }, 500);
     }
     
+    function openLinkModal() {
+        document.getElementById('linkModal').classList.remove('hidden');
+        document.getElementById('dealerSearch').focus();
+    }
+
+    function closeLinkModal() {
+        document.getElementById('linkModal').classList.add('hidden');
+    }
+
+    function filterDealers(query) {
+        query = query.toLowerCase();
+        const items = document.querySelectorAll('.dealer-item');
+        items.forEach(item => {
+            const name = item.getAttribute('data-name');
+            const phone = item.getAttribute('data-phone');
+            if (name.includes(query) || phone.includes(query)) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+    }
+
+    function handleLink(dealerId, isUnlink) {
+        const action = isUnlink ? 'Unlink' : 'Link';
+        const msg = isUnlink ? 'Are you sure you want to UNLINK this dealer?' : 'Are you sure you want to LINK this customer to this dealer?';
+        
+        showConfirm(msg, function() {
+            const formData = new FormData();
+            formData.append('customer_id', '<?= $cid ?>');
+            formData.append('dealer_id', isUnlink ? '' : dealerId);
+
+            fetch('../actions/link_dealer.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    showAlert(data.message, 'Error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert('An error occurred. Please try again.', 'Error');
+            });
+        });
+    }
+
     // Init Object
     document.addEventListener('DOMContentLoaded', () => {
        renderTable();

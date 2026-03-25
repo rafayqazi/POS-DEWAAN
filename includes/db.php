@@ -417,7 +417,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 7;
+    $latest_version = 8;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -655,8 +655,30 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 8: Add linked_dealer_id to customers.csv
+    // ----------------------------------------------------
+    if ($current_version < 8) {
+        $customerPath = getCSVPath('customers');
+        if (file_exists($customerPath)) {
+            $fp_mig = fopen($customerPath, 'r');
+            if ($fp_mig) {
+                $headers = fgetcsv($fp_mig);
+                fclose($fp_mig);
+                if ($headers && !in_array('linked_dealer_id', $headers)) {
+                    $data = readCSV('customers');
+                    foreach ($data as &$c) {
+                        if (!isset($c['linked_dealer_id'])) $c['linked_dealer_id'] = '';
+                    }
+                    $newHeaders = array_merge($headers, ['linked_dealer_id']);
+                    writeCSV('customers', $data, array_unique($newHeaders));
+                }
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', '7');
+    updateSetting('db_schema_version', '8');
 }
 
 // Run Migrations (only runs if version < latest)
