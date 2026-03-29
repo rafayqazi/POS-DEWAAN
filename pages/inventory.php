@@ -244,10 +244,8 @@ foreach ($products as $p) {
 $chart_labels = array_keys($category_counts);
 $chart_data = array_values($category_counts);
 
-usort($products, function($a, $b) use ($latest_restocks) {
-    $dateA = $latest_restocks[$a['id']] ?? $a['created_at'];
-    $dateB = $latest_restocks[$b['id']] ?? $b['created_at'];
-    return strtotime($dateB) - strtotime($dateA);
+usort($products, function($a, $b) {
+    return strcasecmp($a['name'], $b['name']);
 });
 
 $pageTitle = "Inventory Management";

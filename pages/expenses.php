@@ -22,6 +22,8 @@ foreach ($expenses as $e) {
 }
 
 $categories = ['Light Bill', 'Worker Salary', 'Rent', 'Maintenance', 'Miscellaneous', 'Food', 'Transport'];
+sort($categories);
+
 ?>
 
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">

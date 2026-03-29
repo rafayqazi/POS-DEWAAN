@@ -31,8 +31,14 @@ $current_items = array_filter($all_sale_items, function($si) use ($sale_id) {
 
 // Load Products & Categories for selection
 $products = readCSV('products');
+usort($products, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $categories = readCSV('categories');
+usort($categories, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $customers = readCSV('customers');
+usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $units = readCSV('units');
 
 $pageTitle = "Edit Sale #" . $sale_id;

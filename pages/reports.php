@@ -164,7 +164,7 @@ foreach($dealer_balances_agg as $did => $bal) {
     }
 }
 usort($advance_dealer_details, function($a, $b) {
-    return $b['amount'] - $a['amount'];
+    return strcasecmp($a['name'], $b['name']);
 });
 
 $expenses_data = readCSV('expenses');

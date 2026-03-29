@@ -15,6 +15,8 @@ $display_range = date('d M Y', strtotime($from)) . " to " . date('d M Y', strtot
 
 // Load Data
 $products = readCSV('products');
+usort($products, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $categories = readCSV('categories');
 $restocks = readCSV('restocks');
 $sales = readCSV('sales');

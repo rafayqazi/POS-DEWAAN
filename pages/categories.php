@@ -41,6 +41,10 @@ $pageTitle = "Manage Categories";
 include '../includes/header.php';
 
 $categories = readCSV('categories');
+usort($categories, function($a, $b) {
+    return strcasecmp($a['name'], $b['name']);
+});
+
 ?>
 
 <div class="max-w-xl">

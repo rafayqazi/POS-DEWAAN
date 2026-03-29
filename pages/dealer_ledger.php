@@ -198,6 +198,9 @@ $current_balance = $total_debit - $total_credit;
     
     <!-- Row 2: Actions -->
     <div class="flex flex-wrap gap-3 mt-6 justify-end">
+        <button onclick="downloadCompleteLedger()" class="bg-indigo-600 text-white px-5 py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
+            <i class="fas fa-file-pdf mr-2 text-sm"></i> COMPLETE LEDGER (All Time)
+        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
@@ -827,6 +830,21 @@ $current_balance = $total_debit - $total_credit;
     }
 
 
+
+    function downloadCompleteLedger() {
+        const oldFrom = document.getElementById('dateFrom').value;
+        const oldTo = document.getElementById('dateTo').value;
+        
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        
+        renderTable();
+        printReport();
+        
+        document.getElementById('dateFrom').value = oldFrom;
+        document.getElementById('dateTo').value = oldTo;
+        renderTable();
+    }
 
     function printReport() {
         const element = document.getElementById('printableArea');

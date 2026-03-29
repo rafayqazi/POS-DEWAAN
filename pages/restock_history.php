@@ -9,6 +9,8 @@ include '../includes/header.php';
 
 $restocks = readCSV('restocks');
 $dealers = readCSV('dealers');
+usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 
 // Sort by Date descending, then by ID descending
 usort($restocks, function($a, $b) {

@@ -239,6 +239,9 @@ if ($linked_dealer_id) {
     
     <!-- Row 2: Actions -->
     <div class="flex flex-wrap gap-3 mt-6 justify-end">
+        <button onclick="downloadCompleteLedger()" class="bg-indigo-600 text-white px-5 py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
+            <i class="fas fa-file-pdf mr-2 text-sm"></i> COMPLETE LEDGER (All Time)
+        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
@@ -317,6 +320,8 @@ if ($linked_dealer_id) {
         <div class="max-h-[350px] overflow-y-auto pr-2 custom-scrollbar space-y-3" id="dealerList">
             <?php 
             $all_dealers = readCSV('dealers');
+usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
             foreach ($all_dealers as $dealer): 
                 $is_linked = ($dealer['id'] == $linked_dealer_id);
             ?>
@@ -1158,6 +1163,29 @@ if ($linked_dealer_id) {
     }
 
 
+
+    function downloadCompleteLedger() {
+        // 1. Store current filter values
+        const oldFrom = document.getElementById('dateFrom').value;
+        const oldTo = document.getElementById('dateTo').value;
+        
+        // 2. Clear filters
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        
+        // 3. Render table (this update printableArea/printBody with all-time data)
+        // Set currentPage to 1 so the entire history shows if pagination exists for print
+        // (The current ledger logic shows all and prints all finalTxns in printBody)
+        renderTable();
+        
+        // 4. Print
+        printReport();
+        
+        // 5. Restore filters and UI state
+        document.getElementById('dateFrom').value = oldFrom;
+        document.getElementById('dateTo').value = oldTo;
+        renderTable();
+    }
 
     function printReport() {
         const element = document.getElementById('printableArea');

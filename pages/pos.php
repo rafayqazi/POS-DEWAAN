@@ -108,8 +108,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
 }
 
 $customers = readCSV('customers');
+usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $products = readCSV('products');
+usort($products, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $categories = readCSV('categories');
+usort($categories, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $units = readCSV('units');
 ?>
 

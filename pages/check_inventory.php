@@ -9,7 +9,11 @@ include '../includes/header.php';
 
 // Prepare Data
 $products = readCSV('products');
+usort($products, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $categories = readCSV('categories');
+usort($categories, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
 $restocks = readCSV('restocks');
 $sales = readCSV('sales');
 $sale_items = readCSV('sale_items');

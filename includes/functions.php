@@ -773,6 +773,10 @@ function buildUnitTree($units, $parentId = 0) {
             $branch[] = $unit;
         }
     }
+    usort($branch, function($a, $b) {
+        return strcasecmp($a['name'], $b['name']);
+    });
+
     return $branch;
 }
 
