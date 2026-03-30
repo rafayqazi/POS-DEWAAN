@@ -211,6 +211,7 @@ if ($linked_dealer_id) {
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none w-40 shadow-sm h-[42px]">
                 <option value="">Custom</option>
+                <option value="all_time">All Time</option>
                 <option value="today">Today</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
@@ -239,11 +240,8 @@ if ($linked_dealer_id) {
     
     <!-- Row 2: Actions -->
     <div class="flex flex-wrap gap-3 mt-6 justify-end">
-        <button onclick="downloadCompleteLedger()" class="bg-indigo-600 text-white px-5 py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-file-pdf mr-2 text-sm"></i> COMPLETE LEDGER (All Time)
-        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-print mr-2"></i> Print / Save PDF
+            <i class="fas fa-download mr-2"></i> Download PDF
         </button>
         <?php if (isRole('Admin')): ?>
         <button onclick="openTxnModal('Advance')" class="bg-orange-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-orange-900/10 font-bold text-xs h-[46px] hover:bg-orange-600 transition active:scale-95">
@@ -475,9 +473,16 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
                 <!-- JS Populated -->
             </tbody>
             <tfoot>
-                <tr style="background: #f9fafb; font-weight: bold;">
-                    <td colspan="6" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
-                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 16px;"><?= formatCurrency($total_due) ?></td>
+                <tr style="background: #f0fdf4; font-weight: bold;">
+                    <td colspan="3" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px; color: #065f46;">Total Debit:</td>
+                    <td id="printFooterDebit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 13px; font-weight: 800;">Rs.0</td>
+                    <td id="printFooterCredit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #059669; font-size: 13px; font-weight: 800;">Rs.0</td>
+                    <td id="printFooterDiscount" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #d97706; font-size: 13px; font-weight: 800;">Rs.0</td>
+                    <td colspan="2" style="padding: 10px; border: 1px solid #ddd; font-size: 10px; color: #666;">Total Credit / Debit</td>
+                </tr>
+                <tr style="background: #fff1f2; font-weight: bold;">
+                    <td colspan="7" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 12px; color: #991b1b; text-transform: uppercase; letter-spacing: 1px;">Outstanding Balance:</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 16px; font-weight: 900;"><?= formatCurrency($total_due) ?></td>
                 </tr>
             </tfoot>
         </table>
@@ -570,7 +575,13 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
         const today = new Date();
         let start, end;
         
-        if (type === 'today') {
+        if (type === 'all_time') {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            currentPage_Ledger = 1;
+            renderTable();
+            return;
+        } else if (type === 'today') {
             start = new Date();
             end = new Date();
         } else if (type === 'this_month') {
@@ -640,6 +651,9 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
         // Update Print Header Stats
         if(document.getElementById('printTotalDue')) document.getElementById('printTotalDue').innerText = formatCurrency(stats.balance);
         if(document.getElementById('printFooterTotal')) document.getElementById('printFooterTotal').innerText = formatCurrency(stats.balance);
+        if(document.getElementById('printFooterDebit')) document.getElementById('printFooterDebit').innerText = formatCurrency(stats.totalDebit);
+        if(document.getElementById('printFooterCredit')) document.getElementById('printFooterCredit').innerText = formatCurrency(stats.totalCredit);
+        if(document.getElementById('printFooterDiscount')) document.getElementById('printFooterDiscount').innerText = formatCurrency(stats.totalDiscount);
         
         const dateRangeText = document.getElementById('printDateRange');
         if(dateRangeText) {
@@ -1164,28 +1178,7 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
 
 
 
-    function downloadCompleteLedger() {
-        // 1. Store current filter values
-        const oldFrom = document.getElementById('dateFrom').value;
-        const oldTo = document.getElementById('dateTo').value;
-        
-        // 2. Clear filters
-        document.getElementById('dateFrom').value = '';
-        document.getElementById('dateTo').value = '';
-        
-        // 3. Render table (this update printableArea/printBody with all-time data)
-        // Set currentPage to 1 so the entire history shows if pagination exists for print
-        // (The current ledger logic shows all and prints all finalTxns in printBody)
-        renderTable();
-        
-        // 4. Print
-        printReport();
-        
-        // 5. Restore filters and UI state
-        document.getElementById('dateFrom').value = oldFrom;
-        document.getElementById('dateTo').value = oldTo;
-        renderTable();
-    }
+
 
     function printReport() {
         const element = document.getElementById('printableArea');
