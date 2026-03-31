@@ -112,6 +112,20 @@ include '../includes/header.php';
 
 // Fetch Transactions
 $all_txns = readCSV('dealer_transactions');
+$all_restocks = readCSV('restocks');
+$all_products = readCSV('products');
+$units = readCSV('units');
+
+$products_map = [];
+foreach($all_products as $p) $products_map[$p['id']] = $p;
+
+$restocks_map = [];
+foreach($all_restocks as $r) {
+    if ($r['dealer_id'] == $dealer_id) {
+        $restocks_map[$r['id']] = $r;
+    }
+}
+
 $list = [];
 
 // Get all transactions for this dealer, no PHP filtering
@@ -167,6 +181,7 @@ $current_balance = $total_debit - $total_credit;
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none w-40 shadow-sm h-[42px]">
                 <option value="">Custom</option>
+                <option value="all_time">All Time</option>
                 <option value="today">Today</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
@@ -198,9 +213,6 @@ $current_balance = $total_debit - $total_credit;
     
     <!-- Row 2: Actions -->
     <div class="flex flex-wrap gap-3 mt-6 justify-end">
-        <button onclick="downloadCompleteLedger()" class="bg-indigo-600 text-white px-5 py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-file-pdf mr-2 text-sm"></i> COMPLETE LEDGER (All Time)
-        </button>
         <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
@@ -231,6 +243,7 @@ $current_balance = $total_debit - $total_credit;
                 <tr>
                     <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
+                    <th class="p-6">Products & QTY</th>
                     <th class="p-6">Description</th>
                     <th class="p-6 text-center">Type</th>
                     <th class="p-6 text-right">Debit (Goods)</th>
@@ -246,10 +259,14 @@ $current_balance = $total_debit - $total_credit;
     <div id="dealerPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100 italic-normal"></div>
 </div>
 
-<style>
-    .italic-normal { font-style: normal !important; }
-</style>
-
+    <style>
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fbbf24; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d97706; }
+    </style>
+</head>
 
 <!-- Print/PDF Hidden Area -->
 <div id="printableArea" class="hidden">
@@ -284,6 +301,7 @@ $current_balance = $total_debit - $total_credit;
                 <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Products & QTY</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Goods)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
@@ -294,15 +312,21 @@ $current_balance = $total_debit - $total_credit;
                 <!-- JS Populated -->
             </tbody>
             <tfoot>
-                <tr style="background: #f9fafb; font-weight: bold;">
-                    <td colspan="4" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Total / Balance Due:</td>
-                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($current_balance) ?></td>
+                <tr style="background: #f0fdf4; font-weight: bold;">
+                    <td colspan="4" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px; color: #065f46;">Total Value / Paid:</td>
+                    <td id="printFooterDebit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #ea580c; font-size: 13px; font-weight: 800;">Rs.0</td>
+                    <td id="printFooterCredit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #059669; font-size: 13px; font-weight: 800;">Rs.0</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; font-size: 10px; color: #666;">Totals</td>
+                </tr>
+                <tr style="background: #fef2f2; font-weight: bold;">
+                    <td colspan="6" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px; color: #991b1b; text-transform: uppercase;">Outstanding Balance:</td>
+                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px; font-weight: 900;"><?= formatCurrency($current_balance) ?></td>
                 </tr>
             </tfoot>
         </table>
-        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
-            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        <div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+            <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
+            <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
     </div>
 </div>
@@ -380,6 +404,9 @@ $current_balance = $total_debit - $total_credit;
 <script>
     // Pass PHP data to JS
     const allTxns = <?= json_encode($list) ?>;
+    const productsMap = <?= json_encode($products_map) ?>;
+    const restocksMap = <?= json_encode($restocks_map) ?>;
+    const availableUnits = <?= json_encode($units) ?>;
     const initialBalance = <?= $current_balance ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
     let currentDebtValue = 0; 
@@ -396,7 +423,13 @@ $current_balance = $total_debit - $total_credit;
         const today = new Date();
         let start, end;
         
-        if (type === 'today') {
+        if (type === 'all_time') {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            currentPage_Dealer = 1;
+            renderTable();
+            return;
+        } else if (type === 'today') {
             start = new Date();
             end = new Date();
         } else if (type === 'this_month') {
@@ -508,6 +541,8 @@ $current_balance = $total_debit - $total_credit;
         // Update Print Stats
         if(document.getElementById('printTotalDue')) document.getElementById('printTotalDue').innerText = formatCurrency(stats.balance);
         if(document.getElementById('printFooterTotal')) document.getElementById('printFooterTotal').innerText = formatCurrency(stats.balance);
+        if(document.getElementById('printFooterDebit')) document.getElementById('printFooterDebit').innerText = formatCurrency(stats.totalDebit);
+        if(document.getElementById('printFooterCredit')) document.getElementById('printFooterCredit').innerText = formatCurrency(stats.totalCredit);
         
         const dateRangeText = document.getElementById('printDateRange');
         if(dateRangeText) {
@@ -558,6 +593,9 @@ $current_balance = $total_debit - $total_credit;
             }
         });
 
+        // Group Purchases
+        validTxns = groupPurchases(validTxns);
+
         // Calculate Running Balance for Range
         let running = opening;
         validTxns.forEach(t => {
@@ -575,12 +613,203 @@ $current_balance = $total_debit - $total_credit;
             stats: {
                 totalDebit: rangeDebit,
                 totalCredit: rangeCredit,
-                // If dealer logic is Debit increase debt, Credit reduce debt
-                // Balance = Total Debit - Total Credit.
-                // Assuming Opening Balance is already "Net".
                 balance: opening + (rangeDebit - rangeCredit)
             }
         };
+    }
+
+    function groupPurchases(txns) {
+        if (txns.length === 0) return [];
+        
+        let grouped = [];
+        let currentBatch = null;
+
+        txns.forEach(t => {
+            if (t.type !== 'Purchase' || !t.restock_id) {
+                if (currentBatch) {
+                    grouped.push(currentBatch);
+                    currentBatch = null;
+                }
+                grouped.push(t);
+                return;
+            }
+
+            if (!currentBatch) {
+                currentBatch = { 
+                    ...t, 
+                    restock_ids: [t.restock_id],
+                    original_debit: parseFloat(t.debit || 0),
+                    original_credit: parseFloat(t.credit || 0),
+                    is_batch: false
+                };
+            } else {
+                const prevTime = new Date(currentBatch.created_at).getTime();
+                const currTime = new Date(t.created_at).getTime();
+                const diffMin = Math.abs(currTime - prevTime) / (1000 * 60);
+
+                if (diffMin <= 5 && t.dealer_id === currentBatch.dealer_id && t.date === currentBatch.date && t.payment_type === currentBatch.payment_type) {
+                    // Merge into current batch
+                    currentBatch.restock_ids.push(t.restock_id);
+                    currentBatch.debit = (parseFloat(currentBatch.debit || 0) + parseFloat(t.debit || 0)).toString();
+                    currentBatch.credit = (parseFloat(currentBatch.credit || 0) + parseFloat(t.credit || 0)).toString();
+                    currentBatch.is_batch = true;
+                    // Update description to reflect batch
+                    currentBatch.description = `Purchase Batch (${currentBatch.restock_ids.length} items)`;
+                } else {
+                    // Not part of the same batch
+                    grouped.push(currentBatch);
+                    currentBatch = { 
+                        ...t, 
+                        restock_ids: [t.restock_id],
+                        original_debit: parseFloat(t.debit || 0),
+                        original_credit: parseFloat(t.credit || 0),
+                        is_batch: false
+                    };
+                }
+            }
+        });
+
+        if (currentBatch) grouped.push(currentBatch);
+        
+        return grouped;
+    }
+
+    function getUnitHierarchyJS(unitName) {
+        if (!unitName) return [];
+        let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
+        if (!startNode) return [];
+        let root = startNode;
+        while(root.parent_id != 0) {
+            let parent = availableUnits.find(u => u.id == root.parent_id);
+            if(!parent) break;
+            root = parent;
+        }
+        let chain = [];
+        let current = root;
+        while(current) {
+            chain.push(current);
+            let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
+            if(!next) break;
+            current = next;
+        }
+        return chain;
+    }
+
+    function getBaseMultiplierForProductJS(unitName, p) {
+        const chain = getUnitHierarchyJS(p.unit);
+        let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
+        if (targetIdx === -1) return 1;
+        const f2 = parseFloat(p.factor_level2 || 1) || 1;
+        const f3 = parseFloat(p.factor_level3 || 1) || 1;
+        if (targetIdx === 0) {
+            if (chain.length > 2) return f2 * f3;
+            if (chain.length > 1) return f2;
+        } else if (targetIdx === 1) {
+            if (chain.length > 2) return f3;
+        }
+        return 1;
+    }
+
+    function formatStockHierarchyJS(qty, p) {
+        qty = parseFloat(qty);
+        const unitName = p.unit || 'Units';
+        if (qty <= 0) return `0 ${unitName}`;
+        const chain = getUnitHierarchyJS(unitName);
+        if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
+        let remaining = qty;
+        let parts = [];
+        chain.forEach((u, i) => {
+            let mult = getBaseMultiplierForProductJS(u.name, p);
+            let count = Math.floor(remaining / mult);
+            if (count > 0) {
+                parts.push(`<b>${count}</b> <span class="text-[9px] uppercase opacity-70">${u.name}</span>`);
+                remaining = remaining % mult;
+            }
+        });
+        let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
+        const baseUnit = chain[chain.length - 1].name;
+        display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+        return display;
+    }
+
+    function getProductsHtml(t, isPrint) {
+        if (t.type === 'Purchase') {
+            const ids = t.restock_ids || [t.restock_id];
+            let items = [];
+            
+            ids.forEach(rid => {
+                const r = restocksMap[rid];
+                if (r) items.push(r);
+            });
+
+            if (items.length > 0) {
+                if (isPrint) {
+                    const rows = items.map(restock => {
+                        const p = productsMap[restock.product_id];
+                        const pName = p ? p.name : (restock.product_name || 'Unknown Product');
+                        let qtyDisplay = restock.quantity;
+                        if(p && p.unit) {
+                            const chain = getUnitHierarchyJS(p.unit);
+                            if(chain.length > 1) {
+                                const mult = getBaseMultiplierForProductJS(restock.unit || p.unit, p);
+                                qtyDisplay = formatStockHierarchyJS(restock.quantity * mult, p);
+                            } else {
+                                qtyDisplay = `x ${restock.quantity} ${restock.unit || p.unit}`;
+                            }
+                        } else {
+                            qtyDisplay = `x ${restock.quantity} ${restock.unit || ''}`;
+                        }
+                        const qtyPlain = qtyDisplay.toString().replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                        const price = parseFloat(restock.new_buy_price) || 0;
+                        const total = price * parseFloat(restock.quantity || 0);
+                        const priceStr = price > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(price) : '-';
+                        const totalStr = total > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(total) : '-';
+                        
+                        return `<tr>
+                            <td style="padding:4px 8px 4px 0;font-size:10.5px;font-weight:600;color:#111;border-bottom:1px solid #f0f0f0;">${pName}</td>
+                            <td style="padding:4px 8px;font-size:10.5px;color:#444;border-bottom:1px solid #f0f0f0;text-align:center;">${qtyPlain}</td>
+                            <td style="padding:4px 0 4px 8px;font-size:10.5px;color:#c2410c;font-weight:700;border-bottom:1px solid #f0f0f0;text-align:right;">${totalStr}</td>
+                        </tr>`;
+                    }).join('');
+
+                    return `<table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr>
+                                <th style="padding:3px 8px 4px 0;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:2px solid #ddd;text-align:left;">Name</th>
+                                <th style="padding:3px 8px 4px 0;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:2px solid #ddd;text-align:center;width:55px;">QTY</th>
+                                <th style="padding:3px 0 4px 8px;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;border-bottom:2px solid #ddd;text-align:right;width:70px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+                }
+
+                const listHtml = items.map(restock => {
+                    const p = productsMap[restock.product_id];
+                    const pName = p ? p.name : (restock.product_name || 'Unknown Product');
+                    let qtyDisplay = restock.quantity;
+                    if(p && p.unit) {
+                        const chain = getUnitHierarchyJS(p.unit);
+                        if(chain.length > 1) {
+                            const mult = getBaseMultiplierForProductJS(restock.unit || p.unit, p);
+                            qtyDisplay = formatStockHierarchyJS(restock.quantity * mult, p);
+                        } else {
+                            qtyDisplay = `x ${restock.quantity} ${restock.unit || p.unit}`;
+                        }
+                    } else {
+                        qtyDisplay = `x ${restock.quantity} ${restock.unit || ''}`;
+                    }
+
+                    return `<div class="flex flex-col text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0 last:mb-0 last:pb-0">
+                                <span class="font-bold text-gray-800 leading-tight">${pName}</span>
+                                <div class="mt-1">${qtyDisplay}</div>
+                            </div>`;
+                }).join('');
+
+                return `<div class="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">${listHtml}</div>`;
+            }
+        }
+        return isPrint ? t.description : `<div class="text-sm font-bold text-amber-600">${t.description}</div>`;
     }
 
     function generateTableRows(list, opening, fromDate, isPrint) {
@@ -609,14 +838,14 @@ $current_balance = $total_debit - $total_credit;
             const balStyle = isPrint ? 'padding: 8px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;' : 'p-6 text-right font-black text-red-600';
             
             html += `<tr class="${bgClass}">
-                <td colspan="${isPrint ? 4 : 5}" style="${cellStyle}" class="${textClass}">Opening Balance ${dateLabel}</td>
+                <td colspan="${isPrint ? 5 : 6}" style="${cellStyle}" class="${textClass}">Opening Balance ${dateLabel}</td>
                 <td style="${balStyle}" class="${isPrint ? '' : 'p-6 text-right font-black text-red-600'}">${formatCurrency(opening)}</td>
                 ${isPrint ? '' : '<td class="p-6"></td>'}
             </tr>`;
         }
 
         if (list.length === 0 && opening === 0) {
-            html += `<tr><td colspan="${isPrint ? 5 : 7}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
+            html += `<tr><td colspan="${isPrint ? 6 : 8}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
             return html;
         }
 
@@ -640,6 +869,7 @@ $current_balance = $total_debit - $total_credit;
                 html += `<tr>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${displayDate}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${getProductsHtml(t, true)}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${t.description}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #ea580c; font-size: 11px;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #059669; font-size: 11px;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
@@ -650,6 +880,9 @@ $current_balance = $total_debit - $total_credit;
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6">
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
+                    </td>
+                    <td class="p-6">
+                        ${getProductsHtml(t, false)}
                     </td>
                     <td class="p-6">
                         <div class="text-sm font-bold text-gray-800">${t.description}</div>
@@ -679,7 +912,7 @@ $current_balance = $total_debit - $total_credit;
                         ${formatCurrency(t.current_running_balance)}
                     </td>
                     <td class="p-6 text-center">
-                        ${canEdit ? `
+                        ${canEdit && !t.is_batch ? `
                          <div class="flex justify-center space-x-2 transition-opacity">
                                <button onclick="prepareEdit('${t.id}')" class="text-blue-500 hover:text-blue-700 p-1" title="Edit">
                                    <i class="fas fa-edit"></i>
@@ -688,7 +921,7 @@ $current_balance = $total_debit - $total_credit;
                                    <i class="fas fa-trash"></i>
                                </button>
                          </div>
-                        ` : '<span class="text-gray-300 text-xs">-</span>'}
+                        ` : (t.is_batch ? '<span class="text-[9px] font-bold text-gray-400 italic">Grouped Entry</span>' : '<span class="text-gray-300 text-xs">-</span>')}
                     </td>
                 </tr>`;
             }
