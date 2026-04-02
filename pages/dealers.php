@@ -98,6 +98,15 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
         </span>
         <input type="text" id="dealerSearch" autofocus placeholder="Search dealers..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm transition">
     </div>
+    <div class="flex items-center gap-2">
+        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:block">Sort By:</label>
+        <select id="dealerSort" onchange="renderDealers()" class="pl-3 pr-8 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm transition text-xs font-bold bg-white cursor-pointer h-[42px]">
+            <option value="name_asc">Name (A-Z)</option>
+            <option value="name_desc">Name (Z-A)</option>
+            <option value="bal_desc">Highest Payable</option>
+            <option value="bal_asc">Lowest Payable</option>
+        </select>
+    </div>
     <div class="flex gap-3 w-full md:w-auto">
         <button onclick="printReport()" class="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-lg flex items-center justify-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
@@ -209,6 +218,19 @@ function renderDealers() {
     
     let filtered = allDealers.filter(d => {
         return d.name.toLowerCase().includes(term) || (d.phone || '').toLowerCase().includes(term);
+    });
+
+    // Apply Sorting
+    const sortBy = document.getElementById('dealerSort').value;
+    filtered.sort((a, b) => {
+        if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+        if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
+        
+        const balA = balanceMap[a.id] || 0;
+        const balB = balanceMap[b.id] || 0;
+        if (sortBy === 'bal_desc') return balB - balA;
+        if (sortBy === 'bal_asc') return balA - balB;
+        return 0;
     });
 
     const totalItems = filtered.length;

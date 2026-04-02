@@ -65,46 +65,52 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Handle Transaction Deletion
 if (isset($_GET['delete_txn'])) {
     if (!isRole('Admin')) die("Unauthorized Action");
-    $del_id = $_GET['delete_txn'];
-    $txn = findCSV('dealer_transactions', $del_id);
+    $del_ids = explode(',', $_GET['delete_txn']);
+    $count = 0;
     
-    if ($txn && $txn['dealer_id'] == $dealer_id) {
-        // Check for linked Restock/Initial ID
-        if (!empty($txn['restock_id'])) {
-            $restock = findCSV('restocks', $txn['restock_id']);
-            
-            if ($restock) {
-                // Revert Product Stock
-                $product_id = $restock['product_id'];
-                $qty_to_remove = (float)$restock['quantity'];
+    foreach ($del_ids as $del_id) {
+        $txn = findCSV('dealer_transactions', $del_id);
+        if ($txn && $txn['dealer_id'] == $dealer_id) {
+            // Check for linked Restock/Initial ID
+            if (!empty($txn['restock_id'])) {
+                $restock = findCSV('restocks', $txn['restock_id']);
                 
-                // Read products to find current stock
-                $all_products = readCSV('products');
-                $p_index = -1;
-                foreach ($all_products as $idx => $p) {
-                    if ($p['id'] == $product_id) {
-                        $p_index = $idx;
-                        break;
-                    }
-                }
-                
-                if ($p_index > -1) {
-                    $current_stock = (float)$all_products[$p_index]['stock_quantity'];
-                    $all_products[$p_index]['stock_quantity'] = max(0, $current_stock - $qty_to_remove); // Prevent negative stock
+                if ($restock) {
+                    // Revert Product Stock
+                    $product_id = $restock['product_id'];
+                    $qty_to_remove = (float)$restock['quantity'];
                     
-                    // Save Product Update using helper
-                    updateCSV('products', $product_id, ['stock_quantity' => $all_products[$p_index]['stock_quantity']]);
+                    // Read products to find current stock
+                    $all_products = readCSV('products');
+                    $p_index = -1;
+                    foreach ($all_products as $idx => $p) {
+                        if ($p['id'] == $product_id) {
+                            $p_index = $idx;
+                            break;
+                        }
+                    }
+                    
+                    if ($p_index > -1) {
+                        $current_stock = (float)$all_products[$p_index]['stock_quantity'];
+                        $all_products[$p_index]['stock_quantity'] = max(0, $current_stock - $qty_to_remove); // Prevent negative stock
+                        
+                        // Save Product Update using helper
+                        updateCSV('products', $product_id, ['stock_quantity' => $all_products[$p_index]['stock_quantity']]);
+                    }
+                    
+                    // Delete Restock Record
+                    deleteCSV('restocks', $restock['id']);
                 }
-                
-                // Delete Restock Record
-                deleteCSV('restocks', $restock['id']);
             }
+            
+            // Delete Transaction
+            deleteCSV('dealer_transactions', $del_id);
+            $count++;
         }
-        
-        // Delete Transaction
-        deleteCSV('dealer_transactions', $del_id);
-        redirect("dealer_ledger.php?id=$dealer_id&msg=Transaction deleted and stock reverted");
     }
+    
+    $msg = ($count > 1) ? "$count transactions deleted and stock reverted" : "Transaction deleted and stock reverted";
+    redirect("dealer_ledger.php?id=$dealer_id&msg=$msg");
 }
 
 $pageTitle = "Ledger: " . $dealer['name'];
@@ -630,13 +636,14 @@ $current_balance = $total_debit - $total_credit;
                     grouped.push(currentBatch);
                     currentBatch = null;
                 }
-                grouped.push(t);
+                grouped.push({ ...t, txn_ids: [t.id] });
                 return;
             }
 
             if (!currentBatch) {
                 currentBatch = { 
                     ...t, 
+                    txn_ids: [t.id],
                     restock_ids: [t.restock_id],
                     original_debit: parseFloat(t.debit || 0),
                     original_credit: parseFloat(t.credit || 0),
@@ -649,17 +656,19 @@ $current_balance = $total_debit - $total_credit;
 
                 if (diffMin <= 5 && t.dealer_id === currentBatch.dealer_id && t.date === currentBatch.date && t.payment_type === currentBatch.payment_type) {
                     // Merge into current batch
+                    currentBatch.txn_ids.push(t.id);
                     currentBatch.restock_ids.push(t.restock_id);
                     currentBatch.debit = (parseFloat(currentBatch.debit || 0) + parseFloat(t.debit || 0)).toString();
                     currentBatch.credit = (parseFloat(currentBatch.credit || 0) + parseFloat(t.credit || 0)).toString();
                     currentBatch.is_batch = true;
                     // Update description to reflect batch
-                    currentBatch.description = `Purchase Batch (${currentBatch.restock_ids.length} items)`;
+                    currentBatch.description = `Purchase Batch (${currentBatch.txn_ids.length} items)`;
                 } else {
                     // Not part of the same batch
                     grouped.push(currentBatch);
                     currentBatch = { 
                         ...t, 
+                        txn_ids: [t.id],
                         restock_ids: [t.restock_id],
                         original_debit: parseFloat(t.debit || 0),
                         original_credit: parseFloat(t.credit || 0),
@@ -912,16 +921,23 @@ $current_balance = $total_debit - $total_credit;
                         ${formatCurrency(t.current_running_balance)}
                     </td>
                     <td class="p-6 text-center">
-                        ${canEdit && !t.is_batch ? `
+                        ${canEdit ? `
                          <div class="flex justify-center space-x-2 transition-opacity">
-                               <button onclick="prepareEdit('${t.id}')" class="text-blue-500 hover:text-blue-700 p-1" title="Edit">
+                               ${!t.is_batch ? `
+                               <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit">
                                    <i class="fas fa-edit"></i>
                                </button>
-                               <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.id}')" class="text-red-500 hover:text-red-700 p-1" title="Delete">
+                               ` : `
+                               <button onclick="showAlert('Grouped entries cannot be edited as one. Please delete the batch or edit individual records (if implemented).', 'Edit Not Allowed')" class="w-8 h-8 flex items-center justify-center text-gray-300 cursor-not-allowed rounded-lg" title="Editing grouped items not supported">
+                                   <i class="fas fa-edit"></i>
+                               </button>
+                               `}
+                               <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.txn_ids.join(',')}')" class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
                                    <i class="fas fa-trash"></i>
                                </button>
                          </div>
-                        ` : (t.is_batch ? '<span class="text-[9px] font-bold text-gray-400 italic">Grouped Entry</span>' : '<span class="text-gray-300 text-xs">-</span>')}
+                        ` : '<span class="text-gray-300 text-xs">-</span>'}
+                        ${t.is_batch ? '<div class="text-[8px] font-bold text-gray-400 italic mt-1 leading-none">Grouped</div>' : ''}
                     </td>
                 </tr>`;
             }

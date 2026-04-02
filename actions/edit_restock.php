@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restock_id'])) {
     $old_batch_price = (float)$old_restock['new_buy_price'];
 
     // 2. Atomic Transaction for Product Update
-    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $old_qty, $old_batch_price, $new_qty, $new_buy_price, $new_sell_price, $expiry_date, $remarks) {
+    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $old_qty, $old_batch_price, $new_qty, $new_buy_price, $new_sell_price, $expiry_date, $remarks, $restock_id) {
         $found_index = -1;
         foreach ($all_products as $i => $p) {
             if ($p['id'] == $product_id) {
@@ -61,11 +61,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restock_id'])) {
             $final_avco = $new_buy_price;
         }
 
+        // --- PART C: Only update sell_price/buy_price if this is the LATEST restock ---
+        // Check if there's a newer restock for this product (by purchase date, then created_at as tiebreaker)
+        $all_restocks = readCSV('restocks');
+        $latest_restock_id = null;
+        $latest_date = '';
+        $latest_created_at = '';
+        foreach ($all_restocks as $r) {
+            if ($r['product_id'] == $product_id) {
+                $r_date = $r['date'] ?? '';
+                $r_created = $r['created_at'] ?? '';
+                // Primary: purchase date; Secondary: created_at
+                if ($r_date > $latest_date || ($r_date === $latest_date && $r_created > $latest_created_at)) {
+                    $latest_date = $r_date;
+                    $latest_created_at = $r_created;
+                    $latest_restock_id = $r['id'];
+                }
+            }
+        }
+        $is_latest_restock = ($latest_restock_id == $restock_id);
+
         // Update Product
         $all_products[$found_index]['stock_quantity'] = $final_qty;
-        $all_products[$found_index]['buy_price'] = $new_buy_price;
         $all_products[$found_index]['avg_buy_price'] = number_format($final_avco, 2, '.', '');
-        $all_products[$found_index]['sell_price'] = $new_sell_price;
+
+        // Only update prices if this is the most recent restock for the product
+        if ($is_latest_restock) {
+            $all_products[$found_index]['buy_price'] = $new_buy_price;
+            $all_products[$found_index]['sell_price'] = $new_sell_price;
+        }
         
         if(!empty($expiry_date)) $all_products[$found_index]['expiry_date'] = $expiry_date;
         if(!empty($remarks)) $all_products[$found_index]['remarks'] = $remarks;
