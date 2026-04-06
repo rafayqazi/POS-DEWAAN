@@ -134,6 +134,8 @@ sort($categories);
                     <th class="px-6 py-4 font-bold">Category</th>
                     <th class="px-6 py-4 font-bold">Title</th>
                     <th class="px-6 py-4 font-bold text-right">Amount</th>
+                    <th class="px-6 py-4 font-bold">Bilty</th>
+                    <th class="px-6 py-4 font-bold">Cargo</th>
                     <th class="px-6 py-4 font-bold">Description</th>
                     <th class="px-6 py-4 font-bold text-right">Actions</th>
                 </tr>
@@ -165,11 +167,22 @@ sort($categories);
                 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Category</label>
-                    <select id="expenseCategory" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
+                    <select id="expenseCategory" required onchange="toggleTransportFields()" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
                         <?php foreach($categories as $cat): ?>
                             <option value="<?= $cat ?>"><?= $cat ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <div id="transportFields" class="grid grid-cols-2 gap-4 hidden">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Bilty</label>
+                        <input type="text" id="expenseBilty" placeholder="Enter Bilty #" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Cargo</label>
+                        <input type="text" id="expenseCargo" placeholder="Enter Cargo Name" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none">
+                    </div>
                 </div>
 
                 <div>
@@ -264,6 +277,8 @@ sort($categories);
                     </td>
                     <td class="px-6 py-4 text-sm font-bold text-gray-800">${e.title}</td>
                     <td class="px-6 py-4 text-sm font-bold text-red-600 text-right">${formatCurrencyJS(e.amount)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-800 font-bold">${e.bilty || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${e.cargo || '-'}</td>
                     <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">${e.description || ''}</td>
                     <td class="px-6 py-4 text-right space-x-2">
                         <button onclick='editExpense(${JSON.stringify(e)})' class="text-teal-600 hover:text-teal-900 bg-teal-50 p-2 rounded-lg transition-colors border border-teal-100">
@@ -293,7 +308,11 @@ sort($categories);
         document.getElementById('expenseTitle').value = '';
         document.getElementById('expenseAmount').value = '';
         document.getElementById('expenseDescription').value = '';
+        document.getElementById('expenseBilty').value = '';
+        document.getElementById('expenseCargo').value = '';
         document.getElementById('expenseDate').value = '<?= date('Y-m-d') ?>';
+        
+        toggleTransportFields();
         
         const modal = document.getElementById('expenseModal');
         modal.classList.remove('hidden');
@@ -313,7 +332,11 @@ sort($categories);
         document.getElementById('expenseTitle').value = expense.title;
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseDescription').value = expense.description;
+        document.getElementById('expenseBilty').value = expense.bilty || '';
+        document.getElementById('expenseCargo').value = expense.cargo || '';
         document.getElementById('expenseDate').value = expense.date;
+        
+        toggleTransportFields();
         
         const modal = document.getElementById('expenseModal');
         modal.classList.remove('hidden');
@@ -345,6 +368,8 @@ sort($categories);
         fd.append('amount',      document.getElementById('expenseAmount').value);
         fd.append('date',        document.getElementById('expenseDate').value);
         fd.append('description', document.getElementById('expenseDescription').value);
+        fd.append('bilty',       document.getElementById('expenseBilty').value);
+        fd.append('cargo',       document.getElementById('expenseCargo').value);
 
         const res = await fetch('../actions/save_expense.php', {
             method: 'POST',
@@ -512,6 +537,16 @@ sort($categories);
         if (to) url += `&to=${to}`;
         
         window.open(url, '_blank');
+    }
+
+    function toggleTransportFields() {
+        const cat = document.getElementById('expenseCategory').value;
+        const transportFields = document.getElementById('transportFields');
+        if (cat === 'Transport') {
+            transportFields.classList.remove('hidden');
+        } else {
+            transportFields.classList.add('hidden');
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

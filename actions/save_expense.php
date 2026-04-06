@@ -14,12 +14,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = (float)($_POST['amount'] ?? 0);
     $description = $_POST['description'] ?? '';
 
+    $bilty = $_POST['bilty'] ?? '';
+    $cargo = $_POST['cargo'] ?? '';
+
     $expense_data = [
         'date'        => $date,
         'category'    => $category,
         'title'       => $title,
         'amount'      => $amount,
         'description' => $description,
+        'bilty'       => $bilty,
+        'cargo'       => $cargo,
         'created_at'  => date('Y-m-d H:i:s')
     ];
 

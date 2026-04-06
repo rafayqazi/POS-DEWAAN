@@ -269,7 +269,8 @@ foreach($all_sales as $s) {
                             <a href="edit_sale.php?id=${s.id}" class="text-blue-500 hover:text-blue-700 transition" title="Edit Sale"><i class="fas fa-edit"></i></a>
                             <a href="#" onclick="return confirmRevert('${s.id}')" class="text-orange-500 hover:text-orange-700 transition" title="Revert Sale (UNDO All Effects)"><i class="fas fa-undo"></i></a>
                             ` : ''}
-                            <a href="print_bill.php?id=${s.id}" target="_blank" class="text-teal-600 hover:text-teal-800 transition" title="Print Bill"><i class="fas fa-print"></i></a>
+                            <a href="print_bill.php?id=${s.id}" target="_blank" class="text-teal-600 hover:text-teal-800 transition" title="Print Mini Receipt"><i class="fas fa-print"></i></a>
+                            <a href="print_bill_a4.php?id=${s.id}" target="_blank" class="text-purple-600 hover:text-purple-800 transition" title="Print A4 Invoice"><i class="fas fa-file-invoice"></i></a>
                             ${isRoleAdmin ? `
                             <a href="#" onclick="return confirmDelete('${s.id}')" class="text-red-500 hover:text-red-700 transition" title="Delete record ONLY"><i class="fas fa-trash-alt"></i></a>
                             ` : ''}

@@ -417,7 +417,7 @@ if (!file_exists(getCSVPath('categories'))) {
  */
 function runMigrations() {
     $current_version = (int)getSetting('db_schema_version', '0');
-    $latest_version = 8;
+    $latest_version = 9;
 
     if ($current_version >= $latest_version) {
         return; // Already up to date
@@ -677,8 +677,31 @@ function runMigrations() {
         }
     }
 
+    // ----------------------------------------------------
+    // MIGRATION 9: Add bilty and cargo to expenses.csv
+    // ----------------------------------------------------
+    if ($current_version < 9) {
+        $expensePath = getCSVPath('expenses');
+        if (file_exists($expensePath)) {
+            $fp_mig = fopen($expensePath, 'r');
+            if ($fp_mig) {
+                $headers = fgetcsv($fp_mig);
+                fclose($fp_mig);
+                if ($headers && !in_array('bilty', $headers)) {
+                    $data = readCSV('expenses');
+                    foreach ($data as &$e) {
+                        if (!isset($e['bilty'])) $e['bilty'] = '';
+                        if (!isset($e['cargo'])) $e['cargo'] = '';
+                    }
+                    $newHeaders = array_merge($headers, ['bilty', 'cargo']);
+                    writeCSV('expenses', $data, array_unique($newHeaders));
+                }
+            }
+        }
+    }
+
     // Mark migration as done
-    updateSetting('db_schema_version', '8');
+    updateSetting('db_schema_version', '9');
 }
 
 // Run Migrations (only runs if version < latest)
