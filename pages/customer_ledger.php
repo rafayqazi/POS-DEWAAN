@@ -795,9 +795,14 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
                     } else {
                         qtyDisplay = `x ${item.quantity}`;
                     }
-                    return `<div class="flex flex-col text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0">
-                                <span class="font-bold text-gray-800 leading-tight">${pName}</span>
-                                <div class="mt-1">${qtyDisplay}</div>
+                    return `<div class="flex justify-between items-start text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0 gap-2">
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-bold text-gray-800 leading-tight truncate" title="${pName}">${pName}</span>
+                                    <div class="mt-1">${qtyDisplay}</div>
+                                </div>
+                                <div class="flex flex-col items-end shrink-0">
+                                    <span class="font-black text-purple-600">${formatCurrency(parseFloat(item.total_price))}</span>
+                                </div>
                             </div>`;
                 }).join('');
             }
@@ -825,9 +830,15 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
                         + `<div style="font-weight:700;font-size:11px;color:#111;">${pName}</div>`
                         + `<div style="font-size:10px;color:#d97706;margin-top:2px;">${qtyDisplay}</div>`
                         + `</div>`;
-                    return `<div class="flex flex-col text-[10px] mb-2 pl-2 border-l-2 border-purple-200">
-                                <span class="font-medium text-gray-600">${pName}</span>
-                                <span class="text-orange-600 font-black mt-1">${qtyDisplay}</span>
+                    
+                    return `<div class="flex justify-between items-start text-[10px] mb-2 pl-2 border-l-2 border-purple-200 gap-2">
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-medium text-gray-600 truncate" title="${pName}">${pName}</span>
+                                    <span class="text-orange-600 font-black mt-1">${qtyDisplay}</span>
+                                </div>
+                                <div class="flex flex-col items-end shrink-0">
+                                    <span class="font-black text-red-500">-${formatCurrency(parseFloat(item.total_price))}</span>
+                                </div>
                             </div>`;
                 }).join('');
                 
@@ -916,7 +927,7 @@ usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name'])
                         <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
                     </td>
                     <td class="p-6 align-top">
-                        <div class="space-y-1 max-w-xs max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">${productsInfo}</div>
+                        <div class="space-y-1 max-w-xs max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">${productsInfo}</div>
                     </td>
                     <td class="p-6 text-right font-black text-gray-700 align-top">
                         ${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '<span class="text-gray-200">-</span>'}
