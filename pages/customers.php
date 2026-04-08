@@ -258,7 +258,7 @@ let currentPage_Cust = 1;
 const pageSize_Cust = 200;
 
 function formatCurrencyJS(amount) {
-    return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+    return 'Rs. ' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 }
 
 function renderCustomers() {
@@ -280,6 +280,28 @@ function renderCustomers() {
         if (sortBy === 'debt_asc') return debtA - debtB;
         return 0;
     });
+
+    // Update Print Body Dynamic
+    let printHtml = '';
+    let rangeTotalDebt = 0;
+    filtered.forEach((c, idx) => {
+        const debt = debtMap[c.id] || 0;
+        rangeTotalDebt += debt;
+        printHtml += `
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${c.name}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${c.phone || ''}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: ${debt > 0 ? '#dc2626' : '#059669'}; font-weight: bold; font-size: 11px;">${formatCurrencyJS(debt)}</td>
+            </tr>
+        `;
+    });
+    const printBody = document.getElementById('printBody');
+    if (printBody) printBody.innerHTML = printHtml;
+    const printGrandTotal = document.getElementById('printGrandTotal');
+    if (printGrandTotal) printGrandTotal.innerText = formatCurrencyJS(rangeTotalDebt);
+    const printGenOn = document.getElementById('printGeneratedOn');
+    if (printGenOn) printGenOn.innerText = 'Generated on: ' + new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
     const totalItems = filtered.length;
     const paginated = Pagination.paginate(filtered, currentPage_Cust, pageSize_Cust);
@@ -510,7 +532,7 @@ function printReport() {
             </div>
             <div style="text-align: right;">
                 <h2 style="margin: 0; color: #333;">Summary Report</h2>
-                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
+                <p id="printGeneratedOn" style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
             </div>
         </div>
 
@@ -523,22 +545,13 @@ function printReport() {
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Outstanding Debt</th>
                 </tr>
             </thead>
-            <tbody>
-                <?php $sn = 1; foreach ($customers as $c): 
-                    $debt = $debt_map[$c['id']] ?? 0;
-                ?>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;"><?= $sn++ ?></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;"><?= htmlspecialchars($c['name']) ?></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;"><?= htmlspecialchars($c['phone']) ?></td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: <?= $debt > 0 ? '#dc2626' : '#059669' ?>; font-weight: bold; font-size: 11px;"><?= formatCurrency($debt) ?></td>
-                    </tr>
-                <?php endforeach; ?>
+            <tbody id="printBody">
+                <!-- Populated by JS -->
             </tbody>
             <tfoot>
                 <tr style="background: #f9fafb; font-weight: bold;">
                     <td colspan="3" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px;">Grand Total:</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($total_outstanding_debt) ?></td>
+                    <td id="printGrandTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-size: 16px;"><?= formatCurrency($total_outstanding_debt) ?></td>
                 </tr>
             </tfoot>
         </table>
