@@ -12,6 +12,7 @@ $error = $_GET['error'] ?? '';
 $sale_id = $_GET['sale_id'] ?? '';
 $return_id = $_GET['return_id'] ?? '';
 $customer_id_filter = $_GET['customer_id'] ?? '';
+$product_filter = $_GET['product_filter'] ?? '';
 $sales_list = [];
 
 $sale = null;
@@ -38,6 +39,34 @@ if ($customer_id_filter) {
     $sales_list = array_filter($all_sales, function($s) use ($customer_id_filter) {
         return $s['customer_id'] == $customer_id_filter;
     });
+
+    if ($product_filter) {
+        $all_items = readCSV('sale_items');
+        $all_products = readCSV('products');
+        
+        // Find matching product IDs
+        $matching_product_ids = [];
+        foreach($all_products as $p) {
+            if (stripos($p['name'], $product_filter) !== false) {
+                $matching_product_ids[] = $p['id'];
+            }
+        }
+        
+        // Find sale IDs that contain any of these products
+        $matching_sale_ids = [];
+        foreach($all_items as $item) {
+            if (in_array($item['product_id'], $matching_product_ids)) {
+                $matching_sale_ids[] = $item['sale_id'];
+            }
+        }
+        $matching_sale_ids = array_unique($matching_sale_ids);
+        
+        // Filter sales list to only include those sale IDs
+        $sales_list = array_filter($sales_list, function($s) use ($matching_sale_ids) {
+            return in_array($s['id'], $matching_sale_ids);
+        });
+    }
+
     // Sort by date DESC
     usort($sales_list, function($a, $b) {
         return strtotime($b['sale_date']) - strtotime($a['sale_date']);
@@ -47,8 +76,8 @@ if ($customer_id_filter) {
 if ($sale_id) {
     $sale = findCSV('sales', $sale_id);
     if ($sale) {
-        $customers = readCSV('customers');
-        foreach ($customers as $c) {
+        $customers_list = readCSV('customers');
+        foreach ($customers_list as $c) {
             if ($c['id'] == $sale['customer_id']) {
                 $customer = $c;
                 break;
@@ -162,18 +191,37 @@ usort($customers, function($a, $b) {
                     
                     <input type="hidden" name="customer_id" id="customerSelect" value="<?= htmlspecialchars($customer_id_filter) ?>">
                 </div>
-                <?php if ($customer_id_filter && !empty($sales_list)): ?>
-                    <div class="relative">
-                        <i class="fas fa-file-invoice absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
-                        <select name="sale_id" onchange="this.form.submit()" class="w-full pl-10 pr-4 py-3 bg-teal-50 border border-teal-100 rounded-xl text-sm font-black text-teal-800 focus:ring-2 focus:ring-teal-500 outline-none transition-all shadow-sm">
-                            <option value="">Select a Sale from History...</option>
-                            <?php foreach($sales_list as $s): ?>
-                                <option value="<?= $s['id'] ?>" <?= $sale_id == $s['id'] ? 'selected' : '' ?>>Sale #<?= $s['id'] ?> - <?= date('d M Y', strtotime($s['sale_date'])) ?> (Rs. <?= number_format($s['total_amount']) ?>)</option>
-                            <?php endforeach; ?>
-                        </select>
+
+                <?php if ($customer_id_filter): ?>
+                    <div class="flex gap-2 mb-2">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                            <input type="text" name="product_filter" value="<?= htmlspecialchars($product_filter) ?>" placeholder="Filter by Product name..." 
+                                   class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none transition-all shadow-sm">
+                        </div>
+                        <button type="submit" class="px-4 py-3 bg-teal-600 text-white font-black rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-900/20 active:scale-95 text-xs">
+                            FILTER
+                        </button>
+                        <?php if ($product_filter): ?>
+                            <a href="?customer_id=<?= $customer_id_filter ?>" class="px-4 py-3 bg-red-50 text-red-500 font-black rounded-xl hover:bg-red-100 transition-all flex items-center justify-center text-xs shadow-sm border border-red-100 whitespace-nowrap">
+                                <i class="fas fa-times mr-1"></i> CLEAR
+                            </a>
+                        <?php endif; ?>
                     </div>
-                <?php elseif ($customer_id_filter): ?>
-                    <p class="text-[10px] text-red-500 font-bold px-2 italic">No sale history found for this customer.</p>
+
+                    <?php if (!empty($sales_list)): ?>
+                        <div class="relative">
+                            <i class="fas fa-file-invoice absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                            <select name="sale_id" onchange="this.form.submit()" class="w-full pl-10 pr-4 py-3 bg-teal-50 border border-teal-100 rounded-xl text-sm font-black text-teal-800 focus:ring-2 focus:ring-teal-500 outline-none transition-all shadow-sm">
+                                <option value="">Select a Sale from History...</option>
+                                <?php foreach($sales_list as $s): ?>
+                                    <option value="<?= $s['id'] ?>" <?= $sale_id == $s['id'] ? 'selected' : '' ?>>Sale #<?= $s['id'] ?> - <?= date('d M Y', strtotime($s['sale_date'])) ?> (Rs. <?= number_format($s['total_amount']) ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php else: ?>
+                        <p class="text-[10px] text-red-500 font-bold px-2 italic">No matching sale history found.</p>
+                    <?php endif; ?>
                 <?php endif; ?>
             </form>
         </div>

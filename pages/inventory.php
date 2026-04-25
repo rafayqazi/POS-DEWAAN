@@ -232,11 +232,15 @@ foreach ($restocks as $r) {
     }
 }
 
-$total_inv_value = 0; $low_stock_count = 0; $nill_stock_count = 0; $category_counts = [];
+$total_inv_value = 0; $low_stock_count = 0; $nill_stock_count = 0; $available_stock_count = 0; $category_counts = [];
 foreach ($products as $p) {
     $total_inv_value += (float)$p['buy_price'] * (float)$p['stock_quantity'];
-    if ((float)$p['stock_quantity'] <= 0) $nill_stock_count++;
-    elseif ((float)$p['stock_quantity'] < 10) $low_stock_count++;
+    if ((float)$p['stock_quantity'] <= 0) {
+        $nill_stock_count++;
+    } else {
+        $available_stock_count++;
+        if ((float)$p['stock_quantity'] < 10) $low_stock_count++;
+    }
     $cat = $p['category'] ?: 'Uncategorized';
     $category_counts[$cat] = ($category_counts[$cat] ?? 0) + 1;
 }
@@ -254,7 +258,7 @@ include '../includes/header.php';
 
 <!-- Analytics Dashboard -->
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8 mt-4">
-    <div class="lg:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="lg:col-span-4 grid grid-cols-1 md:grid-cols-5 gap-6">
         <div onclick="filterByStatus('all')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-teal-500 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-all">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Products</p>
             <h3 class="text-3xl font-black text-gray-800"><?= number_format(count($products)) ?></h3>
@@ -266,6 +270,10 @@ include '../includes/header.php';
         <div onclick="filterByStatus('low')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-500 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-low">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Low Stock Alerts</p>
             <h3 class="text-3xl font-black text-red-600"><?= number_format($low_stock_count) ?></h3>
+        </div>
+        <div onclick="filterByStatus('available')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-blue-500 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-available">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Available Stock</p>
+            <h3 class="text-3xl font-black text-blue-600"><?= number_format($available_stock_count) ?></h3>
         </div>
         <div onclick="filterByStatus('nill')" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-red-700 group cursor-pointer hover:shadow-md transition-all active:scale-95 status-card" id="card-nill">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Nill Stock</p>
@@ -310,7 +318,7 @@ include '../includes/header.php';
                 $sn = 1; 
                 foreach ($products as $p): 
                     $stock_qty = (float)$p['stock_quantity'];
-                    $status = 'all';
+                    $status = 'available';
                     if ($stock_qty <= 0) $status = 'nill';
                     elseif ($stock_qty < 10) $status = 'low';
                 ?>
@@ -822,7 +830,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowStatus = row.dataset.stockStatus;
             
             const matchesSearch = rowText.includes(searchValue);
-            const matchesStatus = (currentStatusFilter === 'all' || rowStatus === currentStatusFilter);
+            let matchesStatus = (currentStatusFilter === 'all' || rowStatus === currentStatusFilter);
+            
+            // Special Case: "available" status includes "low" products (since they are > 0)
+            if(currentStatusFilter === 'available' && rowStatus === 'low') matchesStatus = true;
             
             if (matchesSearch && matchesStatus) {
                 row.style.display = '';

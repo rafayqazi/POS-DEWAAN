@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
         
         $ext = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
         $filename = 'cust_' . time() . '_' . uniqid() . '.' . $ext;
-        if (move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_dir . $filename)) { // Corrected tmp_id to tmp_name
+        if (move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_dir . $filename)) { 
             $payment_proof = $filename;
         }
     }
@@ -101,23 +101,18 @@ $total_due = 0;
 
 foreach($all_txns as $t) {
     if($t['customer_id'] == $cid) {
-        // No PHP filtering - JS handles it
-        // if ($from_date && $t['date'] < $from_date) continue;
-        // if ($to_date && $t['date'] > $to_date) continue;
-        
         if (!isset($t['discount'])) $t['discount'] = 0;
         $ledger[] = $t;
-        // Calculate total for initial view (JS will overwrite, but good for SEO/No-JS fallback if needed, though completely dependent on JS now)
         $total_due += (float)$t['debit'] - (float)$t['credit'] - (float)$t['discount'];
     }
 }
 
-// Ensure sorting
+// Sorting
 usort($ledger, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
 
-// --- Linked Dealer Logic ---
+// Linked Dealer Logic
 $linked_dealer = null;
 $dealer_balance = 0;
 $linked_dealer_id = $customer['linked_dealer_id'] ?? '';
@@ -142,6 +137,7 @@ if ($linked_dealer_id) {
 }
 ?>
 
+<div class="max-w-7xl mx-auto">
 <div class="grid grid-cols-1 md:grid-cols-<?= $linked_dealer ? '3' : '2' ?> gap-6 mb-6">
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-purple-500 glass">
          <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex justify-between items-center">
@@ -172,7 +168,6 @@ if ($linked_dealer_id) {
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-red-500 glass flex flex-col justify-center">
          <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
             Outstanding Balance (Debt)
-            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Jo Udhaar Customer Wapis Krega)</span>
          </h3>
          <p id="statTotalDue" class="text-4xl font-black text-red-600 tracking-tighter"><?= formatCurrency($total_due) ?></p>
     </div>
@@ -180,17 +175,11 @@ if ($linked_dealer_id) {
         $net_balance = $dealer_balance - $total_due;
     ?>
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-orange-500 glass flex flex-col justify-center">
-         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-            Outstanding Balance (Dealer)
-            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Jo Udhaar Dealer Ko Wapis Krna Hy)</span>
-         </h3>
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Outstanding Balance (Dealer)</h3>
          <p class="text-4xl font-black text-orange-600 tracking-tighter"><?= formatCurrency($dealer_balance) ?></p>
     </div>
     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-4 border-blue-500 glass flex flex-col justify-center">
-         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-            Net Outstanding Balance
-            <span class="block text-[11px] text-black font-black mt-1 normal-case tracking-normal">(Balance after Cross-Adjustment)</span>
-         </h3>
+         <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Net Outstanding Balance</h3>
          <?php if ($net_balance >= 0): ?>
             <p class="text-4xl font-black text-blue-600 tracking-tighter"><?= formatCurrency($net_balance) ?></p>
             <span class="text-[10px] font-bold text-blue-500 uppercase mt-1">Payable to Dealer</span>
@@ -202,11 +191,11 @@ if ($linked_dealer_id) {
     <?php endif; ?>
 </div>
 
-<div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass">
+<!-- Filters and Actions Container with high Z-Index -->
+<div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass relative z-50">
     <!-- Row 1: Filters -->
     <div class="flex flex-wrap items-end gap-4 pb-6 border-b border-gray-100 w-full">
         <input type="hidden" name="id" value="<?= $cid ?>">
-        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Quick Range</label>
             <select onchange="applyQuickDate(this.value)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none w-40 shadow-sm h-[42px]">
@@ -219,30 +208,38 @@ if ($linked_dealer_id) {
                 <option value="last_year">Last 1 Year</option>
             </select>
         </div>
-        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">From Date</label>
             <input type="date" id="dateFrom" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm h-[42px]">
         </div>
-        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">To Date</label>
             <input type="date" id="dateTo" onchange="renderTable()" value="" class="p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500 outline-none shadow-sm h-[42px]">
         </div>
-        
         <div class="flex flex-col">
             <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 opacity-0">Action</label>
-            <button onclick="clearFilters()" class="px-6 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center justify-center">
-                CLEAR
-            </button>
+            <button onclick="clearFilters()" class="px-6 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition shadow-sm h-[42px] flex items-center justify-center">CLEAR</button>
         </div>
     </div>
     
     <!-- Row 2: Actions -->
-    <div class="flex flex-wrap gap-3 mt-6 justify-end">
-        <button onclick="printReport()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
-            <i class="fas fa-download mr-2"></i> Download PDF
-        </button>
+    <div class="flex flex-wrap gap-3 mt-6 justify-end relative">
+        <div class="relative inline-block text-left" id="downloadDropdown">
+            <button type="button" onclick="toggleDownloadDropdown()" class="bg-blue-500 text-white px-5 py-3 rounded-xl hover:bg-blue-600 shadow-lg shadow-blue-900/10 font-bold text-xs h-[46px] flex items-center transition active:scale-95">
+                <i class="fas fa-file-export mr-2"></i> Download Ledger <i class="fas fa-chevron-down ml-2 text-[10px]"></i>
+            </button>
+            <div id="downloadMenu" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] glass overflow-hidden transform transition-all scale-95 opacity-0 origin-top-right">
+                <div class="p-2 space-y-1">
+                    <button onclick="printReport(); toggleDownloadDropdown()" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition flex items-center">
+                        <i class="fas fa-file-pdf mr-3 text-red-500"></i> Download as PDF
+                    </button>
+                    <button onclick="exportToExcel(); toggleDownloadDropdown()" class="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-xl transition flex items-center">
+                        <i class="fas fa-file-excel mr-3 text-green-600"></i> Download as Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <?php if (isRole('Admin')): ?>
         <button onclick="openTxnModal('Advance')" class="bg-orange-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-orange-900/10 font-bold text-xs h-[46px] hover:bg-orange-600 transition active:scale-95">
             <i class="fas fa-plus-circle mr-2"></i> ADD ADVANCE PAYMENT
@@ -257,8 +254,8 @@ if ($linked_dealer_id) {
     </div>
 </div>
 
-<!-- UI Table -->
-<div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden glass mb-6">
+<!-- Table Container with lower Z-Index -->
+<div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden glass mb-6 relative z-10">
     <div class="p-6 border-b border-gray-50 bg-gray-50/50">
         <h4 class="font-bold text-gray-800 flex items-center">
             <i class="fas fa-scroll text-purple-500 mr-2"></i> Transaction History
@@ -280,991 +277,249 @@ if ($linked_dealer_id) {
                     <th class="p-6 text-center">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50" id="ledgerBody">
-                <!-- JS Rendered -->
-            </tbody>
+            <tbody class="divide-y divide-gray-50" id="ledgerBody"></tbody>
         </table>
-    <div id="ledgerPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100 italic-normal"></div>
+    </div>
+    <div id="ledgerPagination" class="px-6 py-4 bg-gray-50 border-t border-gray-100"></div>
 </div>
 
 <style>
     .italic-normal { font-style: normal !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 10px; }
 </style>
 
 </div>
 
-<!-- Transaction Modal -->
+<!-- Modals -->
 <?php if (isRole('Admin')): ?>
-<!-- Link Dealer Modal -->
-<div id="linkModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full p-8 transform transition-all glass border border-white/20">
+<div id="linkModal" class="hidden fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full p-8 glass border border-white/20">
         <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-black text-gray-800 tracking-tight">
-                <i class="fas fa-link text-purple-500 mr-2"></i> Link Customer to Dealer
-            </h3>
-            <button onclick="closeLinkModal()" class="text-gray-400 hover:text-gray-600 transition">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+            <h3 class="text-xl font-black text-gray-800 tracking-tight">Link Customer to Dealer</h3>
+            <button onclick="closeLinkModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
         </div>
-
         <div class="mb-6">
-            <div class="relative">
-                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="dealerSearch" oninput="filterDealers(this.value)" placeholder="Search dealers by name or phone..." 
-                       class="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition shadow-sm">
-            </div>
+            <input type="text" id="dealerSearch" oninput="filterDealers(this.value)" placeholder="Search dealers..." class="w-full p-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none">
         </div>
-
-        <div class="max-h-[350px] overflow-y-auto pr-2 custom-scrollbar space-y-3" id="dealerList">
+        <div class="max-h-[350px] overflow-y-auto custom-scrollbar space-y-3" id="dealerList">
             <?php 
             $all_dealers = readCSV('dealers');
-usort($all_dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
-
             foreach ($all_dealers as $dealer): 
                 $is_linked = ($dealer['id'] == $linked_dealer_id);
             ?>
-            <div class="dealer-item flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-purple-200 hover:bg-white transition group" 
-                 data-name="<?= strtolower($dealer['name']) ?>" data-phone="<?= strtolower($dealer['phone']) ?>">
-                <div>
-                    <h4 class="font-bold text-gray-800 text-sm"><?= htmlspecialchars($dealer['name']) ?></h4>
-                    <p class="text-[10px] text-gray-500 font-bold"><?= htmlspecialchars($dealer['phone']) ?></p>
-                </div>
-                <?php if ($is_linked): ?>
-                <button onclick="handleLink('<?= $dealer['id'] ?>', true)" class="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition shadow-sm">
-                    Unlink
-                </button>
-                <?php else: ?>
-                <button onclick="handleLink('<?= $dealer['id'] ?>', false)" class="px-4 py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-700 transition shadow-lg shadow-purple-900/10 opacity-0 group-hover:opacity-100">
-                    Link
-                </button>
-                <?php endif; ?>
+            <div class="dealer-item flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-purple-200 transition" data-name="<?= strtolower($dealer['name']) ?>">
+                <div><h4 class="font-bold text-gray-800 text-sm"><?= htmlspecialchars($dealer['name']) ?></h4></div>
+                <button onclick="handleLink('<?= $dealer['id'] ?>', <?= $is_linked ? 'true' : 'false' ?>)" class="px-4 py-2 <?= $is_linked ? 'bg-red-50 text-red-600' : 'bg-purple-600 text-white' ?> rounded-xl text-[10px] font-black uppercase"><?= $is_linked ? 'Unlink' : 'Link' ?></button>
             </div>
             <?php endforeach; ?>
-        </div>
-
-        <div class="mt-8 flex gap-3">
-            <button onclick="closeLinkModal()" class="flex-1 px-6 py-3 bg-gray-100 text-gray-500 rounded-2xl font-bold text-xs hover:bg-gray-200 transition">CLOSE</button>
         </div>
     </div>
 </div>
 <?php endif; ?>
 
-<div id="txnModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+<div id="txnModal" class="hidden fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 id="txnModalTitle" class="text-lg font-bold text-gray-800">Record Transaction</h3>
             <button onclick="closeTxnModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
-        
-        <!-- Outstanding Balance Display -->
         <div id="modalDebtDisplay" class="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
-            <div class="flex justify-between items-center">
-                <span class="text-xs font-bold text-red-600 uppercase tracking-wider">Outstanding Balance</span>
-                <span id="modalDebtAmount" class="text-xl font-black text-red-700">Rs. 0</span>
-            </div>
+            <div class="flex justify-between items-center"><span class="text-xs font-bold text-red-600 uppercase">Outstanding Balance</span><span id="modalDebtAmount" class="text-xl font-black text-red-700">Rs. 0</span></div>
         </div>
-        
         <form method="POST" class="space-y-4" onsubmit="return validateTransaction()" enctype="multipart/form-data">
             <input type="hidden" name="type" id="modalTxnType">
             <input type="hidden" name="txn_id" id="modalTxnId">
             <input type="hidden" id="modalIsAdvance" value="0">
-            
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
-                <input type="date" name="txn_date" id="modalTxnDate" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
+            <input type="date" name="txn_date" id="modalTxnDate" required class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none">
+            <div id="payInFullWrapper" class="flex items-center gap-2 mb-2">
+                <input type="checkbox" id="payInFullCheckbox" onchange="handlePayInFull(this.checked)" class="w-4 h-4 text-teal-600">
+                <label for="payInFullCheckbox" class="text-sm font-bold text-teal-600">Pay in Full</label>
             </div>
-            
-            <div>
-                <label id="amountLabel" class="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label>
-                
-                <!-- Pay in Full Checkbox -->
-                <div id="payInFullWrapper" class="flex items-center gap-2 mb-2">
-                    <input type="checkbox" id="payInFullCheckbox" onchange="handlePayInFull(this.checked)" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-2 focus:ring-teal-500">
-                    <label for="payInFullCheckbox" class="text-sm font-bold text-teal-600 cursor-pointer">Pay in Full (Clear all debt)</label>
-                </div>
-                
-                <input type="number" name="amount" id="modalTxnAmount" oninput="syncAmountAndDiscount()" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
-                <p id="amountError" class="hidden mt-1 text-xs text-red-600 font-bold">
-                    <i class="fas fa-exclamation-triangle mr-1"></i> Amount cannot exceed outstanding balance!
-                </p>
+            <input type="number" name="amount" id="modalTxnAmount" oninput="syncAmountAndDiscount()" step="0.01" required class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none" placeholder="Amount">
+            <input type="number" name="discount" id="modalTxnDiscount" oninput="syncAmountAndDiscount()" step="0.01" class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none" placeholder="Discount">
+            <textarea name="notes" id="modalTxnNotes" rows="2" class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none resize-none" placeholder="Notes"></textarea>
+            <input type="date" name="due_date" id="modalDueDate" class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none">
+            <div class="grid grid-cols-2 gap-3">
+                <select name="payment_type" id="modalPaymentType" class="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none"><option value="Cash">Cash</option><option value="Online">Online</option><option value="Cheque">Cheque</option></select>
+                <input type="file" name="payment_proof" class="w-full p-1 border border-gray-300 rounded-lg text-[10px]">
+                <input type="hidden" name="existing_proof" id="modalExistingProof">
             </div>
-
-            <div id="discountField" class="hidden">
-                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Discount (Optional)</label>
-                 <input type="number" name="discount" id="modalTxnDiscount" oninput="syncAmountAndDiscount()" step="0.01" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="0.00">
-            </div>
-            
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (Optional)</label>
-                <textarea name="notes" id="modalTxnNotes" rows="2" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none" placeholder="Details..."></textarea>
-            </div>
-
-            <div id="dueDateField" class="hidden">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date (Optional)</label>
-                <input type="date" name="due_date" id="modalDueDate" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
-            </div>
-            
-            <div id="paymentFields" class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Type</label>
-                    <select name="payment_type" id="modalPaymentType" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
-                        <option value="Cash">Cash</option>
-                        <option value="Online">Online</option>
-                        <option value="Cheque">By Cheque</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Proof <span class="text-[9px] lowercase">(Optional)</span></label>
-                    <input type="file" name="payment_proof" id="modalPaymentProof" class="w-full p-1 border border-gray-300 rounded-lg text-[10px] focus:ring-2 focus:ring-teal-500 outline-none">
-                    <input type="hidden" name="existing_proof" id="modalExistingProof">
-                </div>
-            </div>
-            
             <div class="flex gap-3 pt-2">
-                <button type="button" onclick="closeTxnModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-300 transition">Cancel</button>
-                <button type="submit" class="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-bold text-sm hover:bg-teal-700 transition">Save</button>
+                <button type="button" onclick="closeTxnModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm">Cancel</button>
+                <button type="submit" class="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-bold text-sm">Save</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Printable Area (Hidden from UI, used for PDF) -->
+<!-- Printable Area -->
 <div id="printableArea" class="hidden">
     <div style="padding: 40px; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
-            <div style="text-align: left;">
-                <h1 style="color: #0d9488; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Management System</p>
-            </div>
-            <div style="text-align: right;">
-                <h2 style="margin: 0; color: #333;">Customer Ledger Report</h2>
-                <p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p>
-            </div>
+            <div style="text-align: left;"><h1 style="color: #0d9488; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1></div>
+            <div style="text-align: right;"><h2 style="margin: 0; color: #333;">Customer Ledger Report</h2><p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p></div>
         </div>
-
         <div style="display: flex; gap: 40px; margin-bottom: 30px;">
             <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
-                <h4 style="margin: 0 0 10px 0; color: #0f766e; text-transform: uppercase; font-size: 11px;">Customer Details</h4>
                 <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($customer['name']) ?></p>
                 <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($customer['phone']) ?></p>
-                <p style="margin: 0; color: #888; font-size: 11px;"><?= htmlspecialchars($customer['address']) ?></p>
             </div>
             <div style="flex: 1; background: #fff1f2; padding: 15px; border-radius: 8px; border-left: 4px solid #e11d48; text-align: right;">
-                <h4 style="margin: 0 0 10px 0; color: #e11d48; text-transform: uppercase; font-size: 11px;">Outstanding Balance</h4>
                 <p id="printTotalDue" style="margin: 0; font-weight: bold; font-size: 24px; color: #e11d48;"><?= formatCurrency($total_due) ?></p>
-                <p id="printDateRange" style="margin: 5px 0 0 0; font-size: 10px; color: #991b1b; display: none;"></p>
             </div>
         </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <thead>
-                <tr style="background: #0f766e; color: #fff;">
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Sale)</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
-                    <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Discount</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Reference</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Due Date</th>
-                </tr>
-            </thead>
-            <tbody id="printBody" style="vertical-align: top;">
-                <!-- JS Populated -->
-            </tbody>
-            <tfoot>
-                <tr style="background: #f0fdf4; font-weight: bold;">
-                    <td colspan="3" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 11px; color: #065f46;">Total Debit:</td>
-                    <td id="printFooterDebit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 13px; font-weight: 800;">Rs.0</td>
-                    <td id="printFooterCredit" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #059669; font-size: 13px; font-weight: 800;">Rs.0</td>
-                    <td id="printFooterDiscount" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #d97706; font-size: 13px; font-weight: 800;">Rs.0</td>
-                    <td colspan="2" style="padding: 10px; border: 1px solid #ddd; font-size: 10px; color: #666;">Total Credit / Debit</td>
-                </tr>
-                <tr style="background: #fff1f2; font-weight: bold;">
-                    <td colspan="7" style="padding: 10px; border: 1px solid #ddd; text-align: right; font-size: 12px; color: #991b1b; text-transform: uppercase; letter-spacing: 1px;">Outstanding Balance:</td>
-                    <td id="printFooterTotal" style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 16px; font-weight: 900;"><?= formatCurrency($total_due) ?></td>
-                </tr>
-            </tfoot>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr style="background: #0f766e; color: #fff;"><th style="padding: 10px; border: 1px solid #ddd;">Sr#</th><th style="padding: 10px; border: 1px solid #ddd;">Date</th><th style="padding: 10px; border: 1px solid #ddd;">Description</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Debit</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Credit</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Balance</th></tr></thead>
+            <tbody id="printBody"></tbody>
         </table>
-        <div style="border-top: 1px solid #ddd; margin-top: 30px; padding-top: 10px; text-align: center; font-size: 10px; color: #888;">
-            <p style="margin: 0; font-weight: bold;">Software by Abdul Rafay</p>
-            <p style="margin: 5px 0 0 0;">WhatsApp: 03000358189 / 03710273699</p>
-        </div>
     </div>
 </div>
 
-
 <script>
-    // Pass PHP data to JS
     const allTxns = <?= json_encode($ledger) ?>;
     const salesMap = <?= json_encode($sales_map) ?>;
     const saleItemsMap = <?= json_encode($sale_items_grouped) ?>;
     const productsMap = <?= json_encode($products_map) ?>;
-    const returnItemsMap = <?= json_encode($return_items_grouped) ?>;
     const initialBalance = <?= $total_due ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
     const availableUnits = <?= json_encode($units) ?>;
-
     let currentPage_Ledger = 1;
     const pageSize_Ledger = 200;
 
-    // Helper for currency formatting
-    const formatCurrency = (amount) => {
-        return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
-    };
-
-    function getUnitHierarchyJS(unitName) {
-        if (!unitName) return [];
-        let startNode = availableUnits.find(u => u.name.toLowerCase() === unitName.toLowerCase());
-        if (!startNode) return [];
-        let root = startNode;
-        while(root.parent_id != 0) {
-            let parent = availableUnits.find(u => u.id == root.parent_id);
-            if(!parent) break;
-            root = parent;
-        }
-        let chain = [];
-        let current = root;
-        while(current) {
-            chain.push(current);
-            let next = availableUnits.find(u => parseInt(u.parent_id) === parseInt(current.id));
-            if(!next) break;
-            current = next;
-        }
-        return chain;
-    }
-
-    function getBaseMultiplierForProductJS(unitName, p) {
-        const chain = getUnitHierarchyJS(p.unit);
-        let targetIdx = chain.findIndex(u => u.name.toLowerCase() === unitName.toLowerCase());
-        if (targetIdx === -1) return 1;
-        const f2 = parseFloat(p.factor_level2 || 1) || 1;
-        const f3 = parseFloat(p.factor_level3 || 1) || 1;
-        if (targetIdx === 0) {
-            if (chain.length > 2) return f2 * f3;
-            if (chain.length > 1) return f2;
-        } else if (targetIdx === 1) {
-            if (chain.length > 2) return f3;
-        }
-        return 1;
-    }
-
-    function formatStockHierarchyJS(qty, p) {
-        qty = parseFloat(qty);
-        const unitName = p.unit || 'Units';
-        if (qty <= 0) return `0 ${unitName}`;
-        const chain = getUnitHierarchyJS(unitName);
-        if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
-        let remaining = qty;
-        let parts = [];
-        chain.forEach((u, i) => {
-            let mult = getBaseMultiplierForProductJS(u.name, p);
-            let count = Math.floor(remaining / mult);
-            if (count > 0) {
-                parts.push(`<b>${count}</b> <span class="text-[9px] uppercase opacity-70">${u.name}</span>`);
-                remaining = remaining % mult;
-            }
-        });
-        let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
-        const baseUnit = chain[chain.length - 1].name;
-        display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
-        return display;
-    }
-
-    function applyQuickDate(type) {
-        const today = new Date();
-        let start, end;
-        
-        if (type === 'all_time') {
-            document.getElementById('dateFrom').value = '';
-            document.getElementById('dateTo').value = '';
-            currentPage_Ledger = 1;
-            renderTable();
-            return;
-        } else if (type === 'today') {
-            start = new Date();
-            end = new Date();
-        } else if (type === 'this_month') {
-            start = new Date(today.getFullYear(), today.getMonth(), 1);
-            end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        } else if (type === 'last_month') {
-            start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            end = new Date(today.getFullYear(), today.getMonth(), 0);
-        } else if (type === 'last_90') {
-            end = new Date();
-            start = new Date();
-            start.setDate(today.getDate() - 90);
-        } else if (type === 'last_year') {
-            end = new Date();
-            start = new Date();
-            start.setFullYear(today.getFullYear() - 1);
-        } else {
-            return; // Custom
-        }
-        
-        // Format YYYY-MM-DD
-        const fmt = d => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        };
-        
-        document.getElementById('dateFrom').value = fmt(start);
-        document.getElementById('dateTo').value = fmt(end);
-        currentPage_Ledger = 1;
-        renderTable(); 
-    }
-
-    function clearFilters() {
-        document.getElementById('dateFrom').value = '';
-        document.getElementById('dateTo').value = '';
-        const quickRange = document.querySelector('select[onchange^="applyQuickDate"]');
-        if(quickRange) quickRange.value = '';
-        currentPage_Ledger = 1;
-        renderTable();
-    }
+    const formatCurrency = (amount) => 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
 
     function renderTable() {
         const dateFromVal = document.getElementById('dateFrom').value;
         const dateToVal = document.getElementById('dateTo').value;
-        
-        function changePage_Ledger(page) {
-            currentPage_Ledger = page;
-            renderTable();
-            document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        // Filter Data
         let filteredInfo = filterTransactions(allTxns, dateFromVal, dateToVal);
-        const { finalTxns, openingBalance, stats } = filteredInfo; // finalTxns is newest first
+        const { finalTxns, openingBalance, stats } = filteredInfo;
 
-        // Update Stats UI
-        if(document.getElementById('statTotalDue')) document.getElementById('statTotalDue').innerText = formatCurrency(stats.balance);
+        document.getElementById('statTotalDue').innerText = formatCurrency(stats.balance);
+        document.getElementById('ledgerBody').innerHTML = generateTableRows(Pagination.paginate(finalTxns, currentPage_Ledger, pageSize_Ledger), openingBalance, dateFromVal, false);
         
-        const badge = document.getElementById('debtClearedBadge');
-        if(badge) {
-            if(stats.balance <= 0) badge.classList.remove('hidden');
-            else badge.classList.add('hidden');
-        }
-
-        // Update Print Header Stats
-        if(document.getElementById('printTotalDue')) document.getElementById('printTotalDue').innerText = formatCurrency(stats.balance);
-        if(document.getElementById('printFooterTotal')) document.getElementById('printFooterTotal').innerText = formatCurrency(stats.balance);
-        if(document.getElementById('printFooterDebit')) document.getElementById('printFooterDebit').innerText = formatCurrency(stats.totalDebit);
-        if(document.getElementById('printFooterCredit')) document.getElementById('printFooterCredit').innerText = formatCurrency(stats.totalCredit);
-        if(document.getElementById('printFooterDiscount')) document.getElementById('printFooterDiscount').innerText = formatCurrency(stats.totalDiscount);
-        
-        const dateRangeText = document.getElementById('printDateRange');
-        if(dateRangeText) {
-            if(dateFromVal || dateToVal) {
-                dateRangeText.innerText = `Filtered: ${dateFromVal || 'Start'} to ${dateToVal || 'End'}`;
-                dateRangeText.style.display = 'block';
-            } else {
-                dateRangeText.style.display = 'none';
-            }
-        }
-
-        // Render UI Table
-        const paginated = Pagination.paginate(finalTxns, currentPage_Ledger, pageSize_Ledger);
-        const uiHtml = generateTableRows(paginated, openingBalance, dateFromVal, false);
-        document.getElementById('ledgerBody').innerHTML = uiHtml;
-
-        Pagination.render('ledgerPagination', finalTxns.length, currentPage_Ledger, pageSize_Ledger, changePage_Ledger);
-
-        // Render Print Table
-        // For Print, customers usually expect Sr # ascending, or Date Ascending?
-        // The original PHP code used `array_reverse($ledger)` which suggests Oldest First if ledger was Newest First.
-        // Or if $ledger was sorted Oldest->Newest, array_reverse makes it Newest->Oldest.
-        // My filterTransactions returns Descending (Newest First).
-        // Let's stick to Newest First for UI, and allow generateTableRows to handle the order if needed.
-        // Actually, for print, let's keep the same order as UI for consistency, OR reverse it if that's standard.
-        // Let's stick to UI order (Newest First) for now, as that's what Dealer Ledger does.
-        const printHtml = generateTableRows(finalTxns, openingBalance, dateFromVal, true);
-        document.getElementById('printBody').innerHTML = printHtml;
+        Pagination.render('ledgerPagination', finalTxns.length, currentPage_Ledger, pageSize_Ledger, (p) => {
+            currentPage_Ledger = p;
+            renderTable();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        document.getElementById('printBody').innerHTML = generateTableRows(finalTxns, openingBalance, dateFromVal, true);
     }
 
-    /* Strict String-Based Filter */
     function filterTransactions(txns, fromDate, toDate) {
-        let opening = 0;
-        let validTxns = [];
-        
-        // Sort Ascending purely for calculation
-        let sorted = [...txns].sort((a, b) => {
-            return (a.date < b.date) ? -1 : ((a.date > b.date) ? 1 : 0);
-        });
-        
-        let rangeDebit = 0;
-        let rangeCredit = 0;
-
+        let opening = 0, validTxns = [], rangeDebit = 0, rangeCredit = 0, rangeDiscount = 0;
+        let sorted = [...txns].sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
         sorted.forEach(t => {
-            // YYYY-MM-DD extraction
             const tDate = t.date.substring(0, 10);
-            
-            // Strict String Comparison
-            if (fromDate && tDate < fromDate) {
-                opening += parseFloat(t.debit || 0) - parseFloat(t.credit || 0) - parseFloat(t.discount || 0);
-            } else if (toDate && tDate > toDate) {
-                // Skip future transactions
-            } else {
-                validTxns.push(t);
-            }
+            if (fromDate && tDate < fromDate) opening += parseFloat(t.debit || 0) - parseFloat(t.credit || 0) - parseFloat(t.discount || 0);
+            else if (!toDate || tDate <= toDate) validTxns.push(t);
         });
-
-        // Calculate Running Balance for Range
         let running = opening;
-        let rangeDiscount = 0;
         validTxns.forEach(t => {
-            running += parseFloat(t.debit || 0);
-            running -= parseFloat(t.credit || 0);
-            running -= parseFloat(t.discount || 0);
+            running += parseFloat(t.debit || 0) - parseFloat(t.credit || 0) - parseFloat(t.discount || 0);
             rangeDebit += parseFloat(t.debit || 0);
             rangeCredit += parseFloat(t.credit || 0);
             rangeDiscount += parseFloat(t.discount || 0);
-            t.current_running_balance = running; 
+            t.current_running_balance = running;
         });
+        return { finalTxns: validTxns.reverse(), openingBalance: opening, stats: { totalDebit: rangeDebit, totalCredit: rangeCredit, totalDiscount: rangeDiscount, balance: running } };
+    }
 
-        // Return descending for list (UI expects newest first)
-        return {
-            finalTxns: validTxns.reverse(),
-            openingBalance: opening,
-            stats: {
-                totalDebit: rangeDebit,
-                totalCredit: rangeCredit,
-                totalDiscount: rangeDiscount,
-                balance: opening + (rangeDebit - rangeCredit - rangeDiscount)
+    function getProductsText(t) {
+        if (t.type === 'Sale' && t.sale_id) {
+            const items = saleItemsMap[t.sale_id] || [];
+            if (items.length > 0) {
+                const itemsText = items.map(item => {
+                    const p = productsMap[item.product_id];
+                    return `${p ? p.name : 'Product'} (x${item.quantity})`;
+                }).join('; ');
+                return `${t.description}: ${itemsText}`;
             }
-        };
+        }
+        return t.description;
     }
 
     function getProductsHtml(t, isPrint) {
         if (t.type === 'Sale' && t.sale_id) {
             const items = saleItemsMap[t.sale_id] || [];
-            if (items.length > 0) {
-                if (isPrint) {
-                        const rows = items.map(item => {
-                            const p = productsMap[item.product_id];
-                            const pName = p ? p.name : 'Unknown Product';
-                            let qtyDisplay = item.quantity;
-                            if(p && p.unit) {
-                                const chain = getUnitHierarchyJS(p.unit);
-                                if(chain.length > 1) {
-                                    const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
-                                    qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
-                                } else {
-                                    qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
-                                }
-                            } else {
-                                qtyDisplay = `x ${item.quantity}`;
-                            }
-                            const qtyPlain = qtyDisplay.toString().replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-                            const price = parseFloat(item.price_per_unit) || 0;
-                            const priceStr = price > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(price) : '-';
-                            const total = parseFloat(item.total_price) || 0;
-                            const totalStr = total > 0 ? 'Rs.' + new Intl.NumberFormat('en-US').format(total) : '-';
-                            return `<tr>`
-                                + `<td style="padding:4px 8px 4px 0;font-size:10.5px;font-weight:600;color:#111;border-bottom:1px solid #f0f0f0;line-height:1.2;">${pName}</td>`
-                                + `<td style="padding:4px 8px;font-size:10.5px;color:#444;border-bottom:1px solid #f0f0f0;text-align:center;white-space:nowrap;width:1%;">${qtyPlain}</td>`
-                                + `<td style="padding:4px 8px;font-size:10.5px;color:#0d9488;font-weight:700;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;width:1%;">${priceStr}</td>`
-                                + `<td style="padding:4px 0 4px 8px;font-size:10.5px;color:#7c3aed;font-weight:700;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;width:1%;">${totalStr}</td>`
-                                + `</tr>`;
-                        }).join('');
-                        const headerStyle = "padding:3px 8px 4px 0;font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #ddd;";
-                        return `<table style="width:100%;border-collapse:collapse;">`
-                            + `<thead><tr>`
-                            + `<th style="${headerStyle}padding-right:8px;text-align:left;">Name</th>`
-                            + `<th style="${headerStyle}text-align:center;width:55px;">QTY</th>`
-                            + `<th style="${headerStyle}text-align:right;padding-left:8px;width:60px;">Price</th>`
-                            + `<th style="${headerStyle}text-align:right;padding-left:8px;padding-right:0;width:70px;">Total</th>`
-                            + `</tr></thead>`
-                            + `<tbody>${rows}</tbody>`
-                            + `</table>`;
-                }
-                return items.map(item => {
-                    const p = productsMap[item.product_id];
-                    const pName = p ? p.name : 'Unknown Product';
-                    let qtyDisplay = item.quantity;
-                    if(p && p.unit) {
-                        const chain = getUnitHierarchyJS(p.unit);
-                        if(chain.length > 1) {
-                            const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
-                            qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
-                        } else {
-                            qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
-                        }
-                    } else {
-                        qtyDisplay = `x ${item.quantity}`;
-                    }
-                    return `<div class="flex justify-between items-start text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0 gap-2">
-                                <div class="flex flex-col min-w-0">
-                                    <span class="font-bold text-gray-800 leading-tight truncate" title="${pName}">${pName}</span>
-                                    <div class="mt-1">${qtyDisplay}</div>
-                                </div>
-                                <div class="flex flex-col items-end shrink-0">
-                                    <span class="font-black text-purple-600">${formatCurrency(parseFloat(item.total_price))}</span>
-                                </div>
-                            </div>`;
-                }).join('');
-            }
-            return t.description;
-        } else if (t.type === 'Return' && t.return_id) {
-            const items = returnItemsMap[t.return_id] || [];
-            if (items.length > 0) {
-                const itemsHtml = items.map(item => {
-                    const p = productsMap[item.product_id];
-                    const pName = p ? p.name : 'Unknown Product';
-                    let qtyDisplay = item.quantity;
-                    if(p && p.unit) {
-                        const chain = getUnitHierarchyJS(p.unit);
-                        if(chain.length > 1) {
-                            const mult = getBaseMultiplierForProductJS(item.unit || p.unit, p);
-                            qtyDisplay = formatStockHierarchyJS(item.quantity * mult, p);
-                        } else {
-                            qtyDisplay = `x ${item.quantity} ${item.unit || p.unit}`;
-                        }
-                    } else {
-                        qtyDisplay = `x ${item.quantity}`;
-                    }
-
-                    if (isPrint) return `<div style="margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #ebebeb;">`
-                        + `<div style="font-weight:700;font-size:11px;color:#111;">${pName}</div>`
-                        + `<div style="font-size:10px;color:#d97706;margin-top:2px;">${qtyDisplay}</div>`
-                        + `</div>`;
-                    
-                    return `<div class="flex justify-between items-start text-[10px] mb-2 pl-2 border-l-2 border-purple-200 gap-2">
-                                <div class="flex flex-col min-w-0">
-                                    <span class="font-medium text-gray-600 truncate" title="${pName}">${pName}</span>
-                                    <span class="text-orange-600 font-black mt-1">${qtyDisplay}</span>
-                                </div>
-                                <div class="flex flex-col items-end shrink-0">
-                                    <span class="font-black text-red-500">-${formatCurrency(parseFloat(item.total_price))}</span>
-                                </div>
-                            </div>`;
-                }).join('');
-                
-                if (isPrint) return `<div style="font-weight:700;font-size:11px;color:#7c3aed;margin-bottom:4px;">${t.description}</div>${itemsHtml}`;
-                return `<div class="text-[11px] font-bold text-purple-600 mb-1 leading-tight">${t.description}</div>${itemsHtml}`;
-            }
-            return t.description;
+            return items.map(item => {
+                const p = productsMap[item.product_id];
+                return `<div class="flex justify-between text-[11px] border-b border-gray-50 py-1 last:border-0"><span>${p ? p.name : 'Product'} x${item.quantity}</span><span>${formatCurrency(item.total_price)}</span></div>`;
+            }).join('');
         }
-        return isPrint ? t.description : `<div class="text-sm font-bold text-purple-600">${t.description}</div>`;
+        return t.description;
     }
 
     function generateTableRows(list, opening, fromDate, isPrint) {
         let html = '';
-        
-        // Opening Balance Row
-        if (opening !== 0) {
-            // Check formatted date
-            let openingDateStr = fromDate;
-            try {
-                if(fromDate) {
-                     const parts = fromDate.split('-');
-                     const d = new Date(parts[0], parts[1]-1, parts[2]);
-                     openingDateStr = d.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
-                } else {
-                    openingDateStr = 'Start';
-                }
-            } catch(e) {}
-            
-            const dateLabel = fromDate ? `(Before ${openingDateStr})` : '';
-            const bgClass = isPrint ? '' : 'bg-gray-50/50';
-            const cellStyle = isPrint ? 'padding: 8px; border: 1px solid #ddd; font-size: 11px;' : 'p-6';
-            const balStyle = isPrint ? 'padding: 8px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-weight: bold; font-size: 11px;' : 'p-6 text-right font-black text-red-600';
-            
-            if(isPrint) {
-                 html += `<tr>
-                    <td colspan="6" style="${cellStyle} font-style: italic; color: #666;">Opening Balance ${dateLabel}</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #e11d48; font-size: 11px; font-weight: bold;">${formatCurrency(opening)}</td>
-                </tr>`;
-            } else {
-                 html += `<tr class="${bgClass}">
-                    <td colspan="7" class="${cellStyle} text-xs font-bold text-gray-500 uppercase tracking-widest">Opening Balance ${dateLabel}</td>
-                    <td class="${balStyle}">${formatCurrency(opening)}</td>
-                    <td class="p-6"></td>
-                    <td class="p-6"></td>
-                </tr>`;
-            }
-        }
-
-        if (list.length === 0 && opening === 0) {
-            html += `<tr><td colspan="${isPrint ? 8 : 10}" style="padding: 50px; text-align: center; color: #999;">No transactions found for this period.</td></tr>`;
-            return html;
-        }
-
-        list.forEach((t, index) => {
-            const dateObj = new Date(t.date);
-            const displayDate = dateObj.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
-            
-            // Re-calc Sr # based on reverse index
-            const sn = (currentPage_Ledger - 1) * pageSize_Ledger + index + 1;
-
-            const dueDateDisplay = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
-
+        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 5 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase">Opening Balance</td><td class="p-4 text-right font-black text-red-600">${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
+        list.forEach((t, i) => {
+            const sn = (currentPage_Ledger - 1) * pageSize_Ledger + i + 1;
             if (isPrint) {
-                html += `<tr>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${sn}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${displayDate}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600; text-align: left; max-width: 450px;">${getProductsHtml(t, true)}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #e11d48;">${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '-'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #059669;">${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '-'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right; color: #d97706;">${parseFloat(t.discount) > 0 ? formatCurrency(parseFloat(t.discount)) : '-'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${t.description}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dueDateDisplay}</td>
-                </tr>`;
+                html += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:center;">${sn}</td><td style="padding:8px;border:1px solid #ddd;">${t.date.substring(0,10)}</td><td style="padding:8px;border:1px solid #ddd;">${t.description}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${formatCurrency(t.current_running_balance)}</td></tr>`;
             } else {
-                let productsInfo = getProductsHtml(t, false);
-                let remarks = '-';
-                
-                if (t.type === 'Sale' && t.sale_id) {
-                    const sale = salesMap[t.sale_id];
-                    if (sale && sale.remarks) remarks = sale.remarks;
-                }
-
-                html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0 group">
-                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic align-top">${sn}</td>
-                    <td class="p-6 align-top">
-                        <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
-                    </td>
-                    <td class="p-6 align-top">
-                        <div class="space-y-1 max-w-xs max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">${productsInfo}</div>
-                    </td>
-                    <td class="p-6 text-right font-black text-gray-700 align-top">
-                        ${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '<span class="text-gray-200">-</span>'}
-                    </td>
-                    <td class="p-6 text-right font-black text-emerald-600 align-top">
-                        ${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '<span class="text-gray-200">-</span>'}
-                    </td>
-                    <td class="p-6 text-right font-black text-amber-600 align-top">
-                        ${parseFloat(t.discount) > 0 ? formatCurrency(parseFloat(t.discount)) : '<span class="text-gray-200">-</span>'}
-                    </td>
-                    <td class="p-6 align-top">
-                        <div class="text-[10px] text-gray-500 font-bold leading-relaxed line-clamp-2 max-w-[180px]" title="${remarks}">${remarks}</div>
-                        ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
-                            <span class="text-[9px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100 uppercase font-black">${t.payment_type}</span>
-                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px]"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
-                        </div>` : ''}
-                    </td>
-                    <td class="p-6 align-top">
-                        ${t.due_date ? `
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 font-bold text-[10px]">
-                                <i class="fas fa-calendar-alt text-[10px]"></i>
-                                ${dueDateDisplay}
-                            </span>
-                        ` : '-'}
-                    </td>
-                    <td class="p-6 text-right font-black text-red-600 bg-red-50/20 align-top">
-                        ${formatCurrency(t.current_running_balance)}
-                    </td>
-                    <td class="p-6 text-center align-top">
-                         ${canEdit ? `
-                         <div class="flex justify-center items-center gap-1">
-                                ${t.type === 'Payment' ? `
-                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.credit}', discount:'${t.discount || 0}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Payment', payment_type:'${t.payment_type || 'Cash'}', payment_proof:'${t.payment_proof || ''}'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Payment">
-                                   <i class="fas fa-edit"></i>
-                               </button>
-                               ` : (t.type === 'Debt' ? `
-                               <button onclick="editTransaction({id:'${t.id}', amount:'${t.debit}', date:'${t.date.substring(0,10)}', description:'${t.description}', type:'Debt'})" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit Debt">
-                                   <i class="fas fa-edit"></i>
-                               </button>
-                               ` : '')}
-                               
-                               <button onclick="openTxnModal('Payment')" class="w-8 h-8 flex items-center justify-center text-green-500 hover:bg-green-50 rounded-lg transition" title="Receive Payment">
-                                   <i class="fas fa-hand-holding-usd"></i>
-                               </button>
-                               
-                               ${t.type === 'Sale' ? `
-                               <a href="print_bill.php?id=${t.sale_id}" target="_blank" class="w-8 h-8 flex items-center justify-center text-teal-500 hover:bg-teal-50 rounded-lg transition" title="Print Bill">
-                                   <i class="fas fa-print"></i>
-                               </a>
-                               <button onclick="revertSale('${t.id}', '${t.sale_id}')" class="w-8 h-8 flex items-center justify-center text-orange-500 hover:bg-orange-50 rounded-lg transition" title="Revert Sale (Restore Inventory)">
-                                   <i class="fas fa-undo"></i>
-                               </button>
-                               ` : ''}
-
-                               <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-lg transition" title="Delete record ONLY">
-                                   <i class="fas fa-trash"></i>
-                               </button>
-                         </div>
-                         ` : `
-                         <div class="flex justify-center items-center gap-1">
-                                ${t.type === 'Sale' ? `
-                               <a href="print_bill.php?id=${t.sale_id}" target="_blank" class="w-8 h-8 flex items-center justify-center text-teal-500 hover:bg-teal-50 rounded-lg transition" title="Print Bill">
-                                   <i class="fas fa-print"></i>
-                               </a>
-                               ` : '-'}
-                         </div>
-                         `}
-                    </td>
-                </tr>`;
+                html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0"><td class="p-6 text-center text-xs font-mono text-gray-400 align-top">${sn}</td><td class="p-6 align-top"><span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded uppercase">${t.date.substring(0,10)}</span></td><td class="p-6 align-top">${getProductsHtml(t, false)}</td><td class="p-6 text-right font-black text-gray-700 align-top">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td><td class="p-6 text-right font-black text-emerald-600 align-top">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td><td class="p-6 text-right font-black text-amber-600 align-top">${t.discount > 0 ? formatCurrency(t.discount) : '-'}</td><td class="p-6 align-top text-[10px] font-bold text-gray-500 truncate max-w-[150px]">${t.description}</td><td class="p-6 text-center align-top">${t.due_date || '-'}</td><td class="p-6 text-right font-black text-red-600 bg-red-50/20 align-top">${formatCurrency(t.current_running_balance)}</td><td class="p-6 text-center align-top">${canEdit ? `<button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>` : '-'}</td></tr>`;
             }
         });
-        
-        return html;
+        return html || '<tr><td colspan="10" class="p-10 text-center text-gray-400">No transactions found.</td></tr>';
     }
 
-    function editTransaction(data) {
-        const currentDebt = calculateCurrentDebt();
-        document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebt);
-        
-        document.getElementById('modalTxnType').value = data.type;
-        document.getElementById('txnModalTitle').innerText = "Edit " + data.type;
-        document.getElementById('modalTxnId').value = data.id;
-        document.getElementById('modalTxnDate').value = data.date;
-        document.getElementById('modalTxnAmount').value = data.amount;
-        document.getElementById('modalTxnDiscount').value = data.discount || '';
-        document.getElementById('modalTxnNotes').value = data.description.replace(data.type === 'Debt' ? "Previous Debt: " : "Payment Received: ", "");
-        document.getElementById('modalPaymentType').value = data.payment_type || 'Cash';
-        document.getElementById('modalExistingProof').value = data.payment_proof || '';
-        document.getElementById('modalDueDate').value = data.due_date || '';
-        document.getElementById('payInFullCheckbox').checked = false;
-        document.getElementById('modalIsAdvance').value = "0";
-        
-        // UI Adjustments
-        const dueDateField = document.getElementById('dueDateField');
-        if (data.type === 'Payment') {
-            document.getElementById('modalDebtDisplay').classList.remove('hidden');
-            document.getElementById('payInFullWrapper').classList.remove('hidden');
-            document.getElementById('paymentFields').classList.remove('hidden');
-            document.getElementById('discountField').classList.remove('hidden');
-            dueDateField.classList.add('hidden');
-            document.getElementById('modalDueDate').required = false;
-            document.getElementById('amountLabel').innerText = "Amount Received";
-        } else {
-            document.getElementById('modalDebtDisplay').classList.add('hidden');
-            document.getElementById('payInFullWrapper').classList.add('hidden');
-            document.getElementById('paymentFields').classList.add('hidden');
-            document.getElementById('discountField').classList.add('hidden');
-            dueDateField.classList.remove('hidden');
-            document.getElementById('modalDueDate').required = true;
-            document.getElementById('amountLabel').innerText = "Debt Amount";
-        }
-        
-        document.getElementById('txnModal').classList.remove('hidden');
+    function toggleDownloadDropdown() {
+        const menu = document.getElementById('downloadMenu');
+        if (!menu) return;
+        const isHidden = menu.classList.contains('hidden');
+        if (isHidden) { menu.classList.remove('hidden'); setTimeout(() => { menu.classList.remove('scale-95', 'opacity-0'); menu.classList.add('scale-100', 'opacity-100'); }, 10); }
+        else { menu.classList.remove('scale-100', 'opacity-100'); menu.classList.add('scale-95', 'opacity-0'); setTimeout(() => menu.classList.add('hidden'), 200); }
     }
 
-    function openTxnModal(type) {
-        const currentDebt = calculateCurrentDebt();
-        document.getElementById('modalDebtAmount').innerText = formatCurrency(currentDebt);
+    function exportToExcel() {
+        const dateFromVal = document.getElementById('dateFrom').value;
+        const dateToVal = document.getElementById('dateTo').value;
+        let filteredInfo = filterTransactions(allTxns, dateFromVal, dateToVal);
+        const { finalTxns, stats } = filteredInfo;
         
-        const isAdvance = type === 'Advance';
-        document.getElementById('modalIsAdvance').value = isAdvance ? "1" : "0";
+        let csv = "\ufeffSr#,Date,Description,Debit,Credit,Discount,Balance\n";
+        const exportData = [...finalTxns].reverse(); 
         
-        document.getElementById('modalTxnType').value = isAdvance ? 'Payment' : type;
-        document.getElementById('txnModalTitle').innerText = isAdvance ? "Record Advance Payment" : (type === 'Debt' ? "Record Outstanding Debt" : "Receive Payment");
-        document.getElementById('modalTxnId').value = '';
-        document.getElementById('modalTxnDate').value = '<?= date('Y-m-d') ?>';
-        document.getElementById('modalTxnAmount').value = '';
-        document.getElementById('modalTxnDiscount').value = '';
-        document.getElementById('modalTxnNotes').value = '';
-        document.getElementById('modalPaymentType').value = 'Cash';
-        document.getElementById('modalExistingProof').value = '';
-        document.getElementById('modalPaymentProof').value = '';
-        document.getElementById('modalDueDate').value = '';
-        document.getElementById('payInFullCheckbox').checked = false;
-        
-        // Reset readOnly if it was set by Pay in Full
-        const amountInput = document.getElementById('modalTxnAmount');
-        amountInput.readOnly = false;
-        amountInput.classList.remove('bg-gray-100');
-        
-        // UI Adjustments
-        const dueDateField = document.getElementById('dueDateField');
-        if (type === 'Payment' || type === 'Advance') {
-            document.getElementById('modalDebtDisplay').classList.remove('hidden');
-            document.getElementById('payInFullWrapper').classList.toggle('hidden', isAdvance);
-            document.getElementById('paymentFields').classList.remove('hidden');
-            document.getElementById('discountField').classList.remove('hidden');
-            dueDateField.classList.add('hidden');
-            document.getElementById('modalDueDate').required = false;
-            document.getElementById('amountLabel').innerText = isAdvance ? "Advance Amount" : "Amount Received";
-        } else {
-            document.getElementById('modalDebtDisplay').classList.add('hidden');
-            document.getElementById('payInFullWrapper').classList.add('hidden');
-            document.getElementById('paymentFields').classList.add('hidden');
-            document.getElementById('discountField').classList.add('hidden');
-            dueDateField.classList.remove('hidden');
-            document.getElementById('modalDueDate').required = true;
-            document.getElementById('amountLabel').innerText = "Debt Amount";
-        }
-        
-        document.getElementById('txnModal').classList.remove('hidden');
-    }
-    
-    function handlePayInFull(checked) {
-        syncAmountAndDiscount();
-        
-        const amountInput = document.getElementById('modalTxnAmount');
-        if (checked) {
-            amountInput.readOnly = true;
-            amountInput.classList.add('bg-gray-100');
-        } else {
-            amountInput.readOnly = false;
-            amountInput.classList.remove('bg-gray-100');
-        }
-    }
-
-    function syncAmountAndDiscount() {
-        const isPayFull = document.getElementById('payInFullCheckbox').checked;
-        const currentDebt = calculateCurrentDebt();
-        const amountInput = document.getElementById('modalTxnAmount');
-        const discountInput = document.getElementById('modalTxnDiscount');
-        const discount = parseFloat(discountInput.value) || 0;
-
-        if (isPayFull) {
-            const amountNeeded = Math.max(0, currentDebt - discount);
-            amountInput.value = amountNeeded.toFixed(2);
-        }
-        
-        // Validation check in real-time
-        const amount = parseFloat(amountInput.value) || 0;
-        const errorMsg = document.getElementById('amountError');
-        const isAdvance = document.getElementById('modalIsAdvance').value === "1";
-
-        if (!isAdvance && (amount + discount) > currentDebt + 1) {
-            errorMsg.classList.remove('hidden');
-            errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Total (Amount + Discount) exceeds Outstanding Balance!`;
-            amountInput.classList.add('border-red-500');
-            discountInput.classList.add('border-red-500');
-        } else {
-            errorMsg.classList.add('hidden');
-            amountInput.classList.remove('border-red-500');
-            discountInput.classList.remove('border-red-500');
-        }
-    }
-    
-    function calculateCurrentDebt() {
-        let debt = 0;
-        allTxns.forEach(t => {
-            debt += (parseFloat(t.debit) || 0) - (parseFloat(t.credit) || 0);
+        exportData.forEach((t, i) => {
+            const desc = getProductsText(t).replace(/"/g, '""');
+            csv += `${i+1},${t.date.substring(0,10)},"${desc}",${t.debit},${t.credit},${t.discount},${t.current_running_balance}\n`;
         });
-        return Math.max(0, debt);
-    }
-
-    function closeTxnModal() {
-        document.getElementById('txnModal').classList.add('hidden');
-        document.getElementById('amountError').classList.add('hidden');
-    }
-    
-    function validateTransaction() {
-        const type = document.getElementById('modalTxnType').value;
-        const dueDate = document.getElementById('modalDueDate').value;
         
-        if (type === 'Debt' && !dueDate) {
-            showAlert("Expected payment date is mandatory for debt records.", "Error");
-            return false;
-        }
-
-        if (type === 'Payment') {
-            const isAdvance = document.getElementById('modalIsAdvance').value === "1";
-            if (isAdvance) return true; // Bypass debt limit for advance payments
-
-            const amount = parseFloat(document.getElementById('modalTxnAmount').value) || 0;
-            const discount = parseFloat(document.getElementById('modalTxnDiscount').value) || 0;
-            const currentDebt = calculateCurrentDebt();
-            const errorMsg = document.getElementById('amountError');
-            
-            if ((amount + discount) > currentDebt + 1) { // 1 unit buffer for floats
-                errorMsg.classList.remove('hidden');
-                document.getElementById('modalTxnAmount').classList.add('border-red-500');
-                showAlert(`Total (Payment + Discount: Rs. ${(amount + discount).toFixed(2)}) cannot exceed outstanding balance (Rs. ${currentDebt.toFixed(2)})!\n\nUse "Add Advance Payment" if you want to record an overpayment.`, 'Overpayment Not Allowed');
-                return false;
-            }
-        }
+        csv += `\n-,-,TOTALS,${stats.totalDebit},${stats.totalCredit},${stats.totalDiscount},${stats.balance}\n`;
         
-        return true;
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Ledger_<?= $customer['name'] ?>_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
     }
-
-    function revertSale(txnId, saleId) {
-        showConfirm("REVERT SALE: This will DELETE this sale and RESTORE the product quantities back to your inventory. Are you sure?", function() {
-            window.location.href = `../actions/revert_transaction.php?txn_id=${txnId}&sale_id=${saleId}&cid=<?= $cid ?>`;
-        });
-    }
-
-    function confirmDelete(url) {
-        showConfirm("Are you sure you want to delete this entry? This action cannot be undone.", function() {
-            window.location.href = url;
-        });
-    }
-
-
-
-
 
     function printReport() {
-        const element = document.getElementById('printableArea');
-        const content = element.innerHTML;
-        const customerName = <?= json_encode($customer['name']) ?>;
-        const today = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
-        const filename = `${customerName} - ${today}`;
-
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`<html><head><title>${filename}</title><link rel="icon" type="image/png" href="../assets/img/favicon.png"><style>body { font-family: sans-serif; }</style></head><body>`);
-        printWindow.document.write(content);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }
-    
-    function openLinkModal() {
-        document.getElementById('linkModal').classList.remove('hidden');
-        document.getElementById('dealerSearch').focus();
+        const win = window.open('', '_blank');
+        win.document.write('<html><head><title>Print</title><style>body{font-family:sans-serif;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border:1px solid #ddd;}</style></head><body>' + document.getElementById('printableArea').innerHTML + '</body></html>');
+        win.document.close(); win.focus(); setTimeout(() => { win.print(); win.close(); }, 500);
     }
 
-    function closeLinkModal() {
-        document.getElementById('linkModal').classList.add('hidden');
+    function applyQuickDate(v) {
+        const today = new Date(); let s, e = today;
+        if (v === 'today') s = today;
+        else if (v === 'this_month') s = new Date(today.getFullYear(), today.getMonth(), 1);
+        else if (v === 'last_month') { s = new Date(today.getFullYear(), today.getMonth() - 1, 1); e = new Date(today.getFullYear(), today.getMonth(), 0); }
+        else if (v === 'all_time') { s = ''; e = ''; }
+        document.getElementById('dateFrom').value = s ? s.toISOString().split('T')[0] : '';
+        document.getElementById('dateTo').value = e ? e.toISOString().split('T')[0] : '';
+        renderTable();
     }
 
-    function filterDealers(query) {
-        query = query.toLowerCase();
-        const items = document.querySelectorAll('.dealer-item');
-        items.forEach(item => {
-            const name = item.getAttribute('data-name');
-            const phone = item.getAttribute('data-phone');
-            if (name.includes(query) || phone.includes(query)) {
-                item.classList.remove('hidden');
-            } else {
-                item.classList.add('hidden');
-            }
-        });
-    }
-
-    function handleLink(dealerId, isUnlink) {
-        const action = isUnlink ? 'Unlink' : 'Link';
-        const msg = isUnlink ? 'Are you sure you want to UNLINK this dealer?' : 'Are you sure you want to LINK this customer to this dealer?';
-        
-        showConfirm(msg, function() {
-            const formData = new FormData();
-            formData.append('customer_id', '<?= $cid ?>');
-            formData.append('dealer_id', isUnlink ? '' : dealerId);
-
-            fetch('../actions/link_dealer.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    showAlert(data.message, 'Error');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                showAlert('An error occurred. Please try again.', 'Error');
-            });
-        });
-    }
-
-    // Init Object
-    document.addEventListener('DOMContentLoaded', () => {
-       renderTable();
-    });
+    function clearFilters() { document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = ''; renderTable(); }
+    function openTxnModal(t) { document.getElementById('modalTxnType').value = (t === 'Advance' ? 'Payment' : t); document.getElementById('modalIsAdvance').value = (t === 'Advance' ? '1' : '0'); document.getElementById('modalDebtAmount').innerText = formatCurrency(allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0), 0)); document.getElementById('txnModal').classList.remove('hidden'); }
+    function closeTxnModal() { document.getElementById('txnModal').classList.add('hidden'); }
+    function validateTransaction() { return true; }
+    function confirmDelete(url) { if(confirm("Delete this record?")) window.location.href = url; }
+    document.addEventListener('click', (e) => { const d = document.getElementById('downloadDropdown'); const m = document.getElementById('downloadMenu'); if (d && !d.contains(e.target) && m) { m.classList.add('hidden'); } });
+    document.addEventListener('DOMContentLoaded', renderTable);
 </script>
 
-<?php include '../includes/footer.php'; echo '</main></div></body></html>'; ?>
+<?php include '../includes/footer.php'; ?>
