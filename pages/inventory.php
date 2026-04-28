@@ -791,8 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let res = await r.json();
             showAlert(res.message, action === 'edit' ? 'Updated' : 'Success');
             if(res.status === 'success') {
-                if(action === 'edit') { location.reload(); }
-                else { window.needsReload = true; addForm.reset(); updateFactorUI('add'); }
+                setTimeout(() => { location.reload(); }, 800);
             }
         } catch(err){ showAlert('Error saving product.', 'Error'); }
     };

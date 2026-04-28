@@ -356,24 +356,42 @@ if ($linked_dealer_id) {
 
 <!-- Printable Area -->
 <div id="printableArea" class="hidden">
-    <div style="padding: 40px; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px;">
-            <div style="text-align: left;"><h1 style="color: #0d9488; margin: 0; font-size: 28px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1></div>
-            <div style="text-align: right;"><h2 style="margin: 0; color: #333;">Customer Ledger Report</h2><p style="color: #888; margin: 5px 0 0 0;">Generated on: <?= date('d M Y, h:i A') ?></p></div>
+    <div style="padding: 20px; font-family: sans-serif; font-size: 11px;">
+        <style>@page { margin: 10mm; } @media print { body { font-size: 10px; } }</style>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0d9488; padding-bottom: 12px; margin-bottom: 15px;">
+            <div style="text-align: left;"><h1 style="color: #0d9488; margin: 0; font-size: 22px;"><?= getSetting('business_name', 'Fashion Shines') ?></h1><p style="color: #888; margin: 3px 0 0 0; font-size: 11px;">Management System</p></div>
+            <div style="text-align: right;"><h2 style="margin: 0; color: #333; font-size: 18px;">Customer Ledger Report</h2><p style="color: #888; margin: 3px 0 0 0; font-size: 11px;">Generated on: <?= date('d M Y, h:i A') ?></p></div>
         </div>
-        <div style="display: flex; gap: 40px; margin-bottom: 30px;">
-            <div style="flex: 1; background: #f0fdfa; padding: 15px; border-radius: 8px; border-left: 4px solid #0f766e;">
-                <p style="margin: 0; font-weight: bold; font-size: 16px;"><?= htmlspecialchars($customer['name']) ?></p>
-                <p style="margin: 5px 0; color: #555;"><?= htmlspecialchars($customer['phone']) ?></p>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; align-items: stretch;">
+            <div style="flex: 1; padding: 10px 12px; border-left: 4px solid #0f766e;">
+                <p style="margin: 0 0 2px 0; color: #0d9488; font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">CUSTOMER DETAILS</p>
+                <p style="margin: 0 0 2px 0; font-weight: bold; font-size: 14px;"><?= htmlspecialchars($customer['name']) ?></p>
+                <p style="margin: 1px 0; color: #555; font-size: 11px;"><?= htmlspecialchars($customer['phone']) ?></p>
+                <p style="margin: 1px 0; color: #777; font-size: 10px;"><?= htmlspecialchars($customer['address']) ?></p>
             </div>
-            <div style="flex: 1; background: #fff1f2; padding: 15px; border-radius: 8px; border-left: 4px solid #e11d48; text-align: right;">
-                <p id="printTotalDue" style="margin: 0; font-weight: bold; font-size: 24px; color: #e11d48;"><?= formatCurrency($total_due) ?></p>
+            <div style="flex: 1; padding: 10px 12px; border-left: 4px solid #e11d48; text-align: right; display: flex; flex-direction: column; justify-content: center;">
+                <p style="margin: 0 0 2px 0; color: #e11d48; font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">OUTSTANDING BALANCE</p>
+                <p id="printTotalDue" style="margin: 0; font-weight: bold; font-size: 22px; color: #e11d48;"><?= formatCurrency($total_due) ?></p>
             </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead><tr style="background: #0f766e; color: #fff;"><th style="padding: 10px; border: 1px solid #ddd;">Sr#</th><th style="padding: 10px; border: 1px solid #ddd;">Date</th><th style="padding: 10px; border: 1px solid #ddd;">Description</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Debit</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Credit</th><th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Balance</th></tr></thead>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead><tr style="background: #f8f8f8; color: #555; font-size: 9px; text-transform: uppercase;">
+                <th style="padding: 5px; border: 1px solid #ddd; width: 25px;">Sr #</th>
+                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Date</th>
+                <th style="padding: 5px; border: 1px solid #ddd;">Description</th>
+                <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Debit (Sale)</th>
+                <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Credit (Paid)</th>
+                <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 50px;">Discount</th>
+                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Reference</th>
+                <th style="padding: 5px; border: 1px solid #ddd; width: 70px;">Due Date</th>
+            </tr></thead>
             <tbody id="printBody"></tbody>
         </table>
+        <!-- Developer Footer -->
+        <div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+            <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
+            <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
+        </div>
     </div>
 </div>
 
@@ -404,7 +422,7 @@ if ($linked_dealer_id) {
             renderTable();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
-        document.getElementById('printBody').innerHTML = generateTableRows(finalTxns, openingBalance, dateFromVal, true);
+        document.getElementById('printBody').innerHTML = generateTableRows(finalTxns, openingBalance, dateFromVal, true, stats);
     }
 
     function filterTransactions(txns, fromDate, toDate) {
@@ -443,25 +461,64 @@ if ($linked_dealer_id) {
     function getProductsHtml(t, isPrint) {
         if (t.type === 'Sale' && t.sale_id) {
             const items = saleItemsMap[t.sale_id] || [];
+            if (isPrint && items.length > 0) {
+                let html = `<table style="width:100%;border-collapse:collapse;font-size:8px;line-height:1.2;table-layout:fixed;">`;
+                html += `<tr style="font-weight:bold;text-transform:uppercase;font-size:7px;"><td style="padding:1px 3px;width:140px;">NAME</td><td style="padding:1px 3px;width:50px;">QTY</td><td style="padding:1px 3px;color:#0d9488;width:50px;">PRICE</td><td style="padding:1px 3px;color:#0d9488;width:55px;">TOTAL</td></tr>`;
+                items.forEach(item => {
+                    const p = productsMap[item.product_id];
+                    const pName = p ? p.name : 'Product';
+                    const unit = p ? (p.unit || 'Peace') : 'Peace';
+                    const price = parseFloat(item.total_price) / parseFloat(item.quantity || 1);
+                    html += `<tr><td style="padding:1px 3px;font-weight:bold;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;">${pName}</td><td style="padding:1px 3px;white-space:nowrap!important;">x ${item.quantity} ${unit}</td><td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(price).toLocaleString()}</td><td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(item.total_price).toLocaleString()}</td></tr>`;
+                });
+                html += `</table>`;
+                return html;
+            }
             return items.map(item => {
                 const p = productsMap[item.product_id];
                 return `<div class="flex justify-between text-[11px] border-b border-gray-50 py-1 last:border-0"><span>${p ? p.name : 'Product'} x${item.quantity}</span><span>${formatCurrency(item.total_price)}</span></div>`;
             }).join('');
         }
-        return t.description;
+        return isPrint ? `<span style="font-weight:bold;">${t.description}</span>` : t.description;
     }
 
-    function generateTableRows(list, opening, fromDate, isPrint) {
+    function generateTableRows(list, opening, fromDate, isPrint, stats = null) {
         let html = '';
-        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 5 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase">Opening Balance</td><td class="p-4 text-right font-black text-red-600">${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
+        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 7 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase" ${isPrint ? 'style="padding:10px;border:1px solid #eee;font-weight:bold;color:#666;"' : ''}>Opening Balance</td><td class="p-4 text-right font-black text-red-600" ${isPrint ? 'style="padding:10px;border:1px solid #eee;text-align:right;font-weight:bold;color:#e11d48;"' : ''}>${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
         list.forEach((t, i) => {
             const sn = (currentPage_Ledger - 1) * pageSize_Ledger + i + 1;
             if (isPrint) {
-                html += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:center;">${sn}</td><td style="padding:8px;border:1px solid #ddd;">${t.date.substring(0,10)}</td><td style="padding:8px;border:1px solid #ddd;">${t.description}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td><td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${formatCurrency(t.current_running_balance)}</td></tr>`;
+                const printDate = new Date(t.date.substring(0,10));
+                const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+                const discountVal = parseFloat(t.discount || 0);
+                const refText = t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received:' : (t.description || '-'));
+                const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '-';
+                html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
+                html += `<td style="padding:5px;border:1px solid #eee;text-align:center;color:#999;font-size:9px;">${sn}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dateStr}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;">${getProductsHtml(t, true)}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#0d9488;font-weight:bold;font-size:9px;">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#0d9488;font-weight:bold;font-size:9px;">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#d97706;font-size:9px;">${discountVal > 0 ? formatCurrency(discountVal) : '-'}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;">${refText}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dueDate}</td>`;
+                html += `</tr>`;
             } else {
                 html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0"><td class="p-6 text-center text-xs font-mono text-gray-400 align-top">${sn}</td><td class="p-6 align-top"><span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded uppercase">${t.date.substring(0,10)}</span></td><td class="p-6 align-top">${getProductsHtml(t, false)}</td><td class="p-6 text-right font-black text-gray-700 align-top">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td><td class="p-6 text-right font-black text-emerald-600 align-top">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td><td class="p-6 text-right font-black text-amber-600 align-top">${t.discount > 0 ? formatCurrency(t.discount) : '-'}</td><td class="p-6 align-top text-[10px] font-bold text-gray-500 truncate max-w-[150px]">${t.description}</td><td class="p-6 text-center align-top">${t.due_date || '-'}</td><td class="p-6 text-right font-black text-red-600 bg-red-50/20 align-top">${formatCurrency(t.current_running_balance)}</td><td class="p-6 text-center align-top">${canEdit ? `<button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>` : '-'}</td></tr>`;
             }
         });
+
+        if (isPrint && stats) {
+            html += `<tr style="border-top:2px solid #ddd; font-weight:bold; background:#fcfcfc;">`;
+            html += `<td colspan="3" style="padding:8px; text-align:right; border:1px solid #ddd; text-transform:uppercase; font-size:10px; color:#666;">Total Debit / Credit / Discount:</td>`;
+            html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#e11d48; font-size:11px;">${formatCurrency(stats.totalDebit)}</td>`;
+            html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#0d9488; font-size:11px;">${formatCurrency(stats.totalCredit)}</td>`;
+            html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#d97706; font-size:11px;">${formatCurrency(stats.totalDiscount)}</td>`;
+            html += `<td colspan="2" style="padding:8px; border:1px solid #ddd; font-size:9px; color:#aaa;">Overall Summary</td>`;
+            html += `</tr>`;
+            html += `<tr><td colspan="8" style="padding:0; border:none;"><div style="display:flex; justify-content:flex-end; padding:20px 0;"><div style="border:1px solid #eee; display:flex; align-items:center;"><div style="background:#f8f8f8; padding:10px 20px; font-weight:bold; color:#e11d48; text-transform:uppercase; font-size:12px; border-right:1px solid #eee;">OUTSTANDING BALANCE:</div><div style="padding:10px 30px; font-size:20px; font-weight:bold; color:#e11d48;">${formatCurrency(stats.balance)}</div></div></div></td></tr>`;
+        }
+
         return html || '<tr><td colspan="10" class="p-10 text-center text-gray-400">No transactions found.</td></tr>';
     }
 
@@ -498,7 +555,8 @@ if ($linked_dealer_id) {
 
     function printReport() {
         const win = window.open('', '_blank');
-        win.document.write('<html><head><title>Print</title><style>body{font-family:sans-serif;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border:1px solid #ddd;}</style></head><body>' + document.getElementById('printableArea').innerHTML + '</body></html>');
+        const fileName = `Ledger_<?= str_replace([" ", "'", "\""], "_", $customer['name']) ?>_<?= date('d_M_Y') ?>`;
+        win.document.write('<html><head><title>' + fileName + '</title><style>body{font-family:sans-serif;margin:0;padding:0;}</style></head><body>' + document.getElementById('printableArea').innerHTML + '</body></html>');
         win.document.close(); win.focus(); setTimeout(() => { win.print(); win.close(); }, 500);
     }
 
