@@ -479,20 +479,20 @@ if ($linked_dealer_id) {
                 html += `</table>`;
                 return html;
             }
-            let html = `<div class="flex flex-col min-w-[220px]">
-                            <div class="flex justify-between text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-1 px-1">
-                                <span class="flex-1">Item Name</span>
+            let html = `<div class="flex flex-col min-w-[240px] bg-gray-50/30 rounded-xl border border-gray-100/50 p-2 overflow-hidden shadow-inner">
+                            <div class="flex justify-between text-[7px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-1.5 mb-2 px-1 opacity-70">
+                                <span class="flex-1">Item Description</span>
                                 <span class="w-10 text-center">QTY</span>
-                                <span class="w-16 text-right">Price</span>
+                                <span class="w-20 text-right">Amount</span>
                             </div>`;
             
             html += items.map(item => {
                 const p = productsMap[item.product_id];
                 const pName = p ? p.name : 'Product';
-                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-50 py-1 last:border-0 gap-2 px-1">
-                            <span class="font-bold text-gray-900 flex-1 leading-tight">${pName}</span>
-                            <span class="text-amber-600 font-black w-10 text-center">x${item.quantity}</span>
-                            <span class="font-black text-blue-600 w-16 text-right flex-shrink-0">${formatCurrency(item.total_price)}</span>
+                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-100/30 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
+                            <span class="font-bold text-gray-700 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
+                            <span class="text-amber-600 font-black w-10 text-center bg-amber-50 rounded py-0.5 border border-amber-100/50 shadow-sm shadow-amber-900/5">x${item.quantity}</span>
+                            <span class="font-black text-blue-600 w-20 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
                         </div>`;
             }).join('');
             
@@ -508,6 +508,7 @@ if ($linked_dealer_id) {
         list.forEach((t, i) => {
             const sn = (currentPage_Ledger - 1) * pageSize_Ledger + i + 1;
             if (isPrint) {
+                // ... (keeping print logic same for now as it's already structured)
                 const printDate = new Date(t.date.substring(0,10));
                 const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
                 const discountVal = parseFloat(t.discount || 0);
@@ -524,7 +525,48 @@ if ($linked_dealer_id) {
                 html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dueDate}</td>`;
                 html += `</tr>`;
             } else {
-                html += `<tr class="hover:bg-purple-50/30 transition border-b border-gray-50 last:border-0"><td class="p-6 text-center text-xs font-mono text-gray-400 align-top">${sn}</td><td class="p-6 align-top"><span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded uppercase">${t.date.substring(0,10)}</span></td><td class="p-6 align-top">${getProductsHtml(t, false)}</td><td class="p-6 text-right font-black text-gray-700 align-top">${t.debit > 0 ? formatCurrency(t.debit) : '-'}</td><td class="p-6 text-right font-black text-emerald-600 align-top">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td><td class="p-6 text-right font-black text-amber-600 align-top">${t.discount > 0 ? formatCurrency(t.discount) : '-'}</td><td class="p-6 align-top text-[10px] font-bold text-gray-500 truncate max-w-[150px]">${t.description}</td><td class="p-6 text-center align-top">${t.due_date || '-'}</td><td class="p-6 text-right font-black text-red-600 bg-red-50/20 align-top">${formatCurrency(t.current_running_balance)}</td><td class="p-6 text-center align-top">${canEdit ? `<button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>` : '-'}</td></tr>`;
+                const rowBorder = t.debit > 0 ? 'border-l-red-500' : 'border-l-emerald-500';
+                const rowBg = t.debit > 0 ? 'hover:bg-red-50/20' : 'hover:bg-emerald-50/20';
+                const typeIcon = t.debit > 0 ? '<i class="fas fa-shopping-cart text-red-300"></i>' : '<i class="fas fa-hand-holding-usd text-emerald-300"></i>';
+                
+                html += `<tr class="${rowBg} transition-all border-b border-gray-50 last:border-0 border-l-4 ${rowBorder} group">
+                            <td class="p-4 text-center align-top">
+                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-[10px] font-black group-hover:bg-gray-200 group-hover:text-gray-600 transition-colors shadow-inner">${sn}</span>
+                            </td>
+                            <td class="p-4 align-top">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] font-black text-gray-800 tracking-tighter">${new Date(t.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short'})}</span>
+                                    <span class="text-[9px] font-bold text-gray-400 mt-0.5">${new Date(t.date).getFullYear()}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 align-top">
+                                ${getProductsHtml(t, false)}
+                            </td>
+                            <td class="p-4 text-right align-top tabular-nums">
+                                ${t.debit > 0 ? `<span class="font-black text-gray-800 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-300">-</span>'}
+                            </td>
+                            <td class="p-4 text-right align-top tabular-nums">
+                                ${t.credit > 0 ? `<span class="font-black text-emerald-600 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-300">-</span>'}
+                            </td>
+                            <td class="p-4 text-right align-top tabular-nums">
+                                ${t.discount > 0 ? `<span class="font-black text-amber-600 text-sm tracking-tighter">${formatCurrency(t.discount)}</span>` : '<span class="text-gray-300">-</span>'}
+                            </td>
+                            <td class="p-4 align-top">
+                                <div class="flex items-center gap-2">
+                                    <span class="opacity-40 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
+                                    <span class="text-[10px] font-bold text-gray-500 max-w-[120px] truncate block" title="${t.description}">${t.description}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 text-center align-top whitespace-nowrap">
+                                <span class="text-[10px] font-bold ${t.due_date ? 'text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100' : 'text-gray-300'}">${t.due_date || '-'}</span>
+                            </td>
+                            <td class="p-4 text-right font-black text-red-600 bg-red-50/10 align-top tabular-nums group-hover:bg-red-50/20 transition-colors shadow-inner">
+                                <span class="text-sm tracking-tighter">${formatCurrency(t.current_running_balance)}</span>
+                            </td>
+                            <td class="p-4 text-center align-top">
+                                ${canEdit ? `<button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all active:scale-90" title="Delete Entry"><i class="fas fa-trash-alt text-xs"></i></button>` : '-'}
+                            </td>
+                        </tr>`;
             }
         });
 

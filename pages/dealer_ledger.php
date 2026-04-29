@@ -793,10 +793,10 @@ $current_balance = $total_debit - $total_credit;
                     </table>`;
                 }
 
-                let html = `<div class="flex flex-col min-w-[200px]">
-                                <div class="flex justify-between text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-1 px-1">
-                                    <span class="flex-1">Item Name</span>
-                                    <span class="w-24 text-right">QTY</span>
+                let html = `<div class="flex flex-col min-w-[240px] bg-amber-50/30 rounded-xl border border-amber-100/50 p-2 overflow-hidden shadow-inner">
+                                <div class="flex justify-between text-[7px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-amber-100 pb-1.5 mb-2 px-1 opacity-70">
+                                    <span class="flex-1">Item Description</span>
+                                    <span class="w-24 text-right">Quantity</span>
                                 </div>`;
                 
                 html += items.map(restock => {
@@ -815,9 +815,9 @@ $current_balance = $total_debit - $total_credit;
                         qtyDisplay = `x ${restock.quantity} ${restock.unit || ''}`;
                     }
 
-                    return `<div class="flex justify-between items-start text-[10px] border-b border-gray-50 py-1 last:border-0 gap-2 px-1">
-                                <span class="font-bold text-gray-900 flex-1 leading-tight">${pName}</span>
-                                <span class="text-amber-600 font-black w-24 text-right">${qtyDisplay}</span>
+                    return `<div class="flex justify-between items-start text-[10px] border-b border-amber-100/30 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
+                                <span class="font-bold text-gray-700 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
+                                <span class="text-amber-600 font-black w-24 text-right tabular-nums">${qtyDisplay}</span>
                             </div>`;
                 }).join('');
 
@@ -871,10 +871,8 @@ $current_balance = $total_debit - $total_credit;
             const displayDate = dateObj.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
             
             let displayTime = '';
-            // Attempt to parse time from timestamp if available
             if(t.date.includes(' ')) {
-                displayTime = t.date.split(' ')[1]; // "HH:MM:SS" or similar
-                 // Let's use created_at if available in JSON
+                displayTime = t.date.split(' ')[1]; 
                  if(t.created_at) {
                      const createdDate = new Date(t.created_at);
                      displayTime = createdDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
@@ -892,59 +890,64 @@ $current_balance = $total_debit - $total_credit;
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;">${formatCurrency(t.current_running_balance)}</td>
                 </tr>`;
             } else {
-                html += `<tr class="hover:bg-amber-50/30 transition border-b border-gray-50 last:border-0 group">
-                    <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
-                    <td class="p-6">
-                        <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-md uppercase">${displayDate}</span>
+                const isDebt = parseFloat(t.debit || 0) > parseFloat(t.credit || 0);
+                const rowBorder = isDebt ? 'border-l-red-500' : 'border-l-emerald-500';
+                const rowBg = isDebt ? 'hover:bg-red-50/20' : 'hover:bg-emerald-50/20';
+                const typeIcon = t.type === 'Purchase' ? '<i class="fas fa-truck-loading text-amber-300"></i>' : '<i class="fas fa-wallet text-emerald-300"></i>';
+
+                html += `<tr class="${rowBg} transition-all border-b border-gray-50 last:border-0 border-l-4 ${rowBorder} group">
+                    <td class="p-4 text-center align-top">
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-[10px] font-black group-hover:bg-gray-200 group-hover:text-gray-600 transition-colors shadow-inner">${sn}</span>
                     </td>
-                    <td class="p-6">
+                    <td class="p-4 align-top">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-black text-gray-800 tracking-tighter">${displayDate}</span>
+                            <span class="text-[9px] font-bold text-gray-400 mt-0.5">${new Date(t.date).getFullYear()}</span>
+                        </div>
+                    </td>
+                    <td class="p-4 align-top">
                         ${getProductsHtml(t, false)}
                     </td>
-                    <td class="p-6">
-                        <div class="text-sm font-bold text-gray-800">${t.description}</div>
-                        <div class="text-[9px] text-gray-400 font-semibold tracking-wider mt-0.5">${displayTime}</div>
-                        ${t.payment_type ? `<div class="mt-1 flex items-center gap-2">
-                            <span class="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 uppercase font-black">${t.payment_type}</span>
-                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px]"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
+                    <td class="p-4 align-top">
+                        <div class="flex items-center gap-2">
+                            <span class="opacity-40 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
+                            <div class="text-sm font-bold text-gray-800">${t.description}</div>
+                        </div>
+                        <div class="text-[9px] text-gray-400 font-semibold tracking-wider mt-1 ml-6">${displayTime}</div>
+                        ${t.payment_type ? `<div class="mt-2 ml-6 flex items-center gap-2">
+                            <span class="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 uppercase font-black tracking-tighter">${t.payment_type}</span>
+                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px] ml-2"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
                         </div>` : ''}
                     </td>
-                    <td class="p-6 text-center">
-                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                            t.type === 'Purchase' ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-                            (t.type === 'Payment' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                            (t.type === 'Advance' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
-                            'bg-red-50 text-red-600 border-red-100'))
-                        }">
-                            ${t.type}
-                        </span>
+                    <td class="p-4 text-center align-top">
+                        <span class="text-[9px] font-black px-2 py-1 rounded-full ${t.type === 'Purchase' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} uppercase tracking-widest">${t.type}</span>
                     </td>
-                    <td class="p-6 text-right font-black text-gray-700">
-                        ${parseFloat(t.debit) > 0 ? formatCurrency(parseFloat(t.debit)) : '<span class="text-gray-200">-</span>'}
+                    <td class="p-4 text-right align-top tabular-nums">
+                        ${parseFloat(t.debit) > 0 ? `<span class="font-black text-gray-800 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-300">-</span>'}
                     </td>
-                    <td class="p-6 text-right font-black text-emerald-600">
-                        ${parseFloat(t.credit) > 0 ? formatCurrency(parseFloat(t.credit)) : '<span class="text-gray-200">-</span>'}
+                    <td class="p-4 text-right align-top tabular-nums">
+                        ${parseFloat(t.credit) > 0 ? `<span class="font-black text-emerald-600 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-300">-</span>'}
                     </td>
-                    <td class="p-6 text-right font-black text-red-600 bg-red-50/20">
-                        ${formatCurrency(t.current_running_balance)}
+                    <td class="p-4 text-right font-black ${isDebt ? 'text-red-600' : 'text-emerald-600'} bg-gray-50/30 align-top tabular-nums group-hover:bg-gray-100/50 transition-colors shadow-inner">
+                        <span class="text-sm tracking-tighter">${formatCurrency(t.current_running_balance)}</span>
                     </td>
-                    <td class="p-6 text-center">
-                        ${canEdit ? `
-                         <div class="flex justify-center space-x-2 transition-opacity">
-                               ${!t.is_batch ? `
-                               <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Edit">
-                                   <i class="fas fa-edit"></i>
-                               </button>
-                               ` : `
-                               <button onclick="showAlert('Grouped entries cannot be edited as one. Please delete the batch or edit individual records (if implemented).', 'Edit Not Allowed')" class="w-8 h-8 flex items-center justify-center text-gray-300 cursor-not-allowed rounded-lg" title="Editing grouped items not supported">
-                                   <i class="fas fa-edit"></i>
-                               </button>
-                               `}
-                               <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.txn_ids.join(',')}')" class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
-                                   <i class="fas fa-trash"></i>
-                               </button>
-                         </div>
-                        ` : '<span class="text-gray-300 text-xs">-</span>'}
-                        ${t.is_batch ? '<div class="text-[8px] font-bold text-gray-400 italic mt-1 leading-none">Grouped</div>' : ''}
+                    <td class="p-4 text-center align-top">
+                        <div class="flex justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            ${canEdit ? `
+                                ${!t.is_batch ? `
+                                <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:bg-blue-50 rounded-full transition active:scale-90" title="Edit">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
+                                ` : `
+                                <button onclick="showAlert('Grouped entries cannot be edited as one. Please delete the batch or edit individual records.', 'Edit Not Allowed')" class="w-8 h-8 flex items-center justify-center text-gray-200 cursor-not-allowed rounded-full" title="Editing grouped items not supported">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
+                                `}
+                                <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.txn_ids.join(',')}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-full transition active:scale-90" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
+                                    <i class="fas fa-trash-alt text-xs"></i>
+                                </button>
+                            ` : '-'}
+                        </div>
                     </td>
                 </tr>`;
             }
