@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="<?= $base ?>assets/css/all.min.css">
     <script src="<?= $base ?>assets/vendor/chartjs/chart.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; zoom: 80%; }
         .glass {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(8px);
