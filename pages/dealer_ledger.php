@@ -793,8 +793,8 @@ $current_balance = $total_debit - $total_credit;
                     </table>`;
                 }
 
-                let html = `<div class="flex flex-col min-w-[240px] bg-amber-50/30 rounded-xl border border-amber-100/50 p-2 overflow-hidden shadow-inner">
-                                <div class="flex justify-between text-[7px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-amber-100 pb-1.5 mb-2 px-1 opacity-70">
+                let html = `<div class="flex flex-col min-w-[240px] bg-amber-50/50 rounded-xl border border-amber-200 p-2 overflow-hidden shadow-inner">
+                                <div class="flex justify-between text-[7px] font-black text-gray-700 uppercase tracking-[0.2em] border-b border-amber-200 pb-1.5 mb-2 px-1">
                                     <span class="flex-1">Item Description</span>
                                     <span class="w-24 text-right">Quantity</span>
                                 </div>`;
@@ -815,9 +815,9 @@ $current_balance = $total_debit - $total_credit;
                         qtyDisplay = `x ${restock.quantity} ${restock.unit || ''}`;
                     }
 
-                    return `<div class="flex justify-between items-start text-[10px] border-b border-amber-100/30 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
-                                <span class="font-bold text-gray-700 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
-                                <span class="text-amber-600 font-black w-24 text-right tabular-nums">${qtyDisplay}</span>
+                    return `<div class="flex justify-between items-start text-[10px] border-b border-amber-200/50 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
+                                <span class="font-bold text-gray-800 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
+                                <span class="text-amber-700 font-black w-24 text-right tabular-nums">${qtyDisplay}</span>
                             </div>`;
                 }).join('');
 
@@ -895,14 +895,14 @@ $current_balance = $total_debit - $total_credit;
                 const rowBg = isDebt ? 'hover:bg-red-50/20' : 'hover:bg-emerald-50/20';
                 const typeIcon = t.type === 'Purchase' ? '<i class="fas fa-truck-loading text-amber-300"></i>' : '<i class="fas fa-wallet text-emerald-300"></i>';
 
-                html += `<tr class="${rowBg} transition-all border-b border-gray-50 last:border-0 border-l-4 ${rowBorder} group">
+                html += `<tr class="${rowBg} transition-all border-b border-gray-100 last:border-0 border-l-4 ${rowBorder} group">
                     <td class="p-4 text-center align-top">
-                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-[10px] font-black group-hover:bg-gray-200 group-hover:text-gray-600 transition-colors shadow-inner">${sn}</span>
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-[10px] font-black group-hover:bg-gray-300 group-hover:text-black transition-colors shadow-inner">${sn}</span>
                     </td>
                     <td class="p-4 align-top">
                         <div class="flex flex-col">
-                            <span class="text-[10px] font-black text-gray-800 tracking-tighter">${displayDate}</span>
-                            <span class="text-[9px] font-bold text-gray-400 mt-0.5">${new Date(t.date).getFullYear()}</span>
+                            <span class="text-[10px] font-black text-gray-900 tracking-tighter">${displayDate}</span>
+                            <span class="text-[9px] font-bold text-gray-600 mt-0.5">${new Date(t.date).getFullYear()}</span>
                         </div>
                     </td>
                     <td class="p-4 align-top">
@@ -910,23 +910,23 @@ $current_balance = $total_debit - $total_credit;
                     </td>
                     <td class="p-4 align-top">
                         <div class="flex items-center gap-2">
-                            <span class="opacity-40 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
+                            <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
                             <div class="text-sm font-bold text-gray-800">${t.description}</div>
                         </div>
-                        <div class="text-[9px] text-gray-400 font-semibold tracking-wider mt-1 ml-6">${displayTime}</div>
+                        <div class="text-[9px] text-gray-600 font-semibold tracking-wider mt-1 ml-6">${displayTime}</div>
                         ${t.payment_type ? `<div class="mt-2 ml-6 flex items-center gap-2">
-                            <span class="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 uppercase font-black tracking-tighter">${t.payment_type}</span>
-                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[10px] ml-2"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
+                            <span class="text-[9px] bg-amber-100/50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 uppercase font-black tracking-tighter">${t.payment_type}</span>
+                            ${t.payment_proof ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-blue-600 hover:text-blue-800 text-[10px] ml-2"><i class="fas fa-paperclip"></i> Proof</a>` : ''}
                         </div>` : ''}
                     </td>
                     <td class="p-4 text-center align-top">
                         <span class="text-[9px] font-black px-2 py-1 rounded-full ${t.type === 'Purchase' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} uppercase tracking-widest">${t.type}</span>
                     </td>
                     <td class="p-4 text-right align-top tabular-nums">
-                        ${parseFloat(t.debit) > 0 ? `<span class="font-black text-gray-800 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-300">-</span>'}
+                        ${parseFloat(t.debit) > 0 ? `<span class="font-black text-gray-900 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                     </td>
                     <td class="p-4 text-right align-top tabular-nums">
-                        ${parseFloat(t.credit) > 0 ? `<span class="font-black text-emerald-600 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-300">-</span>'}
+                        ${parseFloat(t.credit) > 0 ? `<span class="font-black text-emerald-700 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                     </td>
                     <td class="p-4 text-right font-black ${isDebt ? 'text-red-600' : 'text-emerald-600'} bg-gray-50/30 align-top tabular-nums group-hover:bg-gray-100/50 transition-colors shadow-inner">
                         <span class="text-sm tracking-tighter">${formatCurrency(t.current_running_balance)}</span>

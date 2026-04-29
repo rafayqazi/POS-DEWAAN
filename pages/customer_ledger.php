@@ -479,8 +479,8 @@ if ($linked_dealer_id) {
                 html += `</table>`;
                 return html;
             }
-            let html = `<div class="flex flex-col min-w-[240px] bg-gray-50/30 rounded-xl border border-gray-100/50 p-2 overflow-hidden shadow-inner">
-                            <div class="flex justify-between text-[7px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-1.5 mb-2 px-1 opacity-70">
+            let html = `<div class="flex flex-col min-w-[240px] bg-gray-50/50 rounded-xl border border-gray-200 p-2 overflow-hidden shadow-inner">
+                            <div class="flex justify-between text-[7px] font-black text-gray-700 uppercase tracking-[0.2em] border-b border-gray-200 pb-1.5 mb-2 px-1">
                                 <span class="flex-1">Item Description</span>
                                 <span class="w-10 text-center">QTY</span>
                                 <span class="w-20 text-right">Amount</span>
@@ -489,10 +489,10 @@ if ($linked_dealer_id) {
             html += items.map(item => {
                 const p = productsMap[item.product_id];
                 const pName = p ? p.name : 'Product';
-                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-100/30 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
-                            <span class="font-bold text-gray-700 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
-                            <span class="text-amber-600 font-black w-10 text-center bg-amber-50 rounded py-0.5 border border-amber-100/50 shadow-sm shadow-amber-900/5">x${item.quantity}</span>
-                            <span class="font-black text-blue-600 w-20 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
+                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-200/50 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
+                            <span class="font-bold text-gray-800 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
+                            <span class="text-amber-700 font-black w-10 text-center bg-amber-100/50 rounded py-0.5 border border-amber-200 shadow-sm shadow-amber-900/5">x${item.quantity}</span>
+                            <span class="font-black text-blue-700 w-20 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
                         </div>`;
             }).join('');
             
@@ -529,32 +529,32 @@ if ($linked_dealer_id) {
                 const rowBg = t.debit > 0 ? 'hover:bg-red-50/20' : 'hover:bg-emerald-50/20';
                 const typeIcon = t.debit > 0 ? '<i class="fas fa-shopping-cart text-red-300"></i>' : '<i class="fas fa-hand-holding-usd text-emerald-300"></i>';
                 
-                html += `<tr class="${rowBg} transition-all border-b border-gray-50 last:border-0 border-l-4 ${rowBorder} group">
+                html += `<tr class="${rowBg} transition-all border-b border-gray-100 last:border-0 border-l-4 ${rowBorder} group">
                             <td class="p-4 text-center align-top">
-                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-[10px] font-black group-hover:bg-gray-200 group-hover:text-gray-600 transition-colors shadow-inner">${sn}</span>
+                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-[10px] font-black group-hover:bg-gray-300 group-hover:text-black transition-colors shadow-inner">${sn}</span>
                             </td>
                             <td class="p-4 align-top">
                                 <div class="flex flex-col">
-                                    <span class="text-[10px] font-black text-gray-800 tracking-tighter">${new Date(t.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short'})}</span>
-                                    <span class="text-[9px] font-bold text-gray-400 mt-0.5">${new Date(t.date).getFullYear()}</span>
+                                    <span class="text-[10px] font-black text-gray-900 tracking-tighter">${new Date(t.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short'})}</span>
+                                    <span class="text-[9px] font-bold text-gray-600 mt-0.5">${new Date(t.date).getFullYear()}</span>
                                 </div>
                             </td>
                             <td class="p-4 align-top">
                                 ${getProductsHtml(t, false)}
                             </td>
                             <td class="p-4 text-right align-top tabular-nums">
-                                ${t.debit > 0 ? `<span class="font-black text-gray-800 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-300">-</span>'}
+                                ${t.debit > 0 ? `<span class="font-black text-gray-900 text-sm tracking-tighter">${formatCurrency(t.debit)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                             </td>
                             <td class="p-4 text-right align-top tabular-nums">
-                                ${t.credit > 0 ? `<span class="font-black text-emerald-600 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-300">-</span>'}
+                                ${t.credit > 0 ? `<span class="font-black text-emerald-700 text-sm tracking-tighter">${formatCurrency(t.credit)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                             </td>
                             <td class="p-4 text-right align-top tabular-nums">
-                                ${t.discount > 0 ? `<span class="font-black text-amber-600 text-sm tracking-tighter">${formatCurrency(t.discount)}</span>` : '<span class="text-gray-300">-</span>'}
+                                ${t.discount > 0 ? `<span class="font-black text-amber-700 text-sm tracking-tighter">${formatCurrency(t.discount)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                             </td>
                             <td class="p-4 align-top">
                                 <div class="flex items-center gap-2">
-                                    <span class="opacity-40 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
-                                    <span class="text-[10px] font-bold text-gray-500 max-w-[120px] truncate block" title="${t.description}">${t.description}</span>
+                                    <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
+                                    <span class="text-[10px] font-bold text-gray-700 max-w-[120px] truncate block group-hover:text-black" title="${t.description}">${t.description}</span>
                                 </div>
                             </td>
                             <td class="p-4 text-center align-top whitespace-nowrap">
