@@ -271,7 +271,7 @@ if ($linked_dealer_id) {
                     <th class="p-6 text-right">Debit (Sale)</th>
                     <th class="p-6 text-right">Credit (Paid)</th>
                     <th class="p-6 text-right">Discount</th>
-                    <th class="p-6">Reference</th>
+                    <th class="p-6">Remarks</th>
                     <th class="p-6">Due Date</th>
                     <th class="p-6 text-right text-purple-600">Balance</th> 
                     <th class="p-6 text-center">Actions</th>
@@ -382,7 +382,7 @@ if ($linked_dealer_id) {
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Debit (Sale)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Credit (Paid)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 50px;">Discount</th>
-                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Reference</th>
+                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Remarks</th>
                 <th style="padding: 5px; border: 1px solid #ddd; width: 70px;">Due Date</th>
             </tr></thead>
             <tbody id="printBody"></tbody>
@@ -469,15 +469,35 @@ if ($linked_dealer_id) {
                     const pName = p ? p.name : 'Product';
                     const unit = p ? (p.unit || 'Peace') : 'Peace';
                     const price = parseFloat(item.total_price) / parseFloat(item.quantity || 1);
-                    html += `<tr><td style="padding:1px 3px;font-weight:bold;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;">${pName}</td><td style="padding:1px 3px;white-space:nowrap!important;">x ${item.quantity} ${unit}</td><td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(price).toLocaleString()}</td><td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(item.total_price).toLocaleString()}</td></tr>`;
+                    html += `<tr>
+                                <td style="padding:1px 3px;font-weight:bold;color:#000;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;">${pName}</td>
+                                <td style="padding:1px 3px;white-space:nowrap!important;color:#b45309;font-weight:bold;">x ${item.quantity} ${unit}</td>
+                                <td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(price).toLocaleString()}</td>
+                                <td style="padding:1px 3px;color:#0d9488;font-weight:bold;">Rs.${Math.round(item.total_price).toLocaleString()}</td>
+                             </tr>`;
                 });
                 html += `</table>`;
                 return html;
             }
-            return items.map(item => {
+            let html = `<div class="flex flex-col min-w-[220px]">
+                            <div class="flex justify-between text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-1 px-1">
+                                <span class="flex-1">Item Name</span>
+                                <span class="w-10 text-center">QTY</span>
+                                <span class="w-16 text-right">Price</span>
+                            </div>`;
+            
+            html += items.map(item => {
                 const p = productsMap[item.product_id];
-                return `<div class="flex justify-between text-[11px] border-b border-gray-50 py-1 last:border-0"><span>${p ? p.name : 'Product'} x${item.quantity}</span><span>${formatCurrency(item.total_price)}</span></div>`;
+                const pName = p ? p.name : 'Product';
+                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-50 py-1 last:border-0 gap-2 px-1">
+                            <span class="font-bold text-gray-900 flex-1 leading-tight">${pName}</span>
+                            <span class="text-amber-600 font-black w-10 text-center">x${item.quantity}</span>
+                            <span class="font-black text-blue-600 w-16 text-right flex-shrink-0">${formatCurrency(item.total_price)}</span>
+                        </div>`;
             }).join('');
+            
+            html += `</div>`;
+            return html;
         }
         return isPrint ? `<span style="font-weight:bold;">${t.description}</span>` : t.description;
     }

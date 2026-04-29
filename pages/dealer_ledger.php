@@ -250,7 +250,7 @@ $current_balance = $total_debit - $total_credit;
                     <th class="p-6 w-12 text-center">Sno#</th>
                     <th class="p-6">Date</th>
                     <th class="p-6">Products & QTY</th>
-                    <th class="p-6">Description</th>
+                    <th class="p-6">Remarks</th>
                     <th class="p-6 text-center">Type</th>
                     <th class="p-6 text-right">Debit (Goods)</th>
                     <th class="p-6 text-right">Credit (Paid)</th>
@@ -308,7 +308,7 @@ $current_balance = $total_debit - $total_credit;
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; width: 40px; font-size: 11px;">Sr #</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Products & QTY</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Description</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Remarks</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Debit (Goods)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Credit (Paid)</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Balance</th>
@@ -793,7 +793,13 @@ $current_balance = $total_debit - $total_credit;
                     </table>`;
                 }
 
-                const listHtml = items.map(restock => {
+                let html = `<div class="flex flex-col min-w-[200px]">
+                                <div class="flex justify-between text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-1 px-1">
+                                    <span class="flex-1">Item Name</span>
+                                    <span class="w-24 text-right">QTY</span>
+                                </div>`;
+                
+                html += items.map(restock => {
                     const p = productsMap[restock.product_id];
                     const pName = p ? p.name : (restock.product_name || 'Unknown Product');
                     let qtyDisplay = restock.quantity;
@@ -809,13 +815,14 @@ $current_balance = $total_debit - $total_credit;
                         qtyDisplay = `x ${restock.quantity} ${restock.unit || ''}`;
                     }
 
-                    return `<div class="flex flex-col text-[11px] mb-2 border-b border-gray-50 pb-2 last:border-0 last:mb-0 last:pb-0">
-                                <span class="font-bold text-gray-800 leading-tight">${pName}</span>
-                                <div class="mt-1">${qtyDisplay}</div>
+                    return `<div class="flex justify-between items-start text-[10px] border-b border-gray-50 py-1 last:border-0 gap-2 px-1">
+                                <span class="font-bold text-gray-900 flex-1 leading-tight">${pName}</span>
+                                <span class="text-amber-600 font-black w-24 text-right">${qtyDisplay}</span>
                             </div>`;
                 }).join('');
 
-                return `<div class="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">${listHtml}</div>`;
+                html += `</div>`;
+                return `<div class="max-h-[200px] overflow-y-auto custom-scrollbar pr-2">${html}</div>`;
             }
         }
         return isPrint ? t.description : `<div class="text-sm font-bold text-amber-600">${t.description}</div>`;
