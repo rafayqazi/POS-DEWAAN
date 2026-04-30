@@ -479,24 +479,25 @@ if ($linked_dealer_id) {
                 html += `</table>`;
                 return html;
             }
-            let html = `<div class="flex flex-col min-w-[240px] bg-gray-50/50 rounded-xl border border-gray-200 p-2 overflow-hidden shadow-inner">
+            let html = `<div class="flex flex-col min-w-[240px] bg-gray-50/50 rounded-xl border border-gray-200 p-2 shadow-inner">
                             <div class="flex justify-between text-[7px] font-black text-gray-700 uppercase tracking-[0.2em] border-b border-gray-200 pb-1.5 mb-2 px-1">
                                 <span class="flex-1">Item Description</span>
                                 <span class="w-10 text-center">QTY</span>
                                 <span class="w-20 text-right">Amount</span>
-                            </div>`;
+                            </div>
+                            <div class="custom-scrollbar" style="max-height:150px;overflow-y:auto;">`;
             
             html += items.map(item => {
                 const p = productsMap[item.product_id];
                 const pName = p ? p.name : 'Product';
-                return `<div class="flex justify-between items-start text-[10px] border-b border-gray-200/50 py-1.5 last:border-0 gap-3 px-1 hover:bg-white/50 transition-colors rounded-md group/item">
-                            <span class="font-bold text-gray-800 flex-1 leading-tight group-hover/item:text-black transition-colors">${pName}</span>
-                            <span class="text-amber-700 font-black w-10 text-center bg-amber-100/50 rounded py-0.5 border border-amber-200 shadow-sm shadow-amber-900/5">x${item.quantity}</span>
-                            <span class="font-black text-blue-700 w-20 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
+                return `<div class="flex items-center text-[10px] border-b border-gray-200/50 py-1.5 last:border-0 gap-2 px-1 hover:bg-white/50 transition-colors rounded-md group/item" style="white-space:nowrap;">
+                            <span class="font-bold text-gray-800 leading-tight group-hover/item:text-black transition-colors overflow-hidden text-ellipsis" style="white-space:nowrap;min-width:0;flex:1 1 0%;" title="${pName}">${pName}</span>
+                            <span class="text-amber-700 font-black w-10 text-center bg-amber-100/50 rounded py-0.5 px-1.5 border border-amber-200 shadow-sm shadow-amber-900/5 flex-shrink-0">x${item.quantity}</span>
+                            <span class="font-black text-blue-700 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
                         </div>`;
             }).join('');
             
-            html += `</div>`;
+            html += `</div></div>`;
             return html;
         }
         return isPrint ? `<span style="font-weight:bold;">${t.description}</span>` : t.description;
