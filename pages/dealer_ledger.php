@@ -65,7 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Handle Transaction Deletion
 if (isset($_GET['delete_txn'])) {
     if (!isRole('Admin')) die("Unauthorized Action");
-    $del_ids = explode(',', $_GET['delete_txn']);
+    $raw_del_ids = $_GET['delete_txn'];
+    // Handle space-to-plus conversion for scientific notation IDs (URL decoding issue)
+    $raw_del_ids = str_replace(' ', '+', $raw_del_ids);
+    $del_ids = explode(',', $raw_del_ids);
+    $del_ids = array_map('trim', $del_ids);
     $count = 0;
     
     // We can do this more efficiently by reading once and writing once
@@ -967,7 +971,7 @@ $current_balance = $total_debit - $total_credit;
                                 <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:bg-blue-50 rounded-full transition active:scale-90" title="Edit">
                                     <i class="fas fa-edit text-xs"></i>
                                 </button>
-                                <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.txn_ids.join(',')}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-full transition active:scale-90" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
+                                <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${encodeURIComponent(t.txn_ids.join(','))}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-full transition active:scale-90" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
                                     <i class="fas fa-trash-alt text-xs"></i>
                                 </button>
                             ` : '-'}

@@ -20,7 +20,8 @@ $to_date = $_GET['to'] ?? '';
 
 // Handle Deletions
 if (isset($_GET['delete_txn'])) {
-    deleteCSV('customer_transactions', $_GET['delete_txn']);
+    $del_id = str_replace(' ', '+', $_GET['delete_txn']);
+    deleteCSV('customer_transactions', $del_id);
     redirect("customer_ledger.php?id=$cid&msg=Entry deleted successfully");
 }
 
@@ -76,6 +77,7 @@ $all_sales = readCSV('sales');
 $all_sale_items = readCSV('sale_items');
 $all_products = readCSV('products');
 $all_return_items = readCSV('return_items');
+$all_returns = readCSV('returns');
 
 // Create maps for efficient lookups
 $sales_map = [];
@@ -96,12 +98,45 @@ foreach($all_return_items as $ri) {
     $return_items_grouped[$ri['return_id']][] = $ri;
 }
 
+$returns_lookup = [];
+foreach ($all_returns as $ret) {
+    $key = $ret['sale_id'] . '_' . (float)$ret['total_refund'] . '_' . $ret['date'];
+    $returns_lookup[$key] = $ret['id'];
+}
+
 $ledger = [];
 $total_due = 0;
 
 foreach($all_txns as $t) {
     if($t['customer_id'] == $cid) {
         if (!isset($t['discount'])) $t['discount'] = 0;
+        
+        // Virtual Return ID Link (Avoids DB migration)
+        $is_return_entry = ($t['type'] == 'Return' || strpos($t['description'], 'Return from Sale #') !== false);
+        if ($is_return_entry && (empty($t['return_id']) || $t['return_id'] == '')) {
+            $t['type'] = 'Return'; // Ensure type is 'Return' for UI logic
+            $sid = $t['sale_id'] ?? '';
+            if (empty($sid) && preg_match('/Return from Sale #(\d+)/', $t['description'], $matches)) {
+                $sid = $matches[1];
+                $t['sale_id'] = $sid;
+            }
+            
+            if (!empty($sid)) {
+                $key = $sid . '_' . (float)$t['credit'] . '_' . $t['date'];
+                if (isset($returns_lookup[$key])) {
+                    $t['return_id'] = $returns_lookup[$key];
+                } else {
+                    // Fallback to first matching return for this sale on this day
+                    foreach ($all_returns as $ret) {
+                        if ($ret['sale_id'] == $sid && $ret['date'] == $t['date'] && abs((float)$ret['total_refund'] - (float)$t['credit']) < 0.1) {
+                            $t['return_id'] = $ret['id'];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         $ledger[] = $t;
         $total_due += (float)$t['debit'] - (float)$t['credit'] - (float)$t['discount'];
     }
@@ -623,7 +658,7 @@ if ($linked_dealer_id) {
                                         <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:bg-blue-50 rounded-full transition active:scale-90" title="Edit">
                                             <i class="fas fa-edit text-xs"></i>
                                         </button>
-                                        <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all active:scale-90" title="Delete Entry">
+                                        <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${encodeURIComponent(t.id)}')" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all active:scale-90" title="Delete Entry">
                                             <i class="fas fa-trash-alt text-xs"></i>
                                         </button>
                                     ` : '-'}
