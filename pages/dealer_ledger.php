@@ -932,17 +932,11 @@ $current_balance = $total_debit - $total_credit;
                         <span class="text-sm tracking-tighter">${formatCurrency(t.current_running_balance)}</span>
                     </td>
                     <td class="p-4 text-center align-top">
-                        <div class="flex justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="flex justify-center space-x-1 opacity-70 group-hover:opacity-100 transition-opacity">
                             ${canEdit ? `
-                                ${!t.is_batch ? `
                                 <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:bg-blue-50 rounded-full transition active:scale-90" title="Edit">
                                     <i class="fas fa-edit text-xs"></i>
                                 </button>
-                                ` : `
-                                <button onclick="showAlert('Grouped entries cannot be edited as one. Please delete the batch or edit individual records.', 'Edit Not Allowed')" class="w-8 h-8 flex items-center justify-center text-gray-200 cursor-not-allowed rounded-full" title="Editing grouped items not supported">
-                                    <i class="fas fa-edit text-xs"></i>
-                                </button>
-                                `}
                                 <button onclick="confirmDelete('dealer_ledger.php?id=<?= $dealer_id ?>&delete_txn=${t.txn_ids.join(',')}')" class="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-50 rounded-full transition active:scale-90" title="${t.is_batch ? 'Delete Entire Batch' : 'Delete'}">
                                     <i class="fas fa-trash-alt text-xs"></i>
                                 </button>
@@ -1012,7 +1006,7 @@ $current_balance = $total_debit - $total_credit;
             // If balance is positive, we owe dealer.
             // If entered amount > currentDebtValue, we are paying more than we owe.
             
-            if (enteredAmount > currentDebtValue) {
+            if (currentDebtValue > 0 && enteredAmount > currentDebtValue) {
                 showAlert(`You cannot pay more than the outstanding debt (${formatCurrency(currentDebtValue)}).`, 'Payment Limit Reached');
                 return false;
             }

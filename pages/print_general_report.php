@@ -4,7 +4,7 @@ require_once '../includes/functions.php';
 
 requireLogin();
 
-$range = $_GET['range'] ?? 'today';
+$range = $_GET['range'] ?? '30days';
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';
 
@@ -19,16 +19,31 @@ if ($range === 'today') {
     $start_date = date('Y-m-d', strtotime('-7 days'));
     $end_date = date('Y-m-d');
     $display_range = "Last 7 Days (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y') . ")";
-} elseif ($range === 'month') {
+} elseif ($range === 'month' || $range === '30days') {
     $start_date = date('Y-m-d', strtotime('-30 days'));
     $end_date = date('Y-m-d');
     $display_range = "Last 30 Days (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y') . ")";
+} elseif ($range === 'this_month') {
+    $start_date = date('Y-m-01');
+    $end_date = date('Y-m-d');
+    $display_range = "This Month (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y') . ")";
+} elseif ($range === 'last_month') {
+    $start_date = date('Y-m-01', strtotime('first day of last month'));
+    $end_date = date('Y-m-t', strtotime('last day of last month'));
+    $display_range = "Last Month (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y', strtotime($end_date)) . ")";
+} elseif ($range === '1year') {
+    $start_date = date('Y-m-d', strtotime('-1 year'));
+    $end_date = date('Y-m-d');
+    $display_range = "Last 1 Year (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y') . ")";
 } elseif ($range === 'custom' && !empty($from) && !empty($to)) {
     $start_date = $from;
     $end_date = $to;
     $display_range = "Custom Range (" . date('d M Y', strtotime($from)) . " to " . date('d M Y', strtotime($to)) . ")";
 } else {
-    die("Invalid date range selected.");
+    // Default to 30 days if range is unknown
+    $start_date = date('Y-m-d', strtotime('-30 days'));
+    $end_date = date('Y-m-d');
+    $display_range = "Last 30 Days (" . date('d M Y', strtotime($start_date)) . " to " . date('d M Y') . ")";
 }
 
 // Load Data

@@ -382,7 +382,7 @@ if ($linked_dealer_id) {
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Debit (Sale)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Credit (Paid)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 50px;">Discount</th>
-                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Remarks</th>
+                <th style="padding: 5px; border: 1px solid #ddd;">Remarks</th>
                 <th style="padding: 5px; border: 1px solid #ddd; width: 70px;">Due Date</th>
             </tr></thead>
             <tbody id="printBody"></tbody>
@@ -513,7 +513,7 @@ if ($linked_dealer_id) {
                 const printDate = new Date(t.date.substring(0,10));
                 const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
                 const discountVal = parseFloat(t.discount || 0);
-                const refText = t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received:' : (t.description || '-'));
+                const refText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
                 const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '-';
                 html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:center;color:#999;font-size:9px;">${sn}</td>`;
@@ -555,7 +555,7 @@ if ($linked_dealer_id) {
                             <td class="p-4 align-top">
                                 <div class="flex items-center gap-2">
                                     <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
-                                    <span class="text-[10px] font-bold text-gray-700 max-w-[120px] truncate block group-hover:text-black" title="${t.description}">${t.description}</span>
+                                    <span class="text-[10px] font-bold text-gray-700 group-hover:text-black" title="${t.description}">${t.description}</span>
                                 </div>
                             </td>
                             <td class="p-4 text-center align-top whitespace-nowrap">
@@ -565,7 +565,16 @@ if ($linked_dealer_id) {
                                 <span class="text-sm tracking-tighter">${formatCurrency(t.current_running_balance)}</span>
                             </td>
                             <td class="p-4 text-center align-top">
-                                ${canEdit ? `<button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all active:scale-90" title="Delete Entry"><i class="fas fa-trash-alt text-xs"></i></button>` : '-'}
+                                <div class="flex justify-center space-x-1">
+                                    ${canEdit ? `
+                                        <button onclick="prepareEdit('${t.id}')" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:bg-blue-50 rounded-full transition active:scale-90" title="Edit">
+                                            <i class="fas fa-edit text-xs"></i>
+                                        </button>
+                                        <button onclick="confirmDelete('customer_ledger.php?id=<?= $cid ?>&delete_txn=${t.id}')" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all active:scale-90" title="Delete Entry">
+                                            <i class="fas fa-trash-alt text-xs"></i>
+                                        </button>
+                                    ` : '-'}
+                                </div>
                             </td>
                         </tr>`;
             }
@@ -635,10 +644,52 @@ if ($linked_dealer_id) {
     }
 
     function clearFilters() { document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = ''; renderTable(); }
-    function openTxnModal(t) { document.getElementById('modalTxnType').value = (t === 'Advance' ? 'Payment' : t); document.getElementById('modalIsAdvance').value = (t === 'Advance' ? '1' : '0'); document.getElementById('modalDebtAmount').innerText = formatCurrency(allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0), 0)); document.getElementById('txnModal').classList.remove('hidden'); }
+    
+    function openTxnModal(t) { 
+        document.getElementById('modalTxnId').value = '';
+        document.getElementById('modalTxnType').value = (t === 'Advance' ? 'Payment' : t); 
+        document.getElementById('modalIsAdvance').value = (t === 'Advance' ? '1' : '0'); 
+        document.getElementById('modalTxnDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('modalTxnAmount').value = '';
+        document.getElementById('modalTxnDiscount').value = '';
+        document.getElementById('modalTxnNotes').value = '';
+        document.getElementById('modalDueDate').value = '';
+        document.getElementById('modalPaymentType').value = 'Cash';
+        document.getElementById('modalExistingProof').value = '';
+        
+        document.getElementById('modalDebtAmount').innerText = formatCurrency(allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0), 0)); 
+        document.getElementById('txnModalTitle').innerText = (t === 'Advance' ? 'Add Advance Payment' : (t === 'Payment' ? 'Receive Payment' : 'Record Outstanding Debt'));
+        document.getElementById('txnModal').classList.remove('hidden'); 
+    }
+
+    function prepareEdit(id) {
+        const txn = allTxns.find(t => t.id == id);
+        if (txn) editTxn(txn);
+    }
+
+    function editTxn(data) {
+        document.getElementById('modalTxnId').value = data.id;
+        document.getElementById('modalTxnType').value = data.type;
+        document.getElementById('modalTxnDate').value = data.date.substring(0, 10);
+        document.getElementById('modalTxnAmount').value = (parseFloat(data.debit) > 0) ? data.debit : data.credit;
+        document.getElementById('modalTxnDiscount').value = data.discount || 0;
+        document.getElementById('modalTxnNotes').value = data.description;
+        document.getElementById('modalDueDate').value = data.due_date || '';
+        document.getElementById('modalPaymentType').value = data.payment_type || 'Cash';
+        document.getElementById('modalExistingProof').value = data.payment_proof || '';
+        
+        document.getElementById('txnModalTitle').innerText = "Edit " + data.type;
+        document.getElementById('txnModal').classList.remove('hidden');
+    }
+
     function closeTxnModal() { document.getElementById('txnModal').classList.add('hidden'); }
     function validateTransaction() { return true; }
-    function confirmDelete(url) { if(confirm("Delete this record?")) window.location.href = url; }
+    
+    function confirmDelete(url) { 
+        showConfirm("Are you sure you want to delete this transaction?", function() {
+            window.location.href = url;
+        }, "Confirm Delete");
+    }
     document.addEventListener('click', (e) => { const d = document.getElementById('downloadDropdown'); const m = document.getElementById('downloadMenu'); if (d && !d.contains(e.target) && m) { m.classList.add('hidden'); } });
     document.addEventListener('DOMContentLoaded', renderTable);
 </script>

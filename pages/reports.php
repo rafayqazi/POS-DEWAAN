@@ -9,16 +9,41 @@ include '../includes/header.php';
 $sales = readCSV('sales');
 $dealer_txns = readCSV('dealer_transactions');
 
+$range = $_GET['range'] ?? '30days';
+$start_date = date('Y-m-d', strtotime('-30 days'));
+$end_date = date('Y-m-d');
+$range_label = "Last 30 Days";
+
+if ($range == 'this_month') {
+    $start_date = date('Y-m-01');
+    $range_label = "This Month";
+} elseif ($range == 'week') {
+    $start_date = date('Y-m-d', strtotime('-7 days'));
+    $range_label = "Last 7 Days";
+} elseif ($range == 'today') {
+    $start_date = date('Y-m-d');
+    $range_label = "Today";
+} elseif ($range == 'last_month') {
+    $start_date = date('Y-m-01', strtotime('first day of last month'));
+    $end_date = date('Y-m-t', strtotime('last day of last month'));
+    $range_label = "Last Month";
+} elseif ($range == '1year') {
+    $start_date = date('Y-m-d', strtotime('-1 year'));
+    $range_label = "Last 1 Year";
+} elseif ($range == 'custom' && !empty($_GET['from']) && !empty($_GET['to'])) {
+    $start_date = $_GET['from'];
+    $end_date = $_GET['to'];
+    $range_label = "Custom: " . date('d M Y', strtotime($start_date)) . " - " . date('d M Y', strtotime($end_date));
+}
+
 $sales_today = 0;
-$sales_month = 0;
+$sales_period = 0; // Changed from sales_month
 $profit_today = 0;
-$profit_month = 0;
+$profit_period = 0; // Changed from profit_month
 $total_sales_amount = 0;
 $total_paid_at_sale = 0;
 
 $today_str = date('Y-m-d');
-$thirty_days_ago_str = date('Y-m-d', strtotime('-30 days'));
-$month_str = date('Y-m');
 
 $sale_items = readCSV('sale_items');
 $products_map = [];
@@ -28,10 +53,9 @@ foreach($prods as $p) $products_map[$p['id']] = $p;
 foreach($sales as $s) {
     $amount = (float)$s['total_amount'];
     $is_today = (strpos($s['sale_date'], $today_str) === 0);
-    $is_month = (strpos($s['sale_date'], $month_str) === 0);
     
     if ($is_today) $sales_today += $amount;
-    if ($s['sale_date'] >= $thirty_days_ago_str) $sales_month += $amount;
+    if ($s['sale_date'] >= $start_date && $s['sale_date'] <= $end_date) $sales_period += $amount;
     
     // Calculate Profit
     $current_sale_items = array_filter($sale_items, function($item) use ($s) {
@@ -73,7 +97,7 @@ foreach($sales as $s) {
         $item_profit = $item_revenue - $cost;
 
         if ($is_today) $profit_today += $item_profit;
-        if ($s['sale_date'] >= $thirty_days_ago_str) $profit_month += $item_profit;
+        if ($s['sale_date'] >= $start_date && $s['sale_date'] <= $end_date) $profit_period += $item_profit;
     }
     
     $total_sales_amount += $amount;
@@ -169,16 +193,16 @@ usort($advance_dealer_details, function($a, $b) {
 
 $expenses_data = readCSV('expenses');
 $expenses_today = 0;
-$expenses_month = 0;
+$expenses_period = 0;
 foreach($expenses_data as $e) {
     if(strpos($e['date'], $today_str) === 0) $expenses_today += (float)$e['amount'];
-    if($e['date'] >= $thirty_days_ago_str) $expenses_month += (float)$e['amount'];
+    if($e['date'] >= $start_date && $e['date'] <= $end_date) $expenses_period += (float)$e['amount'];
 }
 
 // Calculate Discounts
 $discounts_today = 0;
-$discounts_month = 0;
-$discount_details_30d = [];
+$discounts_period = 0;
+$discount_details_period = [];
 
 // 1. Sales Discounts
 foreach($sales as $s) {
@@ -186,13 +210,13 @@ foreach($sales as $s) {
     if ($d_amount > 0) {
         $date = $s['sale_date'];
         if (strpos($date, $today_str) === 0) $discounts_today += $d_amount;
-        if ($date >= $thirty_days_ago_str) {
-            $discounts_month += $d_amount;
+        if ($date >= $start_date && $date <= $end_date) {
+            $discounts_period += $d_amount;
             $name = 'Walk-in Customer';
             if (!empty($s['customer_id']) && isset($customer_map[$s['customer_id']])) {
                 $name = $customer_map[$s['customer_id']];
             }
-            $discount_details_30d[] = [
+            $discount_details_period[] = [
                 'date' => $date,
                 'name' => $name,
                 'amount' => $d_amount,
@@ -209,9 +233,9 @@ foreach($customer_txns as $tx) {
     if ($d_amount > 0) {
         $date = $tx['date'];
         if (strpos($date, $today_str) === 0) $discounts_today += $d_amount;
-        if ($date >= $thirty_days_ago_str) {
-            $discounts_month += $d_amount;
-            $discount_details_30d[] = [
+        if ($date >= $start_date && $date <= $end_date) {
+            $discounts_period += $d_amount;
+            $discount_details_period[] = [
                 'date' => $date,
                 'name' => $customer_map[$tx['customer_id']] ?? 'Unknown Customer',
                 'amount' => $d_amount,
@@ -223,31 +247,31 @@ foreach($customer_txns as $tx) {
 }
 
 // Sort Discount Details
-usort($discount_details_30d, function($a, $b) {
+usort($discount_details_period, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
 
 $net_profit_today = $profit_today - $expenses_today - $discounts_today;
-$net_profit_month = $profit_month - $expenses_month - $discounts_month;
+$net_profit_period = $profit_period - $expenses_period - $discounts_period;
 
-// Return Statistics (Last 30 Days)
+// Return Statistics
 $returns_data = readCSV('returns');
 $return_items_data = readCSV('return_items');
-$returned_count_30d = 0;
-$return_details_30d = [];
+$returned_count_period = 0;
+$return_details_period = [];
 
 foreach($returns_data as $r) {
     if (empty($r['id']) || empty($r['date'])) continue;
-    if ($r['date'] >= $thirty_days_ago_str) {
+    if ($r['date'] >= $start_date && $r['date'] <= $end_date) {
         $r_items = array_filter($return_items_data, function($ri) use ($r) {
             return isset($ri['return_id']) && $ri['return_id'] == $r['id'];
         });
         
         foreach($r_items as $ri) {
             $qty = (float)$ri['quantity'];
-            $returned_count_30d += $qty;
+            $returned_count_period += $qty;
             
-            $return_details_30d[] = [
+            $return_details_period[] = [
                 'date' => $r['date'],
                 'return_id' => $r['id'],
                 'customer' => $customer_map[$r['customer_id']] ?? 'Walk-in',
@@ -260,34 +284,100 @@ foreach($returns_data as $r) {
     }
 }
 // Sort by date desc
-usort($return_details_30d, function($a, $b) {
+usort($return_details_period, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
 
-$total_recovered = $total_paid_at_sale + $total_customer_payments;
+$total_recovered_all = $total_paid_at_sale + $total_customer_payments;
+$total_recovered_period = 0;
+
+foreach($recovery_details as $rd) {
+    if ($rd['date'] >= $start_date && $rd['date'] <= $end_date) {
+        $total_recovered_period += $rd['amount'];
+    }
+}
 
 // Report Ranges Configuration
 $report_ranges = [
     'today' => 'Today',
     'week' => 'Last 7 Days',
-    'month' => 'Last 30 Days',
+    '30days' => 'Last 30 Days',
+    'this_month' => 'This Month',
+    'last_month' => 'Last Month',
+    '1year' => 'Last 1 Year',
     'custom' => 'Custom Range'
 ];
 
 ?>
 
-<!-- Header with Print Action -->
+<!-- Header with Filter & Print Action -->
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
     <div>
         <h1 class="text-2xl font-black text-gray-800 tracking-tight">Financial Reports</h1>
-        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Real-time business performance analytics</p>
+        <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1"><?= $range_label ?> Overview</p>
     </div>
-    <div class="flex gap-3">
-        <button onclick="openGeneralReportModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-2xl shadow-lg shadow-teal-900/10 transition flex items-center gap-2 font-bold text-sm">
+    
+    <!-- Range Filter -->
+    <div class="flex flex-wrap items-center gap-3">
+        <form id="mainFilterForm" method="GET" class="flex flex-wrap items-center gap-3">
+            <div class="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <?php foreach($report_ranges as $val => $label): if($val == 'custom') continue; ?>
+                <button type="button" onclick="setMainRange('<?= $val ?>')" class="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all <?= $range == $val ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'text-gray-400 hover:text-gray-600' ?>">
+                    <?= str_replace('Last ', '', $label) ?>
+                </button>
+                <?php endforeach; ?>
+                <button type="button" onclick="toggleMainCustomDates()" class="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all <?= $range == 'custom' ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'text-gray-400 hover:text-gray-600' ?>">
+                    Custom
+                </button>
+            </div>
+            
+            <input type="hidden" name="range" id="mainRangeInput" value="<?= $range ?>">
+            
+            <div id="mainCustomDates" class="<?= $range == 'custom' ? 'flex' : 'hidden' ?> items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+                <input type="date" name="from" value="<?= $_GET['from'] ?? '' ?>" class="bg-transparent border-none text-[10px] font-bold text-gray-600 outline-none w-28">
+                <span class="text-gray-300 text-xs">to</span>
+                <input type="date" name="to" value="<?= $_GET['to'] ?? '' ?>" class="bg-transparent border-none text-[10px] font-bold text-gray-600 outline-none w-28">
+                <button type="submit" class="bg-teal-600 text-white p-2 rounded-xl hover:bg-teal-700 transition">
+                    <i class="fas fa-search text-[10px]"></i>
+                </button>
+            </div>
+        </form>
+
+        <button onclick="openGeneralReportWithFilters()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-2xl shadow-lg shadow-teal-900/10 transition flex items-center gap-2 font-bold text-sm">
             <i class="fas fa-print"></i> Print / Save PDF
         </button>
     </div>
 </div>
+
+<script>
+function setMainRange(val) {
+    document.getElementById('mainRangeInput').value = val;
+    document.getElementById('mainFilterForm').submit();
+}
+function toggleMainCustomDates() {
+    const div = document.getElementById('mainCustomDates');
+    if (div.classList.contains('hidden')) {
+        div.classList.remove('hidden');
+        div.classList.add('flex');
+        document.getElementById('mainRangeInput').value = 'custom';
+    } else {
+        div.classList.add('hidden');
+        div.classList.remove('flex');
+    }
+}
+function openGeneralReportWithFilters() {
+    // Pass the current filters to the print page
+    const range = '<?= $range ?>';
+    const from = '<?= $_GET['from'] ?? '' ?>';
+    const to = '<?= $_GET['to'] ?? '' ?>';
+    
+    let url = `print_general_report.php?range=${range}`;
+    if (range === 'custom') {
+        url += `&from=${from}&to=${to}`;
+    }
+    window.open(url, '_blank');
+}
+</script>
 
 <!-- Summary Cards Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -295,36 +385,36 @@ $report_ranges = [
          <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Today)</h3>
          <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_today) ?></p>
     </a>
-     <a href="sales_history.php?f_type=30days" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-green-500 hover:shadow-lg transition transform hover:-translate-y-1">
-        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (Last 30 Days)</h3>
-        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_month) ?></p>
+     <a href="sales_history.php?range=<?= $range ?>&from=<?= $start_date ?>&to=<?= $end_date ?>" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-green-500 hover:shadow-lg transition transform hover:-translate-y-1">
+        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Sales (<?= $range_label ?>)</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($sales_period) ?></p>
     </a>
     
     <!-- Expense Cards -->
     <a href="expenses.php" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-red-500 hover:shadow-lg transition transform hover:-translate-y-1">
-        <h3 class="text-red-500 text-xs uppercase font-bold tracking-wider">Expenses (Last 30 Days)</h3>
-        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($expenses_month) ?></p>
+        <h3 class="text-red-500 text-xs uppercase font-bold tracking-wider">Expenses (<?= $range_label ?>)</h3>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($expenses_period) ?></p>
     </a>
 
     <!-- Recovery Card -->
-    <div onclick="showRecoveryDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-teal-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
-        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Total Recovered</h3>
-        <p class="text-3xl font-black text-teal-600 tracking-tight mt-1"><?= formatCurrency($total_recovered) ?></p>
+    <div onclick="showRecoveryDetailsWithRange()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-teal-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
+        <h3 class="text-gray-500 text-xs uppercase font-bold tracking-wider">Recovered (<?= $range_label ?>)</h3>
+        <p class="text-3xl font-black text-teal-600 tracking-tight mt-1"><?= formatCurrency($total_recovered_period) ?></p>
         <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Click to view breakdown</p>
     </div>
 
     <!-- Returns Card -->
     <div onclick="showReturnDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-orange-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
         <h3 class="text-orange-500 text-xs uppercase font-bold tracking-wider">Returned Products</h3>
-        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= $returned_count_30d ?></p>
-        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= $returned_count_period ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2"><?= $range_label ?> (Click to view)</p>
     </div>
 
     <!-- Discounts Card -->
     <div onclick="showDiscountDetails()" class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-pink-500 hover:shadow-lg transition transform hover:-translate-y-1 block cursor-pointer">
         <h3 class="text-pink-500 text-xs uppercase font-bold tracking-wider">Discounts Given</h3>
-        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($discounts_month) ?></p>
-        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2">Last 30 Days (Click to view)</p>
+        <p class="text-3xl font-black text-gray-800 tracking-tight mt-1"><?= formatCurrency($discounts_period) ?></p>
+        <p class="text-[9px] text-gray-400 font-bold uppercase mt-2"><?= $range_label ?> (Click to view)</p>
     </div>
 
     <!-- Dealer Payments Today -->
@@ -346,22 +436,22 @@ $report_ranges = [
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Net Profit Card -->
     <div class="bg-gradient-to-br from-emerald-600 to-teal-700 p-8 rounded-[2rem] shadow-xl text-white">
-        <h4 class="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-4">Net Profit (Last 30 Days)</h4>
-        <p class="text-5xl font-black tracking-tighter mb-2"><?= formatCurrency($net_profit_month) ?></p>
+        <h4 class="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-4">Net Profit (<?= $range_label ?>)</h4>
+        <p class="text-5xl font-black tracking-tighter mb-2"><?= formatCurrency($net_profit_period) ?></p>
         <p class="text-emerald-200 text-[10px] font-medium uppercase tracking-tight">After deducting all expenses</p>
         
         <div class="mt-8 pt-6 border-t border-white/10 space-y-3">
              <div class="flex justify-between items-center text-sm">
-                <span class="text-emerald-200">Gross Profit (Last 30 Days)</span>
-                <span class="font-bold text-white"><?= formatCurrency($profit_month) ?></span>
+                <span class="text-emerald-200">Gross Profit (<?= $range_label ?>)</span>
+                <span class="font-bold text-white"><?= formatCurrency($profit_period) ?></span>
              </div>
              <div class="flex justify-between items-center text-sm">
-                <span class="text-emerald-200">Total Expenses (30 Days)</span>
-                <span class="font-bold text-red-300">- <?= formatCurrency($expenses_month) ?></span>
+                <span class="text-emerald-200">Total Expenses (<?= $range_label ?>)</span>
+                <span class="font-bold text-red-300">- <?= formatCurrency($expenses_period) ?></span>
              </div>
              <div class="flex justify-between items-center text-sm">
-                <span class="text-emerald-200">Total Discounts (30 Days)</span>
-                <span class="font-bold text-pink-300">- <?= formatCurrency($discounts_month) ?></span>
+                <span class="text-emerald-200">Total Discounts (<?= $range_label ?>)</span>
+                <span class="font-bold text-pink-300">- <?= formatCurrency($discounts_period) ?></span>
              </div>
         </div>
     </div>
@@ -737,6 +827,22 @@ function showRecoveryDetails() {
     filterRecovery('all');
 }
 
+function showRecoveryDetailsWithRange() {
+    document.getElementById('recoveryModal').classList.remove('hidden');
+    const range = '<?= $range ?>';
+    if (range === 'custom') {
+        document.getElementById('recoveryFromDate').value = '<?= $_GET['from'] ?? '' ?>';
+        document.getElementById('recoveryToDate').value = '<?= $_GET['to'] ?? '' ?>';
+        filterRecovery('custom');
+    } else if (range === 'today') {
+        filterRecovery('today');
+    } else if (range === 'this_month') {
+        filterRecovery('month');
+    } else {
+        filterRecovery('all'); // Default to all or we could add more mapping
+    }
+}
+
 function showReturnDetails() {
     document.getElementById('returnsModal').classList.remove('hidden');
     renderReturnTable(returnsData);
@@ -747,7 +853,10 @@ function showDiscountDetails() {
     renderDiscountTable(discountData);
 }
 
+const discountData = <?= json_encode($discount_details_period) ?>;
+const returnsData = <?= json_encode($return_details_period) ?>;
 const advanceDealerData = <?= json_encode($advance_dealer_details) ?>;
+
 function showAdvanceDealerDetails() {
     document.getElementById('advanceDealersModal').classList.remove('hidden');
     renderAdvanceDealersTable(advanceDealerData);
@@ -771,7 +880,6 @@ function renderAdvanceDealersTable(data) {
     });
 }
 
-const discountData = <?= json_encode($discount_details_30d) ?>;
 function renderDiscountTable(data) {
     const tbody = document.getElementById('discountsTableBody');
     tbody.innerHTML = '';
@@ -833,7 +941,6 @@ function printDiscountReport() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
 }
 
-const returnsData = <?= json_encode($return_details_30d) ?>;
 
 function filterReturns() {
     const query = document.getElementById('returnSearchInput').value.toLowerCase();
@@ -1035,7 +1142,7 @@ function printReturnReport() {
         <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-orange-600 text-white">
             <div>
                 <h3 class="text-xl font-bold">Returned Products History</h3>
-                <p class="text-xs opacity-80 mt-1">Detailed breakdown of products returned in the last 30 days</p>
+                <p class="text-xs opacity-80 mt-1">Detailed breakdown of products returned in <?= $range_label ?></p>
             </div>
             <div class="flex items-center gap-4">
                 <button onclick="printReturnReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
@@ -1080,7 +1187,7 @@ function printReturnReport() {
         <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-pink-600 text-white">
             <div>
                 <h3 class="text-xl font-bold">Discount History</h3>
-                <p class="text-xs opacity-80 mt-1">Detailed breakdown of discounts given in the last 30 days</p>
+                <p class="text-xs opacity-80 mt-1">Detailed breakdown of discounts given in <?= $range_label ?></p>
             </div>
             <div class="flex items-center gap-4">
                 <button onclick="printDiscountReport()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
