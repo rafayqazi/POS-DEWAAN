@@ -19,6 +19,9 @@ $dealer = findCSV('dealers', $dealer_id);
 
 if (!$dealer) die("Dealer not found");
 
+// REPAIR: Automatically fix any corrupted/duplicate IDs if they exist (e.g. from an old database upload)
+repairCSVIds('dealer_transactions');
+
 // Handle Date Filtering
 $from_date = $_GET['from'] ?? '';
 $to_date = $_GET['to'] ?? '';
@@ -85,7 +88,8 @@ if (isset($_GET['delete_txn'])) {
         if (in_array($txn['id'], $del_ids)) {
             if ($txn['dealer_id'] == $dealer_id) {
                 $count++;
-                if (!empty($txn['restock_id'])) {
+                // Only revert if it's a Purchase or Restock type. Manual entries (Advance/Payment) shouldn't affect stock.
+                if (!empty($txn['restock_id']) && in_array($txn['type'], ['Purchase', 'Restock', 'Purchase (Edited)'])) {
                     // Find restock
                     $found_restock = null;
                     foreach ($all_restocks as $r) {

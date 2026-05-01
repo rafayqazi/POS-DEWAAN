@@ -14,6 +14,9 @@ if (isRole('Customer') && $cid !== ($_SESSION['related_id'] ?? '')) {
 $customer = findCSV('customers', $cid);
 if (!$customer) die("Customer not found.");
 
+// REPAIR: Automatically fix any corrupted/duplicate IDs if they exist (e.g. from an old database upload)
+repairCSVIds('customer_transactions');
+
 // Handle Date Filtering
 $from_date = $_GET['from'] ?? '';
 $to_date = $_GET['to'] ?? '';

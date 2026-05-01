@@ -103,7 +103,8 @@ function insertCSV($table, $row_data) {
                 $id_index = array_search('id', $headers);
                 if ($id_index !== false && isset($row[$id_index])) {
                     $id_val = $row[$id_index];
-                    if (is_numeric($id_val)) {
+                    // Use regex to ensure it's a pure integer string to avoid scientific notation confusion
+                    if (preg_match('/^[0-9]+$/', $id_val)) {
                         $id_int = (int)$id_val;
                         // Only consider IDs within a reasonable range to prevent overflow corruption
                         if ($id_int > $last_id && $id_int < 2000000000) { 
@@ -137,6 +138,81 @@ function insertCSV($table, $row_data) {
     }
 
     return $retId;
+}
+
+/**
+ * Repair corrupted IDs in a CSV file (e.g. scientific notation or huge duplicates)
+ */
+function repairCSVIds($table) {
+    $path = getCSVPath($table);
+    if (!file_exists($path)) return false;
+    
+    $fp = fopen($path, 'r+');
+    if (!$fp) return false;
+    
+    // Acquire Exclusive Lock
+    if (flock($fp, LOCK_EX)) {
+        $headers = fgetcsv($fp);
+        if (!$headers || !in_array('id', $headers)) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            return false;
+        }
+        
+        $id_index = array_search('id', $headers);
+        $rows = [];
+        $needs_repair = false;
+        $max_valid_id = 0;
+        $seen_ids = [];
+
+        while (($row = fgetcsv($fp)) !== FALSE) {
+            if (count($headers) == count($row)) {
+                $id_val = $row[$id_index];
+                // Check if ID is scientific notation, contains 'E', or is huge, or is duplicate
+                $is_corrupted = !preg_match('/^[0-9]+$/', $id_val) || (float)$id_val > 2000000000 || isset($seen_ids[$id_val]);
+                
+                if ($is_corrupted) {
+                    $needs_repair = true;
+                } else {
+                    $max_valid_id = max($max_valid_id, (int)$id_val);
+                    $seen_ids[$id_val] = true;
+                }
+                $rows[] = $row;
+            }
+        }
+        
+        if ($needs_repair) {
+            // Re-assign IDs for corrupted or duplicate ones
+            $reassigned_count = 0;
+            $temp_seen = [];
+            foreach ($rows as &$row) {
+                $id_val = $row[$id_index];
+                $is_corrupted = !preg_match('/^[0-9]+$/', $id_val) || (float)$id_val > 2000000000 || isset($temp_seen[$id_val]);
+                
+                if ($is_corrupted) {
+                    $id_val = ++$max_valid_id;
+                    $row[$id_index] = $id_val;
+                    $reassigned_count++;
+                }
+                $temp_seen[$id_val] = true;
+            }
+            
+            // Write back to file
+            rewind($fp);
+            ftruncate($fp, 0);
+            fputcsv($fp, $headers);
+            foreach ($rows as $r) {
+                fputcsv($fp, $r);
+            }
+            error_log("Repaired $reassigned_count IDs in $table.csv");
+        }
+        
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $needs_repair;
+    }
+    fclose($fp);
+    return false;
 }
 
 /**

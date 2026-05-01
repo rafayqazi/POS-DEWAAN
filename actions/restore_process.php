@@ -44,7 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
     if ($zip->open($file['tmp_name']) === TRUE) {
         $zip->extractTo($dataDir);
         $zip->close();
-        respond(true, "Database restored successfully!", $isAjax);
+
+        // REPAIR IDs: Automatically fix any corrupted/duplicate IDs in all tables after restore
+        $csvFiles = glob($dataDir . '/*.csv');
+        foreach ($csvFiles as $csvFile) {
+            $tableName = basename($csvFile, '.csv');
+            repairCSVIds($tableName);
+        }
+
+        respond(true, "Database restored successfully! All tables sanitized and repaired.", $isAjax);
     } else {
         respond(false, "Failed to open ZIP file.", $isAjax);
     }
