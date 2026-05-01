@@ -399,6 +399,7 @@ if ($linked_dealer_id) {
     const allTxns = <?= json_encode($ledger) ?>;
     const salesMap = <?= json_encode($sales_map) ?>;
     const saleItemsMap = <?= json_encode($sale_items_grouped) ?>;
+    const returnItemsMap = <?= json_encode($return_items_grouped) ?>;
     const productsMap = <?= json_encode($products_map) ?>;
     const initialBalance = <?= $total_due ?>;
     const canEdit = <?= json_encode(isRole('Admin')) ?>;
@@ -455,6 +456,16 @@ if ($linked_dealer_id) {
                 return `${t.description}: ${itemsText}`;
             }
         }
+        if (t.type === 'Return' && t.return_id) {
+            const items = returnItemsMap[t.return_id] || [];
+            if (items.length > 0) {
+                const itemsText = items.map(item => {
+                    const p = productsMap[item.product_id];
+                    return `${p ? p.name : 'Product'} (x${item.quantity})`;
+                }).join('; ');
+                return `${t.description}: ${itemsText}`;
+            }
+        }
         return t.description;
     }
 
@@ -494,6 +505,48 @@ if ($linked_dealer_id) {
                             <span class="font-bold text-gray-800 leading-tight group-hover/item:text-black transition-colors overflow-hidden text-ellipsis" style="white-space:nowrap;min-width:0;flex:1 1 0%;" title="${pName}">${pName}</span>
                             <span class="text-amber-700 font-black w-10 text-center bg-amber-100/50 rounded py-0.5 px-1.5 border border-amber-200 shadow-sm shadow-amber-900/5 flex-shrink-0">x${item.quantity}</span>
                             <span class="font-black text-blue-700 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
+                        </div>`;
+            }).join('');
+            
+            html += `</div></div>`;
+            return html;
+        }
+        
+        if (t.type === 'Return' && t.return_id) {
+            const items = returnItemsMap[t.return_id] || [];
+            if (isPrint && items.length > 0) {
+                let html = `<table style="width:100%;border-collapse:collapse;font-size:8px;line-height:1.2;table-layout:fixed;border:1px solid #fecaca;background:#fff5f5;">`;
+                html += `<tr style="font-weight:bold;text-transform:uppercase;font-size:7px;background:#fee2e2;"><td style="padding:1px 3px;width:140px;color:#991b1b;">RETURNED ITEM</td><td style="padding:1px 3px;width:50px;color:#991b1b;">QTY</td><td style="padding:1px 3px;color:#991b1b;width:50px;">PRICE</td><td style="padding:1px 3px;color:#991b1b;width:55px;">REFUND</td></tr>`;
+                items.forEach(item => {
+                    const p = productsMap[item.product_id];
+                    const pName = p ? p.name : 'Product';
+                    const unit = p ? (p.unit || 'Peace') : 'Peace';
+                    const price = parseFloat(item.total_price) / parseFloat(item.quantity || 1);
+                    html += `<tr>
+                                <td style="padding:1px 3px;font-weight:bold;color:#111;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;">${pName}</td>
+                                <td style="padding:1px 3px;white-space:nowrap!important;color:#b45309;font-weight:bold;">x ${item.quantity} ${unit}</td>
+                                <td style="padding:1px 3px;color:#444;font-weight:bold;">Rs.${Math.round(price).toLocaleString()}</td>
+                                <td style="padding:1px 3px;color:#dc2626;font-weight:bold;">Rs.${Math.round(item.total_price).toLocaleString()}</td>
+                             </tr>`;
+                });
+                html += `</table>`;
+                return html;
+            }
+            let html = `<div class="flex flex-col min-w-[240px] bg-red-50/50 rounded-xl border border-red-100 p-2 shadow-inner">
+                            <div class="flex justify-between text-[7px] font-black text-red-700 uppercase tracking-[0.2em] border-b border-red-100 pb-1.5 mb-2 px-1">
+                                <span class="flex-1">Returned Items</span>
+                                <span class="w-10 text-center">QTY</span>
+                                <span class="w-20 text-right">Refund</span>
+                            </div>
+                            <div class="custom-scrollbar" style="max-height:150px;overflow-y:auto;">`;
+            
+            html += items.map(item => {
+                const p = productsMap[item.product_id];
+                const pName = p ? p.name : 'Product';
+                return `<div class="flex items-center text-[10px] border-b border-red-100/50 py-1.5 last:border-0 gap-2 px-1 hover:bg-white/50 transition-colors rounded-md group/item" style="white-space:nowrap;">
+                            <span class="font-bold text-gray-800 leading-tight group-hover/item:text-black transition-colors overflow-hidden text-ellipsis" style="white-space:nowrap;min-width:0;flex:1 1 0%;" title="${pName}">${pName}</span>
+                            <span class="text-amber-700 font-black w-10 text-center bg-amber-100/50 rounded py-0.5 px-1.5 border border-amber-200 shadow-sm shadow-amber-900/5 flex-shrink-0">x${item.quantity}</span>
+                            <span class="font-black text-red-600 text-right flex-shrink-0 tabular-nums">${formatCurrency(item.total_price)}</span>
                         </div>`;
             }).join('');
             

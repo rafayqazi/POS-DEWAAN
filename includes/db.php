@@ -97,14 +97,19 @@ function insertCSV($table, $row_data) {
         $headers = fgetcsv($fp);
         
         // Read all existing data to find max ID
-        $entries = [];
         $last_id = 0;
         while (($row = fgetcsv($fp)) !== FALSE) {
-            $entries[] = $row;
             if ($headers && count($row) == count($headers)) {
-                $item = array_combine($headers, $row);
-                if (isset($item['id']) && $item['id'] > $last_id) {
-                    $last_id = (int)$item['id'];
+                $id_index = array_search('id', $headers);
+                if ($id_index !== false && isset($row[$id_index])) {
+                    $id_val = $row[$id_index];
+                    if (is_numeric($id_val)) {
+                        $id_int = (int)$id_val;
+                        // Only consider IDs within a reasonable range to prevent overflow corruption
+                        if ($id_int > $last_id && $id_int < 2000000000) { 
+                            $last_id = $id_int;
+                        }
+                    }
                 }
             }
         }

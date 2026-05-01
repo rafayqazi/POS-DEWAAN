@@ -68,49 +68,79 @@ if (isset($_GET['delete_txn'])) {
     $del_ids = explode(',', $_GET['delete_txn']);
     $count = 0;
     
-    foreach ($del_ids as $del_id) {
-        $txn = findCSV('dealer_transactions', $del_id);
-        if ($txn && $txn['dealer_id'] == $dealer_id) {
-            // Check for linked Restock/Initial ID
-            if (!empty($txn['restock_id'])) {
-                $restock = findCSV('restocks', $txn['restock_id']);
-                
-                if ($restock) {
-                    // Revert Product Stock
-                    $product_id = $restock['product_id'];
-                    $qty_to_remove = (float)$restock['quantity'];
-                    
-                    // Read products to find current stock
-                    $all_products = readCSV('products');
-                    $p_index = -1;
-                    foreach ($all_products as $idx => $p) {
-                        if ($p['id'] == $product_id) {
-                            $p_index = $idx;
+    // We can do this more efficiently by reading once and writing once
+    $all_dealer_txns = readCSV('dealer_transactions');
+    $all_restocks = readCSV('restocks');
+    $all_products = readCSV('products');
+    
+    $txns_to_keep = [];
+    $restocks_to_delete = [];
+    $products_to_update = []; // [product_id => new_stock]
+
+    foreach ($all_dealer_txns as $txn) {
+        if (in_array($txn['id'], $del_ids)) {
+            if ($txn['dealer_id'] == $dealer_id) {
+                $count++;
+                if (!empty($txn['restock_id'])) {
+                    // Find restock
+                    $found_restock = null;
+                    foreach ($all_restocks as $r) {
+                        if ($r['id'] == $txn['restock_id']) {
+                            $found_restock = $r;
                             break;
                         }
                     }
                     
-                    if ($p_index > -1) {
-                        $current_stock = (float)$all_products[$p_index]['stock_quantity'];
-                        $all_products[$p_index]['stock_quantity'] = max(0, $current_stock - $qty_to_remove); // Prevent negative stock
+                    if ($found_restock) {
+                        $restocks_to_delete[] = $found_restock['id'];
+                        // Revert Product Stock
+                        $pid = $found_restock['product_id'];
+                        $qty = (float)$found_restock['quantity'];
                         
-                        // Save Product Update using helper
-                        updateCSV('products', $product_id, ['stock_quantity' => $all_products[$p_index]['stock_quantity']]);
+                        // Find current stock in our already read products
+                        foreach ($all_products as &$p) {
+                            if ($p['id'] == $pid) {
+                                $current_stock = (float)$p['stock_quantity'];
+                                $p['stock_quantity'] = max(0, $current_stock - $qty);
+                                $products_to_update[$pid] = $p['stock_quantity'];
+                                break;
+                            }
+                        }
                     }
-                    
-                    // Delete Restock Record
-                    deleteCSV('restocks', $restock['id']);
                 }
+                continue; // Skip adding to txns_to_keep
             }
-            
-            // Delete Transaction
-            deleteCSV('dealer_transactions', $del_id);
-            $count++;
         }
+        $txns_to_keep[] = $txn;
     }
     
-    $msg = ($count > 1) ? "$count transactions deleted and stock reverted" : "Transaction deleted and stock reverted";
-    redirect("dealer_ledger.php?id=$dealer_id&msg=$msg");
+    if ($count > 0) {
+        // Save Transactions
+        writeCSV('dealer_transactions', $txns_to_keep);
+        
+        // Delete Restocks
+        if (!empty($restocks_to_delete)) {
+            $remaining_restocks = [];
+            foreach ($all_restocks as $r) {
+                if (!in_array($r['id'], $restocks_to_delete)) {
+                    $remaining_restocks[] = $r;
+                }
+            }
+            writeCSV('restocks', $remaining_restocks);
+        }
+        
+        // Update Products
+        if (!empty($products_to_update)) {
+            foreach ($products_to_update as $pid => $new_qty) {
+                updateCSV('products', $pid, ['stock_quantity' => $new_qty]);
+            }
+        }
+        
+        $msg = ($count > 1) ? "$count transactions deleted and stock reverted" : "Transaction deleted and stock reverted";
+        redirect("dealer_ledger.php?id=$dealer_id&msg=$msg");
+    } else {
+        redirect("dealer_ledger.php?id=$dealer_id&error=No transactions were deleted. ID mismatch.");
+    }
 }
 
 $pageTitle = "Ledger: " . $dealer['name'];
