@@ -58,7 +58,7 @@ $debt_map = [];
 foreach($transactions as $t) {
     if(!empty($t['customer_id'])) {
         $cid = $t['customer_id'];
-        $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
+        $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit'] - (float)($t['discount'] ?? 0));
     }
 }
 

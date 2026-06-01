@@ -141,7 +141,7 @@ foreach($customer_txns as $tx) {
             'type' => 'Ledger Payment'
         ];
     }
-    $total_debt_customers += (float)$tx['debit'] - (float)$tx['credit'];
+    $total_debt_customers += (float)$tx['debit'] - (float)$tx['credit'] - (float)($tx['discount'] ?? 0);
 }
 
 // Sort recovery details by date descending

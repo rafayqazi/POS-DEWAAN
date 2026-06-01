@@ -4,11 +4,11 @@ require_once '../includes/functions.php';
 
 requireLogin();
 if (!hasPermission('add_sale')) die("Unauthorized Access");
-$pageTitle = "Point of Sale";
-include '../includes/header.php';
 
-// Handle Checkout Logic
-$message = '';
+// ─────────────────────────────────────────────────────────────────
+// POST HANDLER — must run BEFORE any output (header include) so
+// that redirect() can send HTTP Location headers cleanly (PRG pattern)
+// ─────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
     $customer_id = !empty($_POST['customer_id']) ? $_POST['customer_id'] : '';
     if ($customer_id == 'NEW') {
@@ -55,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
     });
 
     if (!$transaction_success) {
-        $message = "ERROR: " . (!empty($error_items) ? "Stock limit exceeded for: " . implode(', ', $error_items) : "Database transaction failed.");
+        $err = !empty($error_items) ? "Stock limit exceeded for: " . implode(', ', $error_items) : "Database transaction failed.";
+        redirect("pos.php?error=" . urlencode($err));
     } else if ($items) {
         $sale_date = !empty($_POST['sale_date']) ? $_POST['sale_date'] . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
         $sale_id = insertCSV('sales', [
@@ -103,9 +104,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 'total_price' => $item['total']
             ]);
         }
-        $message = "Sale #$sale_id recorded successfully!";
+        // PRG: Redirect after successful POST to prevent form resubmission on refresh
+        redirect("pos.php?success=" . urlencode($sale_id));
     }
 }
+
+// Read flash messages from GET params (set by PRG redirect above)
+$flash_success_sale_id = isset($_GET['success']) ? (int)$_GET['success'] : null;
+$flash_error = isset($_GET['error']) ? htmlspecialchars(urldecode($_GET['error'])) : null;
+
+// ─────────────────────────────────────────────────────────────────
+// PAGE OUTPUT — header include only after all redirects are done
+// ─────────────────────────────────────────────────────────────────
+$pageTitle = "Point of Sale";
+include '../includes/header.php';
 
 $customers = readCSV('customers');
 usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
@@ -198,6 +210,7 @@ $units = readCSV('units');
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 sticky top-0 z-10 text-xs font-black text-gray-500 uppercase tracking-widest">
                     <tr>
+                        <th class="px-2 py-2 border-b border-gray-200 w-8 text-center">SR</th>
                         <th class="px-3 py-2 border-b border-gray-200">Item Details</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-24 text-center">Qty</th>
                         <th class="px-2 py-2 border-b border-gray-200 w-28 text-center">Unit Price</th>
@@ -357,6 +370,7 @@ $units = readCSV('units');
 <script>
 let cart = [];
 let isBelowCostConfirmed = false;
+let isTxnConfirmed = false;
 const availableUnits = <?= json_encode($units) ?>;
 
 function getUnitHierarchyJS(unitName) {
@@ -509,8 +523,12 @@ function renderCart() {
     emptyMsg.classList.add('hidden');
     
     // Display newest items at the top
-    tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}) => `
+    const totalItems = cart.length;
+    tbody.innerHTML = [...cart].map((item, index) => ({item, index})).reverse().map(({item, index}, displayIndex) => `
         <tr class="group hover:bg-teal-50/30 transition-colors">
+            <td class="px-2 py-1.5 border-b border-gray-100 text-center">
+                <span class="text-xs font-black text-gray-400">${totalItems - displayIndex}</span>
+            </td>
             <td class="px-3 py-1.5 border-b border-gray-100">
                 <div class="font-bold text-gray-800 text-sm tracking-tight leading-tight">${item.name}</div>
                 <div class="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">${item.primaryUnit}</div>
@@ -634,6 +652,7 @@ function updateQty(index, newQty) {
 }
 
 function updateTotals() {
+    isTxnConfirmed = false;
     const subtotal = cart.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
     const discount = parseFloat(document.getElementById('discountInput').value) || 0;
     let total = Math.max(0, Math.round(subtotal - discount));
@@ -652,6 +671,7 @@ function updateTotals() {
 }
 
 function calculateDebt() {
+    isTxnConfirmed = false;
     const total = parseInt(document.getElementById('inputTotal').value) || 0;
     const paid = parseInt(document.getElementById('paidAmount').value) || 0;
     const debt = total - paid;
@@ -731,6 +751,7 @@ function updateItemUnit(index, newUnit) {
 }
 
 function handlePaymentChange(method) {
+    isTxnConfirmed = false;
     const paidInput = document.getElementById('paidAmount');
     const total = parseInt(document.getElementById('inputTotal').value) || 0;
     
@@ -749,6 +770,7 @@ function handlePaymentChange(method) {
 
 
 function handleCustomerChange(val) {
+    isTxnConfirmed = false;
     const fields = document.getElementById('newCustomerFields');
     if (val === 'NEW') {
         fields.classList.remove('hidden');
@@ -791,15 +813,6 @@ document.getElementById('productSearch').addEventListener('keydown', function(e)
 document.getElementById('checkoutForm').onsubmit = function(e) {
     if (cart.length === 0) { showAlert("Cart is empty!", "Error"); return false; }
     
-    const isBelowCost = !validateTotalPrice();
-    if (isBelowCost && !isBelowCostConfirmed) {
-        showConfirm("You are selling things below cost! Are you ready to proceed?", () => {
-            isBelowCostConfirmed = true;
-            document.getElementById('submitBtn').click(); // Re-trigger submit
-        }, "Soft Validation Warning");
-        return false;
-    }
-    
     const method = document.getElementById('paymentMethod').value;
     const cust = document.getElementById('customerSelect').value;
     const dueDate = document.getElementById('dueDate').value;
@@ -824,6 +837,25 @@ document.getElementById('checkoutForm').onsubmit = function(e) {
     // 3. Ensure credit transactions (Under/Over payment) have a customer
     if (paidAmount !== totalAmount && !cust) {
         showAlert("Please select or add a customer for transactions involving credit or debt.", "Customer Required");
+        return false;
+    }
+
+    // 4. Double check transaction confirmation
+    if (!isTxnConfirmed) {
+        showConfirm("Are you want to continue?", () => {
+            isTxnConfirmed = true;
+            document.getElementById('submitBtn').click(); // Re-trigger submit
+        }, "Confirm Transaction");
+        return false;
+    }
+
+    // 5. Soft warning below cost
+    const isBelowCost = !validateTotalPrice();
+    if (isBelowCost && !isBelowCostConfirmed) {
+        showConfirm("You are selling things below cost! Are you ready to proceed?", () => {
+            isBelowCostConfirmed = true;
+            document.getElementById('submitBtn').click(); // Re-trigger submit
+        }, "Soft Validation Warning");
         return false;
     }
 
@@ -950,14 +982,19 @@ document.getElementById('customerSearchInput').addEventListener('keydown', funct
 });
 </script>
 
-<?php if ($message): ?>
+<?php if ($flash_success_sale_id): ?>
 <script>
-    showAlert("<?= $message ?>", "Status");
-    <?php if (strpos($message, 'recorded successfully') !== false && isset($sale_id)): ?>
-        showConfirm("Sale recorded. Do you want to print the bill?", () => {
-            window.open('print_bill.php?id=<?= $sale_id ?>', '_blank');
-        }, "Print Receipt?");
-    <?php endif; ?>
+    // Clean the URL first so refresh won't re-show this popup
+    history.replaceState(null, '', 'pos.php');
+    showConfirm("Sale #<?= $flash_success_sale_id ?> recorded successfully! Do you want to print the bill?", () => {
+        window.open('print_bill.php?id=<?= $flash_success_sale_id ?>', '_blank');
+    }, "Print Receipt?");
+</script>
+<?php elseif ($flash_error): ?>
+<script>
+    // Clean the URL first so refresh won't re-show this alert
+    history.replaceState(null, '', 'pos.php');
+    showAlert("ERROR: <?= $flash_error ?>", "Transaction Failed");
 </script>
 <?php endif; ?>
 

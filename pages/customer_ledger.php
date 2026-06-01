@@ -421,12 +421,19 @@ if ($linked_dealer_id) {
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Credit (Paid)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 50px;">Discount</th>
                 <th style="padding: 5px; border: 1px solid #ddd;">Remarks</th>
-                <th style="padding: 5px; border: 1px solid #ddd; width: 70px;">Due Date</th>
             </tr></thead>
             <tbody id="printBody"></tbody>
         </table>
+
+        <!-- Disclaimer Card -->
+        <div style="margin-top: 25px; padding: 10px 15px; background: #fff5f5; border: 1px solid #fee2e2; border-radius: 8px; direction: rtl; text-align: right; line-height: 1.6;">
+            <p style="margin: 0; font-size: 11px; color: #374151; font-weight: bold; font-family: system-ui, -apple-system, sans-serif;">
+                <span style="color: #dc2626; font-weight: 900; font-size: 12px;">دکاندار حضرات متوجہ ہوں!</span> ہمارے کسی بھی نمائندے کو بغیر بل کے ادائیگیاں (ادھار کی ادائیگی) نہ کی جائیں، بصورتِ دیگر دکاندار خود ذمہ دار ہوگا۔ مال وصول کرتے وقت اچھی طرح چیک کر لیں، بعد میں اسٹاک میں کمی بیشی کا کوئی بھی کلیم (دعوٰی) قابلِ قبول نہیں ہوگا۔
+            </p>
+        </div>
+
         <!-- Developer Footer -->
-        <div style="margin-top:40px; border-top:1px solid #eee; padding-top:15px; text-align:center; font-size:9px; color:#aaa;">
+        <div style="margin-top:25px; border-top:1px solid #eee; padding-top:12px; text-align:center; font-size:9px; color:#aaa;">
             <p style="margin:0; font-weight:bold; color:#888;">Software Developed by Abdul Rafay</p>
             <p style="margin:4px 0 0;">WhatsApp: 03000358189 / 03710273699</p>
         </div>
@@ -596,7 +603,7 @@ if ($linked_dealer_id) {
 
     function generateTableRows(list, opening, fromDate, isPrint, stats = null) {
         let html = '';
-        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 7 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase" ${isPrint ? 'style="padding:10px;border:1px solid #eee;font-weight:bold;color:#666;"' : ''}>Opening Balance</td><td class="p-4 text-right font-black text-red-600" ${isPrint ? 'style="padding:10px;border:1px solid #eee;text-align:right;font-weight:bold;color:#e11d48;"' : ''}>${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
+        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 6 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase" ${isPrint ? 'style="padding:10px;border:1px solid #eee;font-weight:bold;color:#666;"' : ''}>Opening Balance</td><td class="p-4 text-right font-black text-red-600" ${isPrint ? 'style="padding:10px;border:1px solid #eee;text-align:right;font-weight:bold;color:#e11d48;"' : ''}>${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
         list.forEach((t, i) => {
             const sn = (currentPage_Ledger - 1) * pageSize_Ledger + i + 1;
             if (isPrint) {
@@ -605,7 +612,6 @@ if ($linked_dealer_id) {
                 const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
                 const discountVal = parseFloat(t.discount || 0);
                 const refText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
-                const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '-';
                 html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:center;color:#999;font-size:9px;">${sn}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dateStr}</td>`;
@@ -614,7 +620,6 @@ if ($linked_dealer_id) {
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#0d9488;font-weight:bold;font-size:9px;">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#d97706;font-size:9px;">${discountVal > 0 ? formatCurrency(discountVal) : '-'}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;">${refText}</td>`;
-                html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dueDate}</td>`;
                 html += `</tr>`;
             } else {
                 const rowBorder = t.debit > 0 ? 'border-l-red-500' : 'border-l-emerald-500';
@@ -677,9 +682,9 @@ if ($linked_dealer_id) {
             html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#e11d48; font-size:11px;">${formatCurrency(stats.totalDebit)}</td>`;
             html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#0d9488; font-size:11px;">${formatCurrency(stats.totalCredit)}</td>`;
             html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#d97706; font-size:11px;">${formatCurrency(stats.totalDiscount)}</td>`;
-            html += `<td colspan="2" style="padding:8px; border:1px solid #ddd; font-size:9px; color:#aaa;">Overall Summary</td>`;
+            html += `<td style="padding:8px; border:1px solid #ddd; font-size:9px; color:#aaa;">Overall Summary</td>`;
             html += `</tr>`;
-            html += `<tr><td colspan="8" style="padding:0; border:none;"><div style="display:flex; justify-content:flex-end; padding:20px 0;"><div style="border:1px solid #eee; display:flex; align-items:center;"><div style="background:#f8f8f8; padding:10px 20px; font-weight:bold; color:#e11d48; text-transform:uppercase; font-size:12px; border-right:1px solid #eee;">OUTSTANDING BALANCE:</div><div style="padding:10px 30px; font-size:20px; font-weight:bold; color:#e11d48;">${formatCurrency(stats.balance)}</div></div></div></td></tr>`;
+            html += `<tr><td colspan="7" style="padding:0; border:none;"><div style="display:flex; justify-content:flex-end; padding:20px 0;"><div style="border:1px solid #eee; display:flex; align-items:center;"><div style="background:#f8f8f8; padding:10px 20px; font-weight:bold; color:#e11d48; text-transform:uppercase; font-size:12px; border-right:1px solid #eee;">OUTSTANDING BALANCE:</div><div style="padding:10px 30px; font-size:20px; font-weight:bold; color:#e11d48;">${formatCurrency(stats.balance)}</div></div></div></td></tr>`;
         }
 
         return html || '<tr><td colspan="10" class="p-10 text-center text-gray-400">No transactions found.</td></tr>';
@@ -748,7 +753,7 @@ if ($linked_dealer_id) {
         document.getElementById('modalPaymentType').value = 'Cash';
         document.getElementById('modalExistingProof').value = '';
         
-        document.getElementById('modalDebtAmount').innerText = formatCurrency(allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0), 0)); 
+        document.getElementById('modalDebtAmount').innerText = formatCurrency(allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0) - parseFloat(curr.discount||0), 0)); 
         document.getElementById('txnModalTitle').innerText = (t === 'Advance' ? 'Add Advance Payment' : (t === 'Payment' ? 'Receive Payment' : 'Record Outstanding Debt'));
         document.getElementById('txnModal').classList.remove('hidden'); 
     }
@@ -774,8 +779,106 @@ if ($linked_dealer_id) {
     }
 
     function closeTxnModal() { document.getElementById('txnModal').classList.add('hidden'); }
-    function validateTransaction() { return true; }
     
+    window.handlePayInFull = function(checked) {
+        const debtVal = allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0) - parseFloat(curr.discount||0), 0);
+        const amountInput = document.getElementById('modalTxnAmount');
+        const discountInput = document.getElementById('modalTxnDiscount');
+        if (checked) {
+            const currentDiscount = parseFloat(discountInput.value || 0);
+            amountInput.value = Math.max(0, debtVal - currentDiscount).toFixed(2);
+        } else {
+            amountInput.value = '';
+        }
+    };
+
+    window.syncAmountAndDiscount = function() {
+        const checkbox = document.getElementById('payInFullCheckbox');
+        const amountInput = document.getElementById('modalTxnAmount');
+        const discountInput = document.getElementById('modalTxnDiscount');
+        const amt = parseFloat(amountInput.value || 0);
+        const disc = parseFloat(discountInput.value || 0);
+        const debtVal = allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0) - parseFloat(curr.discount||0), 0);
+
+        if (checkbox && checkbox.checked) {
+            amountInput.value = Math.max(0, debtVal - disc).toFixed(2);
+        }
+    };
+
+    function validateTransaction() {
+        const type = document.getElementById('modalTxnType').value;
+        const isAdvance = document.getElementById('modalIsAdvance').value === '1';
+        const amountInput = document.getElementById('modalTxnAmount');
+        const discountInput = document.getElementById('modalTxnDiscount');
+        const amt = parseFloat(amountInput.value || 0);
+        const disc = parseFloat(discountInput.value || 0);
+        
+        if (amt <= 0) {
+            alert("Amount must be greater than zero.");
+            return false;
+        }
+        
+        if (disc < 0) {
+            alert("Discount cannot be negative.");
+            return false;
+        }
+        
+        if (type === 'Payment' && !isAdvance) {
+            const debtVal = allTxns.reduce((acc, curr) => acc + parseFloat(curr.debit||0) - parseFloat(curr.credit||0) - parseFloat(curr.discount||0), 0);
+            if ((amt + disc) > debtVal + 0.1) {
+                if (!confirm("Total (Amount + Discount) is greater than the outstanding debt. Are you sure you want to proceed?")) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    function openLinkModal() {
+        document.getElementById('linkModal').classList.remove('hidden');
+        document.getElementById('dealerSearch').value = '';
+        filterDealers('');
+    }
+
+    function closeLinkModal() {
+        document.getElementById('linkModal').classList.add('hidden');
+    }
+
+    function filterDealers(query) {
+        const items = document.querySelectorAll('.dealer-item');
+        items.forEach(item => {
+            const name = item.getAttribute('data-name') || '';
+            item.style.display = name.includes(query.toLowerCase()) ? '' : 'none';
+        });
+    }
+
+    async function handleLink(dealerId, isLinked) {
+        const action = isLinked ? 'Unlink' : 'Link';
+        const payload = isLinked ? '' : dealerId; // empty string = unlink
+
+        try {
+            const formData = new FormData();
+            formData.append('customer_id', '<?= $cid ?>');
+            formData.append('dealer_id', payload);
+
+            const res = await fetch('../actions/link_dealer.php', { method: 'POST', body: formData });
+            const json = await res.json();
+
+            if (json.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + json.message);
+            }
+        } catch (e) {
+            alert('Request failed. Please try again.');
+        }
+    }
+
+    // Close link modal when clicking outside
+    document.getElementById('linkModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeLinkModal();
+    });
+
     function confirmDelete(url) { 
         showConfirm("Are you sure you want to delete this transaction?", function() {
             window.location.href = url;

@@ -363,7 +363,7 @@ function getGlobalNotifications() {
         $debt_map = [];
         foreach($all_txns as $t) {
             $cid = $t['customer_id'];
-            $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit']);
+            $debt_map[$cid] = ($debt_map[$cid] ?? 0) + ((float)$t['debit'] - (float)$t['credit'] - (float)($t['discount'] ?? 0));
         }
 
         $rec_notify_days = (int)getSetting('recovery_notify_days', '7');

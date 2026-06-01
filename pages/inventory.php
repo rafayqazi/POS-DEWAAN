@@ -307,7 +307,12 @@ include '../includes/header.php';
                     <th class="p-5 w-16 text-center">Sr</th>
                     <th class="p-5">Product Details</th>
                     <th class="p-5">Category</th>
-                    <th class="p-5">Stock Status</th>
+                    <th class="p-5 cursor-pointer select-none hover:text-teal-700 transition" onclick="toggleStockSort()">
+                        <div class="flex items-center gap-1 justify-start">
+                            <span>Stock Status</span>
+                            <span id="stockSortIcon" class="text-gray-400 normal-case tracking-normal"><i class="fas fa-sort text-xs"></i></span>
+                        </div>
+                    </th>
                     <th class="p-5">Remarks</th>
                     <th class="p-5 text-right">Pricing</th>
                     <th class="p-5 text-center">Actions</th>
@@ -322,8 +327,8 @@ include '../includes/header.php';
                     if ($stock_qty <= 0) $status = 'nill';
                     elseif ($stock_qty < 10) $status = 'low';
                 ?>
-                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>" data-stock-status="<?= $status ?>">
-                    <td class="p-5 text-center text-gray-300 font-mono text-xs"><?= $sn++ ?></td>
+                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>" data-stock-status="<?= $status ?>" data-stock-qty="<?= $p['stock_quantity'] ?>">
+                    <td class="p-5 text-center text-gray-500 font-medium font-mono text-xs"><?= $sn++ ?></td>
                     <td class="p-5">
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($p['name']) ?></div>
                         <div class="text-[10px] text-gray-400 mt-0.5"><?= ($latest_restocks[$p['id']] ?? null) ? 'Purchased: '.date('d M Y', strtotime($latest_restocks[$p['id']])) : 'New Item' ?></div>
@@ -803,6 +808,35 @@ document.addEventListener('DOMContentLoaded', () => {
     
     new Chart(document.getElementById('categoryChart').getContext('2d'), { type:'doughnut', data:{ labels:<?= json_encode($chart_labels) ?>, datasets:[{data:<?= json_encode($chart_data) ?>, backgroundColor:['#0d9488','#3b82f6','#f59e0b','#ef4444']}] }, options:{plugins:{legend:{display:false}}, cutout:'70%'} });
     let currentStatusFilter = 'all';
+    let stockSortOrder = 'none'; // 'none', 'asc', 'desc'
+
+    window.toggleStockSort = function() {
+        const tableBody = document.getElementById('inventoryTableBody');
+        const rows = Array.from(tableBody.querySelectorAll('.product-row'));
+        const iconSpan = document.getElementById('stockSortIcon');
+        
+        if (stockSortOrder === 'none' || stockSortOrder === 'asc') {
+            stockSortOrder = 'desc';
+            iconSpan.innerHTML = '<i class="fas fa-sort-down text-teal-600 text-xs"></i>';
+        } else {
+            stockSortOrder = 'asc';
+            iconSpan.innerHTML = '<i class="fas fa-sort-up text-teal-600 text-xs"></i>';
+        }
+        
+        rows.sort((a, b) => {
+            const qtyA = parseFloat(a.dataset.stockQty) || 0;
+            const qtyB = parseFloat(b.dataset.stockQty) || 0;
+            return stockSortOrder === 'asc' ? qtyA - qtyB : qtyB - qtyA;
+        });
+        
+        rows.forEach((row, index) => {
+            const srTd = row.querySelector('td:first-child');
+            if (srTd) {
+                srTd.textContent = index + 1;
+            }
+            tableBody.appendChild(row);
+        });
+    };
 
     window.filterByStatus = function(status) {
         currentStatusFilter = status;
