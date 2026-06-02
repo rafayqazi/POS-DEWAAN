@@ -27,8 +27,8 @@ if (isset($_REQUEST['id'])) {
     }
     
     // 2. Save all changes back to CSVs
-    writeCSV('sales', array_values($all_sales), ['id', 'customer_id', 'total_amount', 'paid_amount', 'payment_method', 'sale_date', 'remarks']);
-    writeCSV('sale_items', array_values($all_sale_items), ['id', 'sale_id', 'product_id', 'quantity', 'price_per_unit', 'total_price', 'buy_price', 'avg_buy_price']);
+    writeCSV('sales', array_values($all_sales));
+    writeCSV('sale_items', array_values($all_sale_items));
     
     $msg = $deleted_count > 1 ? "$deleted_count sales deleted (No Restocking)" : "Sale deleted (No Restocking)";
     $redirect = $_REQUEST['ref'] ?? '../pages/sales_history.php';

@@ -788,4 +788,53 @@ function runMigrations() {
 // Run Migrations (only runs if version < latest)
 runMigrations();
 
+/**
+ * Ensure a CSV file contains all required headers.
+ * Adds missing columns with default values if they are absent.
+ */
+function ensureCSVHeaders($table, $required_headers) {
+    $path = getCSVPath($table);
+    if (!file_exists($path)) {
+        return;
+    }
+    
+    $fp = fopen($path, 'r');
+    if (!$fp) return;
+    $headers = fgetcsv($fp);
+    fclose($fp);
+    
+    if (!$headers) return;
+    
+    $missing = [];
+    foreach ($required_headers as $req) {
+        if (!in_array($req, $headers)) {
+            $missing[] = $req;
+        }
+    }
+    
+    if (!empty($missing)) {
+        $data = readCSV($table);
+        foreach ($data as &$row) {
+            foreach ($missing as $col) {
+                if (in_array($col, ['discount', 'returned_qty'])) {
+                    $row[$col] = '0';
+                } else {
+                    $row[$col] = '';
+                }
+            }
+        }
+        $newHeaders = array_merge($headers, $missing);
+        writeCSV($table, $data, array_unique($newHeaders));
+    }
+}
+
+// Ensure all CSV files have their required headers (fixes any truncation/corruption issues)
+ensureCSVHeaders('customer_transactions', ['id', 'customer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'sale_id', 'payment_type', 'payment_proof', 'return_id', 'discount', 'due_date']);
+ensureCSVHeaders('dealer_transactions', ['id', 'dealer_id', 'type', 'debit', 'credit', 'description', 'date', 'created_at', 'restock_id', 'payment_type', 'payment_proof', 'return_id']);
+ensureCSVHeaders('sales', ['id', 'customer_id', 'total_amount', 'paid_amount', 'payment_method', 'sale_date', 'remarks', 'due_date', 'discount']);
+ensureCSVHeaders('sale_items', ['id', 'sale_id', 'product_id', 'quantity', 'price_per_unit', 'total_price', 'buy_price', 'avg_buy_price', 'returned_qty', 'unit']);
+ensureCSVHeaders('customers', ['id', 'name', 'phone', 'address', 'created_at', 'linked_dealer_id']);
+ensureCSVHeaders('dealers', ['id', 'name', 'phone', 'address', 'created_at']);
+ensureCSVHeaders('expenses', ['id', 'date', 'category', 'title', 'amount', 'description', 'created_at', 'bilty', 'cargo']);
+ensureCSVHeaders('users', ['id', 'username', 'password', 'role', 'related_id', 'created_at', 'plain_password']);
 ?>

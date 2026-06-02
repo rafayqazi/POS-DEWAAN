@@ -57,7 +57,7 @@ $business_phone = getSetting('business_phone', '0300-0000000');
 $cust_name = $customer ? $customer['name'] : 'Walk-in';
 $sale_date = date('d-M-Y', strtotime($sale['sale_date']));
 $pdf_filename = "{$cust_name} , Receipt_#{$sale_id} , {$sale_date}.pdf";
-?>
+?>update dicount
 <!DOCTYPE html>
 <html lang="en">
 

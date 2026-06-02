@@ -9,12 +9,11 @@ $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
 
-    // Calculate Balance
     $txns = readCSV('customer_transactions');
     $balance = 0;
     foreach ($txns as $t) {
         if ($t['customer_id'] == $id) {
-            $balance += ((float)$t['debit'] - (float)$t['credit']);
+            $balance += ((float)$t['debit'] - (float)$t['credit'] - (float)($t['discount'] ?? 0));
         }
     }
 
@@ -33,7 +32,7 @@ if (isset($_GET['id'])) {
     $remaining_txns = array_filter($txns, function($t) use ($id) {
         return $t['customer_id'] != $id;
     });
-    writeCSV('customer_transactions', array_values($remaining_txns), ['id', 'customer_id', 'date', 'type', 'debit', 'credit', 'description', 'due_date', 'created_at', 'sale_id', 'restock_id', 'payment_id']);
+    writeCSV('customer_transactions', array_values($remaining_txns));
 
     // Delete customer
     deleteCSV('customers', $id);
