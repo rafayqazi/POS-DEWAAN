@@ -421,6 +421,8 @@ if ($linked_dealer_id) {
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 65px;">Credit (Paid)</th>
                 <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 50px;">Discount</th>
                 <th style="padding: 5px; border: 1px solid #ddd;">Remarks</th>
+                <th style="padding: 5px; border: 1px solid #ddd; width: 60px;">Due Date</th>
+                <th style="padding: 5px; border: 1px solid #ddd; text-align: right; width: 70px; color: #7c3aed;">Balance</th>
             </tr></thead>
             <tbody id="printBody"></tbody>
         </table>
@@ -603,15 +605,16 @@ if ($linked_dealer_id) {
 
     function generateTableRows(list, opening, fromDate, isPrint, stats = null) {
         let html = '';
-        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 6 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase" ${isPrint ? 'style="padding:10px;border:1px solid #eee;font-weight:bold;color:#666;"' : ''}>Opening Balance</td><td class="p-4 text-right font-black text-red-600" ${isPrint ? 'style="padding:10px;border:1px solid #eee;text-align:right;font-weight:bold;color:#e11d48;"' : ''}>${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
+        if (opening !== 0) html += `<tr class="bg-gray-50/50"><td colspan="${isPrint ? 8 : 8}" class="p-4 text-xs font-bold text-gray-500 uppercase" ${isPrint ? 'style="padding:10px;border:1px solid #eee;font-weight:bold;color:#666;"' : ''}>Opening Balance</td><td class="p-4 text-right font-black text-red-600" ${isPrint ? 'style="padding:10px;border:1px solid #eee;text-align:right;font-weight:bold;color:#e11d48;"' : ''}>${formatCurrency(opening)}</td>${isPrint ? '' : '<td class="p-4"></td>'}</tr>`;
         list.forEach((t, i) => {
             const sn = (currentPage_Ledger - 1) * pageSize_Ledger + i + 1;
             if (isPrint) {
-                // ... (keeping print logic same for now as it's already structured)
                 const printDate = new Date(t.date.substring(0,10));
                 const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
                 const discountVal = parseFloat(t.discount || 0);
                 const refText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
+                const dueDateStr = t.due_date || '-';
+                const runningBalStr = formatCurrency(t.current_running_balance);
                 html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:center;color:#999;font-size:9px;">${sn}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;white-space:nowrap!important;">${dateStr}</td>`;
@@ -620,6 +623,8 @@ if ($linked_dealer_id) {
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#0d9488;font-weight:bold;font-size:9px;">${t.credit > 0 ? formatCurrency(t.credit) : '-'}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#d97706;font-size:9px;">${discountVal > 0 ? formatCurrency(discountVal) : '-'}</td>`;
                 html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;">${refText}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;font-size:9px;text-align:center;white-space:nowrap!important;">${dueDateStr}</td>`;
+                html += `<td style="padding:5px;border:1px solid #eee;text-align:right;color:#e11d48;font-weight:bold;font-size:9px;white-space:nowrap!important;">${runningBalStr}</td>`;
                 html += `</tr>`;
             } else {
                 const rowBorder = t.debit > 0 ? 'border-l-red-500' : 'border-l-emerald-500';
@@ -683,8 +688,10 @@ if ($linked_dealer_id) {
             html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#0d9488; font-size:11px;">${formatCurrency(stats.totalCredit)}</td>`;
             html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#d97706; font-size:11px;">${formatCurrency(stats.totalDiscount)}</td>`;
             html += `<td style="padding:8px; border:1px solid #ddd; font-size:9px; color:#aaa;">Overall Summary</td>`;
+            html += `<td style="padding:8px; border:1px solid #ddd; font-size:9px; text-align:center;">-</td>`;
+            html += `<td style="padding:8px; text-align:right; border:1px solid #ddd; color:#e11d48; font-size:11px; font-weight:bold;">${formatCurrency(stats.balance)}</td>`;
             html += `</tr>`;
-            html += `<tr><td colspan="7" style="padding:0; border:none;"><div style="display:flex; justify-content:flex-end; padding:20px 0;"><div style="border:1px solid #eee; display:flex; align-items:center;"><div style="background:#f8f8f8; padding:10px 20px; font-weight:bold; color:#e11d48; text-transform:uppercase; font-size:12px; border-right:1px solid #eee;">OUTSTANDING BALANCE:</div><div style="padding:10px 30px; font-size:20px; font-weight:bold; color:#e11d48;">${formatCurrency(stats.balance)}</div></div></div></td></tr>`;
+            html += `<tr><td colspan="9" style="padding:0; border:none;"><div style="display:flex; justify-content:flex-end; padding:20px 0;"><div style="border:1px solid #eee; display:flex; align-items:center;"><div style="background:#f8f8f8; padding:10px 20px; font-weight:bold; color:#e11d48; text-transform:uppercase; font-size:12px; border-right:1px solid #eee;">OUTSTANDING BALANCE:</div><div style="padding:10px 30px; font-size:20px; font-weight:bold; color:#e11d48;">${formatCurrency(stats.balance)}</div></div></div></td></tr>`;
         }
 
         return html || '<tr><td colspan="10" class="p-10 text-center text-gray-400">No transactions found.</td></tr>';
