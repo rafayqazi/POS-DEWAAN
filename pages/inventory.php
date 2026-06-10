@@ -342,7 +342,24 @@ include '../includes/header.php';
                         <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-500 text-[9px] font-black uppercase tracking-wider"><?= htmlspecialchars($p['category']) ?></span>
                     </td>
                     <td class="p-5">
-                        <div class="text-sm font-bold <?= (float)$p['stock_quantity'] < 10 ? 'text-red-500' : 'text-gray-700' ?>">
+                        <?php
+                            $stock_multiplier = getBaseMultiplier($p['unit'], $p) ?: 1;
+                            $stock_display_qty = (float)$p['stock_quantity'] / $stock_multiplier;
+                            $stock_buy_value = $stock_display_qty * (float)$p['buy_price'];
+                            $stock_sell_value = $stock_display_qty * (float)$p['sell_price'];
+                        ?>
+                        <div
+                            class="stock-value-trigger text-sm font-bold cursor-pointer hover:text-teal-600 hover:underline underline-offset-2 transition <?= (float)$p['stock_quantity'] < 10 ? 'text-red-500' : 'text-gray-700' ?>"
+                            title="Click to view stock value"
+                            onclick="showStockValueModal(this)"
+                            data-name="<?= htmlspecialchars($p['name'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-stock-display="<?= htmlspecialchars(strip_tags(formatStockHierarchy($p['stock_quantity'], $p)), ENT_QUOTES, 'UTF-8') ?>"
+                            data-unit="<?= htmlspecialchars($p['unit'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-buy-price="<?= (float)$p['buy_price'] ?>"
+                            data-sell-price="<?= (float)$p['sell_price'] ?>"
+                            data-buy-value="<?= $stock_buy_value ?>"
+                            data-sell-value="<?= $stock_sell_value ?>"
+                        >
                             <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
                         </div>
                     </td>
@@ -526,6 +543,41 @@ include '../includes/header.php';
     </div>
 </div>
 
+<!-- Stock Value Modal -->
+<div id="stockValueModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="if(event.target===this) closeModal('stockValueModal')">
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-6 border-b flex justify-between items-center bg-teal-50/50">
+            <h3 class="text-lg font-black text-gray-800 uppercase tracking-tight">Stock Value</h3>
+            <button onclick="closeModal('stockValueModal')" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-xl">&times;</button>
+        </div>
+        <div class="p-8 space-y-5">
+            <div>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Product</p>
+                <p id="stockValueProductName" class="text-base font-bold text-gray-800"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Current Stock</p>
+                    <p id="stockValueQty" class="text-sm font-bold text-gray-700"></p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Buy Rate</p>
+                    <p id="stockValueBuyRate" class="text-sm font-bold text-teal-700"></p>
+                </div>
+            </div>
+            <div class="p-5 bg-teal-50 rounded-2xl border border-teal-100">
+                <p class="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-1">Total Stock Value (Cost)</p>
+                <p id="stockValueTotal" class="text-3xl font-black text-teal-700"></p>
+                <p id="stockValueCalc" class="text-[11px] text-gray-500 mt-2"></p>
+            </div>
+            <div class="p-4 bg-blue-50/60 rounded-2xl border border-blue-100">
+                <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Potential Sell Value</p>
+                <p id="stockValueSellTotal" class="text-xl font-black text-blue-700"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 4. Catalog Preview Modal -->
 <div id="catalogPreviewModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-md hidden z-[100] flex items-center justify-center p-6">
     <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
@@ -583,6 +635,27 @@ function updateFactorUI(prefix, saved = null) {
 }
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function formatCurrencyJS(amount) {
+    return 'Rs. ' + Math.round(amount).toLocaleString();
+}
+
+function showStockValueModal(el) {
+    const name = el.dataset.name || '';
+    const stockDisplay = el.dataset.stockDisplay || '';
+    const unit = el.dataset.unit || '';
+    const buyPrice = parseFloat(el.dataset.buyPrice) || 0;
+    const buyValue = parseFloat(el.dataset.buyValue) || 0;
+    const sellValue = parseFloat(el.dataset.sellValue) || 0;
+
+    document.getElementById('stockValueProductName').innerText = name;
+    document.getElementById('stockValueQty').innerText = stockDisplay;
+    document.getElementById('stockValueBuyRate').innerText = formatCurrencyJS(buyPrice) + ' / ' + unit;
+    document.getElementById('stockValueTotal').innerText = formatCurrencyJS(buyValue);
+    document.getElementById('stockValueCalc').innerText = stockDisplay + ' × ' + formatCurrencyJS(buyPrice) + ' = ' + formatCurrencyJS(buyValue);
+    document.getElementById('stockValueSellTotal').innerText = formatCurrencyJS(sellValue);
+    openModal('stockValueModal');
+}
 
 let dealerBalances = { add: 0, restock: 0 };
 
