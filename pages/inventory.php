@@ -313,6 +313,7 @@ include '../includes/header.php';
                             <span id="stockSortIcon" class="text-gray-400 normal-case tracking-normal"><i class="fas fa-sort text-xs"></i></span>
                         </div>
                     </th>
+                    <th class="p-5 text-right">Stock Value</th>
                     <th class="p-5">Remarks</th>
                     <th class="p-5 text-right">Pricing</th>
                     <th class="p-5 text-center">Actions</th>
@@ -362,6 +363,10 @@ include '../includes/header.php';
                         >
                             <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
                         </div>
+                    </td>
+                    <td class="p-5 text-right">
+                        <div class="text-sm font-black text-gray-800"><?= formatCurrency($stock_buy_value) ?></div>
+                        <div class="text-[10px] font-bold text-gray-400 mt-0.5">Sell: <span class="text-teal-600"><?= formatCurrency($stock_sell_value) ?></span></div>
                     </td>
                     <td class="p-5">
                         <div class="text-[10px] text-gray-500 max-w-[150px] truncate" title="<?= htmlspecialchars($p['remarks'] ?? '') ?>">
@@ -982,14 +987,22 @@ function checkRedirect(s) {
 </script>
 
 <div id="printableArea" class="hidden"><div style="padding:40px; font-family:sans-serif;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0d9488; padding-bottom:15px; margin-bottom:20px;"><div><h1 style="color:#0d9488; margin:0;"><?= getSetting('business_name') ?></h1><p style="margin:5px 0 0; color:#666;">Inventory Stock Report</p></div><div style="text-align:right;"><p style="margin:0; font-weight:bold;"><?= date('d M Y') ?></p></div></div><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#0d9488; color:#fff;"> <th style="padding:12px; border:1px solid #ddd; text-align:left;">S.No</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Product Name</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Category</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Stock</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Remarks</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Expiry</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Buy Price</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Total Value</th> </tr></thead><tbody><?php $total_val = 0; $sn=1; foreach($products as $p): $val = (float)$p['buy_price'] * (float)$p['stock_quantity']; $total_val += $val; ?> <tr><td style="padding:10px; border:1px solid #ddd;"><?= $sn++ ?></td><td style="padding:10px; border:1px solid #ddd; font-weight:bold;"><?= $p['name'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= $p['category'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= formatStockHierarchy($p['stock_quantity'], $p) ?></td><td style="padding:10px; border:1px solid #ddd; font-size:10px;"><?= $p['remarks'] ?: '-' ?></td><td style="padding:10px; border:1px solid #ddd; color:<?= (strtotime($p['expiry_date']) < time()) ? 'red' : 'black' ?>;"><?= !empty($p['expiry_date']) ? date('d-m-y', strtotime($p['expiry_date'])) : '-' ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($p['buy_price']) ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($val) ?></td></tr><?php endforeach; ?></tbody><tfoot><tr style="background:#f0fdfa; font-weight:bold;"><td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">Grand Total:</td><td style="padding:12px; border:1px solid #ddd; text-align:right; color:#0d9488;"><?= formatCurrency($total_val) ?></td></tr></tfoot></table></div></div>
-<?php $g_cat=[]; foreach($products as $p) $g_cat[$p['category']?:'Uncategorized'][]=$p; ksort($g_cat); ?>
+<?php 
+$available_products = array_filter($products, function($p) {
+    return (float)($p['stock_quantity'] ?? 0) > 0;
+});
+$g_cat = []; 
+foreach($available_products as $p) $g_cat[$p['category']?:'Uncategorized'][]=$p; 
+ksort($g_cat); 
+$total_catalog_products = count($available_products);
+?>
 <div id="catalogPrintableArea" class="hidden">
 <div style="padding:40px; font-family:'Segoe UI',Arial,sans-serif; color:#222; max-width:900px; margin:0 auto;">
     <div style="text-align:center; margin-bottom:30px; border-bottom:3px solid #0d9488; padding-bottom:20px;">
         <h1 style="color:#0d9488; margin:0; font-size:26px;"><?= getSetting('business_name') ?></h1>
         <p style="color:#555; margin:5px 0 0; font-size:12px;"><?= getSetting('business_address') ?> &nbsp;|&nbsp; <?= getSetting('business_phone') ?></p>
         <h3 style="text-transform:uppercase; color:#444; letter-spacing:4px; margin:12px 0 0; font-size:13px;">Product Catalog</h3>
-        <p style="color:#999; font-size:10px; margin:4px 0 0;">Generated: <?= date('d M Y, h:i A') ?> &nbsp;|&nbsp; Total Products: <?= count($products) ?></p>
+        <p style="color:#999; font-size:10px; margin:4px 0 0;">Generated: <?= date('d M Y, h:i A') ?> &nbsp;|&nbsp; Total Products: <?= $total_catalog_products ?></p>
         <div style="width:60px; height:3px; background:#0d9488; margin:12px auto 0;"></div>
     </div>
     <div style="margin-bottom:35px;">
@@ -1006,7 +1019,7 @@ function checkRedirect(s) {
                 <?php endforeach; ?>
                 <tr style="background:#f0fdfa; font-weight:bold; border-top:2px solid #0d9488;">
                     <td colspan="2" style="padding:8px 12px; color:#0d9488; font-size:11px; text-transform:uppercase; letter-spacing:1px;">Grand Total</td>
-                    <td style="padding:8px 12px; text-align:center; color:#0d9488; font-size:14px;"><?= count($products) ?></td>
+                    <td style="padding:8px 12px; text-align:center; color:#0d9488; font-size:14px;"><?= $total_catalog_products ?></td>
                 </tr>
             </tbody>
         </table>

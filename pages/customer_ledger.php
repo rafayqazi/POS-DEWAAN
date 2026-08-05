@@ -612,7 +612,9 @@ if ($linked_dealer_id) {
                 const printDate = new Date(t.date.substring(0,10));
                 const dateStr = printDate.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
                 const discountVal = parseFloat(t.discount || 0);
-                const refText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
+                const saleRemarksP = (t.type === 'Sale' && t.sale_id && salesMap[t.sale_id] && salesMap[t.sale_id].remarks) ? salesMap[t.sale_id].remarks : '';
+                const baseRefText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
+                const refText = saleRemarksP ? `${baseRefText}<br><em style="color:#555;font-size:8px;">${saleRemarksP}</em>` : baseRefText;
                 const dueDateStr = t.due_date || '-';
                 const runningBalStr = formatCurrency(t.current_running_balance);
                 html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
@@ -654,9 +656,12 @@ if ($linked_dealer_id) {
                                 ${t.discount > 0 ? `<span class="font-black text-amber-700 text-sm tracking-tighter">${formatCurrency(t.discount)}</span>` : '<span class="text-gray-400 font-bold">-</span>'}
                             </td>
                             <td class="p-4 align-top">
-                                <div class="flex items-center gap-2">
-                                    <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
-                                    <span class="text-[10px] font-bold text-gray-700 group-hover:text-black" title="${t.description}">${t.description}</span>
+                                <div class="flex flex-col gap-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
+                                        <span class="text-[10px] font-bold text-gray-500">${t.description}</span>
+                                    </div>
+                                    ${(t.type === 'Sale' && t.sale_id && salesMap[t.sale_id] && salesMap[t.sale_id].remarks) ? `<span class="text-[10px] font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 max-w-[180px] truncate" title="${salesMap[t.sale_id].remarks}">${salesMap[t.sale_id].remarks}</span>` : ''}
                                 </div>
                             </td>
                             <td class="p-4 text-center align-top whitespace-nowrap">

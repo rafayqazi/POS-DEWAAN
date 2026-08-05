@@ -131,14 +131,42 @@
                                     <span class="sidebar-text">Check Inventory</span>
                                 </a>
                             </li>
+                        </ul>
+                    </li>
+                    <?php endif; ?>
+                    <?php if (isRole(['Admin', 'Viewer']) || hasPermission('add_sale') || hasPermission('add_restock')): ?>
+                    <!-- Dropdown for Return Product -->
+                    <li class="relative">
+                        <button onclick="toggleDropdown('returnDropdown')" class="w-full flex items-center justify-between px-6 py-4 hover:bg-teal-800 transition-colors cursor-pointer outline-none" title="Return Product">
+                            <div class="flex items-center">
+                                <i class="fas fa-undo-alt w-6 text-xl text-amber-300"></i>
+                                <span class="font-medium ml-4 sidebar-text">Return Product</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-300 sidebar-text" id="returnDropdownIcon"></i>
+                        </button>
+                        <ul id="returnDropdown" class="bg-teal-900/50 hidden overflow-hidden transition-all duration-300">
                             <?php if (hasPermission('add_sale')): ?>
                             <li>
-                                <a href="<?= $base ?>pages/return_product.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_product.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Product">
-                                    <i class="fas fa-undo mr-3 text-[10px]"></i>
-                                    <span class="sidebar-text">Return Product</span>
+                                <a href="<?= $base ?>pages/return_product.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_product.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Product (Customer)">
+                                    <i class="fas fa-undo-alt mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Return Product (Customer)</span>
                                 </a>
                             </li>
                             <?php endif; ?>
+                            <?php if (hasPermission('add_restock')): ?>
+                            <li>
+                                <a href="<?= $base ?>pages/return_product_dealer.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_product_dealer.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Product (Dealer)">
+                                    <i class="fas fa-truck-loading mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Return Product (Dealer)</span>
+                                </a>
+                            </li>
+                            <?php endif; ?>
+                            <li>
+                                <a href="<?= $base ?>pages/return_history.php" class="flex items-center pl-16 pr-6 py-3 hover:bg-teal-800 transition-colors text-sm <?= basename($_SERVER['PHP_SELF']) == 'return_history.php' ? 'text-accent font-bold bg-teal-800/50' : 'text-teal-200' ?>" title="Return Products History">
+                                    <i class="fas fa-history mr-3 text-[10px]"></i>
+                                    <span class="sidebar-text">Return Products History</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
@@ -522,6 +550,15 @@
                     if(icon) icon.classList.add('rotate-180');
                 }
             }
+            if (['return_product.php', 'return_product_dealer.php', 'return_history.php'].includes(currentFile)) {
+                // Ensure dropdown is visible if we are on a child page
+                const dropdown = document.getElementById('returnDropdown');
+                if(dropdown) {
+                    dropdown.classList.remove('hidden');
+                    const icon = document.getElementById('returnDropdownIcon');
+                    if(icon) icon.classList.add('rotate-180');
+                }
+            }
         });
 
         let alertCallback = null;
@@ -682,8 +719,12 @@
                 { name: 'Quick Restock', url: 'pages/quick_restock.php', icon: 'fa-plus-square', keywords: 'order buy supply refill' },
                 <?php endif; ?>
                 <?php if (hasPermission('add_sale')): ?>
-                { name: 'Return Product', url: 'pages/return_product.php', icon: 'fa-undo', keywords: 'refund exchange back' },
+                { name: 'Return Product (Customer)', url: 'pages/return_product.php', icon: 'fa-undo', keywords: 'refund exchange back customer' },
                 <?php endif; ?>
+                <?php if (hasPermission('add_restock')): ?>
+                { name: 'Return Product (Dealer)', url: 'pages/return_product_dealer.php', icon: 'fa-truck-loading', keywords: 'refund dealer return supplier purchase restock' },
+                <?php endif; ?>
+                { name: 'Return Products History', url: 'pages/return_history.php', icon: 'fa-history', keywords: 'return history logs customer dealer returns' },
                 <?php if (isRole('Admin')): ?>
                 { name: 'Categories', url: 'pages/categories.php', icon: 'fa-tags', keywords: 'group type classification' },
                 { name: 'Units', url: 'pages/units.php', icon: 'fa-balance-scale', keywords: 'measurement kg piece pack' },
