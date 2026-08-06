@@ -58,6 +58,7 @@ foreach ($products as $p) {
 
     // Movement Calculation
     $current = (float)$p['stock_quantity'];
+    if ($current <= 0) continue; // Skip NIL / zero-stock items
     $inPeriod = 0;
     $inAfter = 0;
     foreach ($restocks as $r) {

@@ -21,6 +21,85 @@ usort($restocks, function($a, $b) {
     }
     return (int)($b['id'] ?? 0) - (int)($a['id'] ?? 0);
 });
+
+// --- Reconstruct Previous Stock for Each Restock ---
+$products = readCSV('products');
+$product_stock_map = [];
+foreach ($products as $p) {
+    $product_stock_map[$p['id']] = (float)$p['stock_quantity'];
+}
+
+$sales_rows = readCSV('sales');
+$sales_date_map = [];
+foreach ($sales_rows as $s) {
+    if (isset($s['id'])) {
+        $sales_date_map[$s['id']] = isset($s['sale_date']) ? substr($s['sale_date'], 0, 10) : '';
+    }
+}
+
+$sale_items = readCSV('sale_items');
+
+$returns = readCSV('returns');
+$returns_date_map = [];
+foreach ($returns as $r) {
+    if (isset($r['id'])) {
+        $returns_date_map[$r['id']] = isset($r['date']) ? substr($r['date'], 0, 10) : '';
+    }
+}
+$return_items = readCSV('return_items');
+
+// Build one chronological event stream per product
+$events_by_product = [];
+foreach ($restocks as $r) {
+    $pid = $r['product_id'] ?? '';
+    if ($pid === '') continue;
+    $events_by_product[$pid][] = [
+        'k' => 'r',
+        'q' => (float)($r['quantity'] ?? 0),
+        'key' => substr($r['date'] ?? '', 0, 10) . '|r|' . str_pad((int)($r['id'] ?? 0), 10, '0', STR_PAD_LEFT),
+        'rid' => $r['id']
+    ];
+}
+foreach ($sale_items as $si) {
+    $pid = $si['product_id'] ?? '';
+    if ($pid === '') continue;
+    $d = $sales_date_map[$si['sale_id'] ?? ''] ?? '';
+    $events_by_product[$pid][] = [
+        'k' => 's',
+        'q' => -abs((float)($si['quantity'] ?? 0)),
+        'key' => $d . '|s|' . str_pad((int)($si['sale_id'] ?? 0), 10, '0', STR_PAD_LEFT),
+        'rid' => null
+    ];
+}
+foreach ($return_items as $ri) {
+    $pid = $ri['product_id'] ?? '';
+    if ($pid === '') continue;
+    $d = $returns_date_map[$ri['return_id'] ?? ''] ?? '';
+    $events_by_product[$pid][] = [
+        'k' => 't',
+        'q' => (float)($ri['quantity'] ?? 0),
+        'key' => $d . '|t|' . str_pad((int)($ri['return_id'] ?? 0), 10, '0', STR_PAD_LEFT),
+        'rid' => null
+    ];
+}
+
+// Walk events backward from current stock to get each restock's previous/total qty
+$restock_prev_qty = [];
+$restock_total_qty = [];
+foreach ($events_by_product as $pid => $evts) {
+    usort($evts, function($a, $b) { return strcmp($a['key'], $b['key']); });
+    $stock = $product_stock_map[$pid] ?? 0;
+    for ($i = count($evts) - 1; $i >= 0; $i--) {
+        $e = $evts[$i];
+        if ($e['k'] === 'r') {
+            $restock_prev_qty[$e['rid']] = ($stock - $e['q']);
+            $restock_total_qty[$e['rid']] = $stock;
+            $stock -= $e['q'];
+        } else {
+            $stock -= $e['q'];
+        }
+    }
+}
 ?>
 
 <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -117,6 +196,7 @@ usort($restocks, function($a, $b) {
 </div>
 
 <div class="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
+    <div id="restockPaginationTop" class="px-6 py-4 bg-white border-b border-gray-100 italic-normal"></div>
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
@@ -125,7 +205,7 @@ usort($restocks, function($a, $b) {
                     <th class="p-6">Date</th>
                     <th class="p-6">Product</th>
                     <th class="p-6">Expiry & Remarks</th>
-                    <th class="p-6">Qty Added</th>
+                    <th class="p-6">Prev + Qty Added = Total</th>
                     <th class="p-6">Purchase Cost</th>
                     <th class="p-6">Selling Rate</th>
                     <th class="p-6">Dealer / Supplier</th>
@@ -169,7 +249,7 @@ usort($restocks, function($a, $b) {
                 <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Product</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Qty Added</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Prev + Qty = Total</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Purchase Cost</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Dealer</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Paid Amount</th>
@@ -277,11 +357,18 @@ echo '</main></div>';
 
 <script>
     const allRestocks = <?= json_encode($restocks) ?>;
+    const restockPrevQty = <?= json_encode($restock_prev_qty) ?>;
+    const restockTotalQty = <?= json_encode($restock_total_qty) ?>;
     let currentPage_Restock = 1;
     const pageSize_Restock = 200;
 
     const formatCurrency = (amount) => {
         return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);
+    };
+
+    const fmtQty = (v) => {
+        const n = parseFloat(v) || 0;
+        return Number.isInteger(n) ? n : parseFloat(n.toFixed(2));
     };
 
     function renderTable() {
@@ -300,12 +387,6 @@ echo '</main></div>';
             return true;
         });
 
-        function changePage_Restock(page) {
-            currentPage_Restock = page;
-            renderTable();
-            document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
         const body = document.getElementById('restockBody');
         const printBody = document.getElementById('printBody');
 
@@ -320,12 +401,14 @@ echo '</main></div>';
         if (totalItems === 0) {
             html = '<tr><td colspan="10" class="p-20 text-center text-gray-300"><i class="fas fa-history text-6xl mb-4 opacity-20"></i><p class="font-medium">No restock history found for this period.</p></td></tr>';
             printHtml = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">No records found.</td></tr>';
-            Pagination.render('restockPagination', 0, 1, pageSize_Restock, changePage_Restock);
+            renderRestockPagination(0);
         } else {
             paginated.forEach((log, index) => {
-                const sn = (currentPage_Restock - 1) * pageSize_Restock + index + 1;
-                const paid = parseFloat(log.amount_paid || 0);
+                const sn = (currentPage_Restock - 1) * pageSize_Restock + index + 1;                const paid = parseFloat(log.amount_paid || 0);
                 totalPaid += paid;
+
+                const prevQty = (restockPrevQty[log.id] !== undefined) ? restockPrevQty[log.id] : 0;
+                const totalQty = (restockTotalQty[log.id] !== undefined) ? restockTotalQty[log.id] : (prevQty + parseFloat(log.quantity || 0));
                 
                 const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
                 const timeDisplay = log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
@@ -340,6 +423,18 @@ echo '</main></div>';
 
                 const totalBill = parseFloat(log.new_buy_price || 0) * parseFloat(log.quantity || 0);
 
+                let qtyCellHtml;
+                if (prevQty >= 0) {
+                    qtyCellHtml = `<div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                        <span class="text-xs font-bold text-gray-500">Prev: <b class="text-gray-700">${fmtQty(prevQty)}</b></span>
+                        <span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-black text-xs">+${fmtQty(log.quantity)}</span>
+                        <span class="text-gray-400 font-black text-xs">=</span>
+                        <span class="text-teal-700 font-black text-sm">${fmtQty(totalQty)}</span>
+                    </div>`;
+                } else {
+                    qtyCellHtml = `<span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${fmtQty(log.quantity)}</span>`;
+                }
+
                 html += `<tr class="hover:bg-teal-50/30 transition">
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6 text-sm font-medium text-gray-500 font-mono">${dateDisplay}<br><span class="text-[10px] opacity-50">${timeDisplay}</span></td>
@@ -348,7 +443,7 @@ echo '</main></div>';
                         <span class="text-[10px] text-gray-400 font-bold uppercase">ID: ${log.product_id}</span>
                     </td>
                     <td class="p-6">${expiryHtml}${remarksHtml}</td>
-                    <td class="p-6"><span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${log.quantity}</span></td>
+                    <td class="p-6">${qtyCellHtml}</td>
                     <td class="p-6">
                         <div class="text-gray-800 font-bold text-sm">${formatCurrency(parseFloat(log.new_buy_price || 0))}</div>
                         <div class="text-[10px] text-gray-400 line-through italic">Prev: ${formatCurrency(parseFloat(log.old_buy_price || 0))}</div>
@@ -377,7 +472,9 @@ echo '</main></div>';
                 printHtml += `<tr>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dateDisplay}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${log.product_name}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">${log.quantity}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">
+                        ${prevQty >= 0 ? `<span style="color: #666;">${fmtQty(prevQty)}</span> + <span style="color: #16a34a; font-weight: bold;">+${fmtQty(log.quantity)}</span> = <span style="color: #0f766e; font-weight: bold;">${fmtQty(totalQty)}</span>` : `+${fmtQty(log.quantity)}`}
+                    </td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${formatCurrency(parseFloat(log.new_buy_price))}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${log.dealer_name || 'Self'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: right;">
@@ -390,8 +487,21 @@ echo '</main></div>';
 
         body.innerHTML = html;
         printBody.innerHTML = printHtml;
-        Pagination.render('restockPagination', totalItems, currentPage_Restock, pageSize_Restock, changePage_Restock);
+        renderRestockPagination(totalItems);
         document.getElementById('printFooterTotal').innerText = formatCurrency(totalPaid);
+    }
+
+    function changePage_Restock(page) {
+        currentPage_Restock = page;
+        renderTable();
+        document.querySelector('.bg-white.rounded-\\[2rem\\]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderRestockPagination(totalItems) {
+        Pagination.render('restockPaginationTop', totalItems, currentPage_Restock, pageSize_Restock, changePage_Restock);
+        Pagination.render('restockPagination', totalItems, currentPage_Restock, pageSize_Restock, changePage_Restock);
+        const topFlex = document.querySelector('#restockPaginationTop .flex');
+        if (topFlex) topFlex.classList.remove('mt-6');
     }
 
     function printReport() {
