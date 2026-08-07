@@ -596,6 +596,7 @@ include '../includes/header.php';
 
 <script src="../assets/vendor/chartjs/chart.min.js"></script>
 <script>
+let currentStatusFilter = 'all';
 const availableUnits = <?= json_encode($units) ?>;
 function getUnitHierarchyJS(name) {
     if(!name) return []; let chain = []; let current = availableUnits.find(u => u.name.toLowerCase() === name.toLowerCase());
@@ -885,7 +886,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add_buy_price').oninput = updateTotal;
     
     new Chart(document.getElementById('categoryChart').getContext('2d'), { type:'doughnut', data:{ labels:<?= json_encode($chart_labels) ?>, datasets:[{data:<?= json_encode($chart_data) ?>, backgroundColor:['#0d9488','#3b82f6','#f59e0b','#ef4444']}] }, options:{plugins:{legend:{display:false}}, cutout:'70%'} });
-    let currentStatusFilter = 'all';
     let stockSortOrder = 'none'; // 'none', 'asc', 'desc'
 
     window.toggleStockSort = function() {
@@ -962,7 +962,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function openCatalogPreview() { document.getElementById('catalogPreviewBody').innerHTML = document.getElementById('catalogPrintableArea').innerHTML; openModal('catalogPreviewModal'); }
 function printCatalog() { let w=window.open('','_blank'); w.document.write('<html><body>'+document.getElementById('catalogPreviewBody').innerHTML+'</body></html>'); w.document.close(); w.print(); }
-function printReport() { let w=window.open('','_blank'); w.document.write('<html><body>'+document.getElementById('printableArea').innerHTML+'</body></html>'); w.document.close(); w.print(); }
+function printReport() {
+    const src = document.getElementById('printableArea');
+    const clone = src.cloneNode(true);
+    const filter = currentStatusFilter || 'all';
+    const tbody = clone.querySelector('tbody');
+    if (filter !== 'all' && tbody) {
+        [...tbody.querySelectorAll('tr')].forEach(row => {
+            const st = row.dataset.stockStatus || 'available';
+            let matches = (st === filter);
+            if (filter === 'available' && st === 'low') matches = true;
+            if (!matches) row.remove();
+        });
+        [...tbody.querySelectorAll('tr')].forEach((row, i) => {
+            row.querySelector('td').textContent = i + 1;
+        });
+        let grandTotal = 0;
+        [...tbody.querySelectorAll('tr')].forEach(row => {
+            const tds = row.querySelectorAll('td');
+            const val = parseFloat((tds[tds.length - 1].textContent || '0').replace(/[^0-9.-]/g, '')) || 0;
+            grandTotal += val;
+        });
+        const foot = clone.querySelector('tfoot td:last-child');
+        if (foot) foot.textContent = 'Rs. ' + grandTotal.toLocaleString();
+    }
+    let w = window.open('', '_blank');
+    w.document.write('<html><body>' + clone.innerHTML + '</body></html>');
+    w.document.close();
+    w.print();
+}
 function checkRedirect(s) { 
     if(s.value==='ADD_NEW') { 
         if(s.name === 'category') {
@@ -986,7 +1014,7 @@ function checkRedirect(s) {
 }
 </script>
 
-<div id="printableArea" class="hidden"><div style="padding:40px; font-family:sans-serif;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0d9488; padding-bottom:15px; margin-bottom:20px;"><div><h1 style="color:#0d9488; margin:0;"><?= getSetting('business_name') ?></h1><p style="margin:5px 0 0; color:#666;">Inventory Stock Report</p></div><div style="text-align:right;"><p style="margin:0; font-weight:bold;"><?= date('d M Y') ?></p></div></div><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#0d9488; color:#fff;"> <th style="padding:12px; border:1px solid #ddd; text-align:left;">S.No</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Product Name</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Category</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Stock</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Remarks</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Expiry</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Buy Price</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Total Value</th> </tr></thead><tbody><?php $total_val = 0; $sn=1; foreach($products as $p): $val = (float)$p['buy_price'] * (float)$p['stock_quantity']; $total_val += $val; ?> <tr><td style="padding:10px; border:1px solid #ddd;"><?= $sn++ ?></td><td style="padding:10px; border:1px solid #ddd; font-weight:bold;"><?= $p['name'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= $p['category'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= formatStockHierarchy($p['stock_quantity'], $p) ?></td><td style="padding:10px; border:1px solid #ddd; font-size:10px;"><?= $p['remarks'] ?: '-' ?></td><td style="padding:10px; border:1px solid #ddd; color:<?= (strtotime($p['expiry_date']) < time()) ? 'red' : 'black' ?>;"><?= !empty($p['expiry_date']) ? date('d-m-y', strtotime($p['expiry_date'])) : '-' ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($p['buy_price']) ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($val) ?></td></tr><?php endforeach; ?></tbody><tfoot><tr style="background:#f0fdfa; font-weight:bold;"><td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">Grand Total:</td><td style="padding:12px; border:1px solid #ddd; text-align:right; color:#0d9488;"><?= formatCurrency($total_val) ?></td></tr></tfoot></table></div></div>
+<div id="printableArea" class="hidden"><div style="padding:40px; font-family:sans-serif;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0d9488; padding-bottom:15px; margin-bottom:20px;"><div><h1 style="color:#0d9488; margin:0;"><?= getSetting('business_name') ?></h1><p style="margin:5px 0 0; color:#666;">Inventory Stock Report</p></div><div style="text-align:right;"><p style="margin:0; font-weight:bold;"><?= date('d M Y') ?></p></div></div><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#0d9488; color:#fff;"> <th style="padding:12px; border:1px solid #ddd; text-align:left;">S.No</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Product Name</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Category</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Stock</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Remarks</th> <th style="padding:12px; border:1px solid #ddd; text-align:left;">Expiry</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Buy Price</th> <th style="padding:12px; border:1px solid #ddd; text-align:right;">Total Value</th> </tr></thead><tbody><?php $total_val = 0; $sn=1; foreach($products as $p): $val = (float)$p['buy_price'] * (float)$p['stock_quantity']; $total_val += $val; ?> <tr data-stock-status="<?= (float)$p['stock_quantity'] <= 0 ? 'nill' : (((float)$p['stock_quantity'] < 10) ? 'low' : 'available') ?>"><td style="padding:10px; border:1px solid #ddd;"><?= $sn++ ?></td><td style="padding:10px; border:1px solid #ddd; font-weight:bold;"><?= $p['name'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= $p['category'] ?></td><td style="padding:10px; border:1px solid #ddd;"><?= formatStockHierarchy($p['stock_quantity'], $p) ?></td><td style="padding:10px; border:1px solid #ddd; font-size:10px;"><?= $p['remarks'] ?: '-' ?></td><td style="padding:10px; border:1px solid #ddd; color:<?= (strtotime($p['expiry_date']) < time()) ? 'red' : 'black' ?>;"><?= !empty($p['expiry_date']) ? date('d-m-y', strtotime($p['expiry_date'])) : '-' ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($p['buy_price']) ?></td><td style="padding:10px; border:1px solid #ddd; text-align:right;"><?= formatCurrency($val) ?></td></tr><?php endforeach; ?></tbody><tfoot><tr style="background:#f0fdfa; font-weight:bold;"><td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">Grand Total:</td><td style="padding:12px; border:1px solid #ddd; text-align:right; color:#0d9488;"><?= formatCurrency($total_val) ?></td></tr></tfoot></table></div></div>
 <?php 
 $available_products = array_filter($products, function($p) {
     return (float)($p['stock_quantity'] ?? 0) > 0;

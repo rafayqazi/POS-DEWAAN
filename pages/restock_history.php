@@ -83,20 +83,37 @@ foreach ($return_items as $ri) {
     ];
 }
 
-// Walk events backward from current stock to get each restock's previous/total qty
+// Walk events backward from current stock to get each restock's previous/total qty.
+// If the reconstructed curve dips below zero (initial stock predates the log or data gaps),
+// re-anchor the whole curve so its lowest point = 0. This keeps prev/total always visible.
 $restock_prev_qty = [];
 $restock_total_qty = [];
 foreach ($events_by_product as $pid => $evts) {
     usort($evts, function($a, $b) { return strcmp($a['key'], $b['key']); });
     $stock = $product_stock_map[$pid] ?? 0;
+    $curve_min = $stock;
+    $local_rows = [];
     for ($i = count($evts) - 1; $i >= 0; $i--) {
         $e = $evts[$i];
         if ($e['k'] === 'r') {
-            $restock_prev_qty[$e['rid']] = ($stock - $e['q']);
-            $restock_total_qty[$e['rid']] = $stock;
-            $stock -= $e['q'];
+            $prev = $stock - $e['q'];
+            $local_rows[$e['rid']] = [$prev, $stock];
+            $stock = $prev;
         } else {
             $stock -= $e['q'];
+        }
+        if ($stock < $curve_min) $curve_min = $stock;
+    }
+    if ($curve_min < 0) {
+        $shift = -$curve_min;
+        foreach ($local_rows as $rid => $pair) {
+            $restock_prev_qty[$rid] = $pair[0] + $shift;
+            $restock_total_qty[$rid] = $pair[1] + $shift;
+        }
+    } else {
+        foreach ($local_rows as $rid => $pair) {
+            $restock_prev_qty[$rid] = $pair[0];
+            $restock_total_qty[$rid] = $pair[1];
         }
     }
 }
