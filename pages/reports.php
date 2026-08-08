@@ -631,10 +631,10 @@ function openGeneralReportWithFilters() {
 
 <script>
 // Pass initial data to JS
-const recoveryData = <?= json_encode($recovery_details) ?>;
-let filteredRecoveryData = recoveryData;
-let currentPage_Rec = 1;
-const pageSize_Rec = 200;
+var recoveryData = <?= json_encode($recovery_details) ?>;
+var filteredRecoveryData = recoveryData;
+var currentPage_Rec = 1;
+var pageSize_Rec = 200;
 
 function formatCurrencyJS(amount) {
     return 'Rs. ' + Number(amount).toLocaleString();
@@ -853,9 +853,9 @@ function showDiscountDetails() {
     renderDiscountTable(discountData);
 }
 
-const discountData = <?= json_encode($discount_details_period) ?>;
-const returnsData = <?= json_encode($return_details_period) ?>;
-const advanceDealerData = <?= json_encode($advance_dealer_details) ?>;
+var discountData = <?= json_encode($discount_details_period) ?>;
+var returnsData = <?= json_encode($return_details_period) ?>;
+var advanceDealerData = <?= json_encode($advance_dealer_details) ?>;
 
 function showAdvanceDealerDetails() {
     document.getElementById('advanceDealersModal').classList.remove('hidden');

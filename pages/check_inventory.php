@@ -165,9 +165,9 @@ $default_to = date('Y-m-d');
 </div>
 
 <script>
-const products = <?= json_encode($products) ?>;
-const restocks = <?= json_encode($restocks) ?>;
-const sales = <?= json_encode($sales_date_map) ?>;
+var products = <?= json_encode($products) ?>;
+var restocks = <?= json_encode($restocks) ?>;
+var sales = <?= json_encode($sales_date_map) ?>;
 <?php
 $_customers_list = readCSV('customers');
 $_cmap = [];
@@ -179,9 +179,9 @@ foreach($_rawSales as $_s) {
     $_salesFull[$_s['id']] = $_s;
 }
 ?>
-const salesFull = <?= json_encode($_salesFull) ?>;
-const saleItems = <?= json_encode($sale_items) ?>;
-const availableUnits = <?= json_encode($units) ?>;
+var salesFull = <?= json_encode($_salesFull) ?>;
+var saleItems = <?= json_encode($sale_items) ?>;
+var availableUnits = <?= json_encode($units) ?>;
 
 function getUnitHierarchyJS(unitName) {
     if (!unitName) return [];

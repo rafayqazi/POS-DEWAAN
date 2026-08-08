@@ -202,12 +202,11 @@ usort($dealers, function($a, $b) { return strcasecmp($a['name'], $b['name']); })
 </div>
 
 <script>
-const allDealers = <?= json_encode($dealers) ?>;
-const balanceMap = <?= json_encode($balance_map) ?>;
-const hasManagePermission = <?= json_encode(hasPermission('manage_dealers')) ?>;
-
-let currentPage_Deal = 1;
-const pageSize_Deal = 200;
+var allDealers = <?= json_encode($dealers) ?>;
+var balanceMap = <?= json_encode($balance_map) ?>;
+var hasManagePermission = <?= json_encode(hasPermission('manage_dealers')) ?>;
+var currentPage_Deal = 1;
+var pageSize_Deal = 200;
 
 function formatCurrencyJS(amount) {
     return 'Rs.' + new Intl.NumberFormat('en-US').format(amount);

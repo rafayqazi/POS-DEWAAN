@@ -140,8 +140,8 @@ include '../includes/header.php';
     }
 
     // Drag and Drop Logic
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('backup_file');
+    var dropZone = document.getElementById('drop-zone');
+    var fileInput = document.getElementById('backup_file');
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropZone.addEventListener(eventName, preventDefaults, false);

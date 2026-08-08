@@ -297,7 +297,12 @@
                     </li>
                     <?php endif; ?>
                 </ul>
-                <div class="px-6 mt-6 pb-4">
+                <div class="px-6 mt-6 pb-4 space-y-2">
+                    <button type="button" id="spaToggleBtn" onclick="window.spaToggle && window.spaToggle()" class="flex items-center justify-center w-full px-4 py-3 bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-teal-500/5" title="Instant Navigation (SPA mode) - click to turn ON/OFF">
+                        <i class="fas fa-bolt"></i>
+                        <span class="ml-3 sidebar-text">Instant Navigation</span>
+                        <span id="spaToggleDot" class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 sidebar-text">ON</span>
+                    </button>
                     <a href="<?= $base ?>logout.php" class="flex items-center justify-center w-full px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-300 text-sm font-bold shadow-lg shadow-red-500/5">
                         <i class="fas fa-power-off"></i> 
                         <span class="ml-3 sidebar-text">Sign Out</span>
@@ -370,8 +375,13 @@
                                             <i class="fas fa-bell-slash text-2xl"></i>
                                         </div>
                                         <p class="text-gray-400 text-sm font-medium">All caught up!</p>
-                                    </div>
-                                <?php endif; ?>
+</div>
+
+    <!-- Instant Navigation (SPA) -->
+    <div id="spaProgress" class="fixed top-0 left-0 z-[10000] h-[3px] w-0 bg-teal-400 opacity-0 transition-opacity duration-200" style="box-shadow:0 0 8px rgba(45,212,191,0.8);"></div>
+    <script src="<?= $base ?>assets/js/spa.js"></script>
+<?php endif; ?>
+
                             </div>
                             <?php if ($notif_count > 0): ?>
                                 <div class="p-3 bg-gray-50 text-center">
@@ -443,7 +453,7 @@
 
             <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 glass gap-4">
                <div class="w-full">
-                   <h2 class="text-2xl font-bold text-gray-800 tracking-tight"><?= isset($pageTitle) ? $pageTitle : 'Dashboard' ?></h2>
+                   <h2 id="appPageTitle" class="text-2xl font-bold text-gray-800 tracking-tight"><?= isset($pageTitle) ? $pageTitle : 'Dashboard' ?></h2>
                    <div class="flex items-center mt-1">
                         <span class="h-1.5 w-1.5 rounded-full bg-teal-500 mr-2"></span>
                         <p class="text-gray-400 text-[10px] font-semibold uppercase tracking-[0.15em]"><?= date('M Y') ?> Overview</p>
@@ -456,6 +466,7 @@
                </div>
             </div>
             
+            <div id="appContent">
     <style>
         #sidebar.collapsed { width: 80px; }
         #sidebar.collapsed .sidebar-text { display: none; }

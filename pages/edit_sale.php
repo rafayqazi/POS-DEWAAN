@@ -225,9 +225,9 @@ include '../includes/header.php';
 </div>
 
 <script>
-const products = <?= json_encode($products) ?>;
-const customers = <?= json_encode($customers) ?>;
-const availableUnits = <?= json_encode($units) ?>;
+var products = <?= json_encode($products) ?>;
+var customers = <?= json_encode($customers) ?>;
+var availableUnits = <?= json_encode($units) ?>;
 
 function toggleCustomerDropdown() {
     const p = document.getElementById('customerDropdownPanel');
@@ -300,7 +300,7 @@ function getBaseMultiplierForProductJS(unitName, p) {
     return 1;
 }
 
-const currentItemsRaw = <?= json_encode(array_values($current_items)) ?>;
+var currentItemsRaw = <?= json_encode(array_values($current_items)) ?>;
 // Smart Unit Detection for Legacy Sales
 function detectBestUnit(item, p) {
     if (item.unit && item.unit !== 'Units') return item.unit; // Start with saved unit if exists
@@ -343,7 +343,7 @@ function detectBestUnit(item, p) {
     return p.unit;
 }
 
-let cart = currentItemsRaw.map(item => {
+var cart = currentItemsRaw.map(item => {
     const p = products.find(x => x.id == item.product_id);
     // Attempt to detect the correct unit if not explicitly saved (or if saved is generic)
     const detectedUnit = detectBestUnit(item, p);
@@ -369,7 +369,7 @@ let cart = currentItemsRaw.map(item => {
         max_stock_base: (p ? parseFloat(p.stock_quantity) : 0) + (parseFloat(item.quantity) * getBaseMultiplierForProductJS(unitName, p || { unit: unitName, f2: 1, f3: 1 }))
     };
 });
-let isBelowCostConfirmed = false;
+var isBelowCostConfirmed = false;
 
 function renderProducts() {
     const search = document.getElementById('productSearch').value.toLowerCase();

@@ -605,8 +605,8 @@ include '../includes/header.php';
 
 <script src="../assets/vendor/chartjs/chart.min.js"></script>
 <script>
-let currentStatusFilter = 'all';
-const availableUnits = <?= json_encode($units) ?>;
+var currentStatusFilter = 'all';
+var availableUnits = <?= json_encode($units) ?>;
 function getUnitHierarchyJS(name) {
     if(!name) return []; let chain = []; let current = availableUnits.find(u => u.name.toLowerCase() === name.toLowerCase());
     let safety = 0; while(current && safety < 10) { chain.push(current); safety++; let child = availableUnits.find(u => u.parent_id == current.id); if(child) current = child; else current = null; }
@@ -672,7 +672,7 @@ function showStockValueModal(el) {
     openModal('stockValueModal');
 }
 
-let dealerBalances = { add: 0, restock: 0 };
+var dealerBalances = { add: 0, restock: 0 };
 
 function fetchDealerData(id, prefix) {
     const summaryDiv = document.getElementById(prefix + '_calc_summary');
@@ -843,7 +843,7 @@ function openEditInAddModal(p) {
 }
 
 // Reset addProductModal back to Add mode when closed
-const _origCloseModal = window.closeModal;
+var _origCloseModal = window.closeModal;
 window.closeModal = function(id) {
     if(id === 'addProductModal') {
         document.getElementById('addProductAction').value = 'add';

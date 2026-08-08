@@ -1,3 +1,4 @@
+</div>
 <footer class="mt-8 py-4 text-center text-gray-500 text-xs border-t border-gray-200 bg-gray-50/50">
     <div class="flex flex-wrap justify-center gap-4 mb-2">
         <a href="<?= (basename(dirname($_SERVER['PHP_SELF'])) == 'pages') ? 'about_developer.php' : 'pages/about_developer.php' ?>" class="hover:text-teal-700 font-semibold transition-colors">About Developer</a>

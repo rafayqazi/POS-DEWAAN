@@ -368,9 +368,9 @@ $units = readCSV('units');
 </div>
 
 <script>
-let cart = [];
-let isBelowCostConfirmed = false;
-let isTxnConfirmed = false;
+var cart = [];
+var isBelowCostConfirmed = false;
+var isTxnConfirmed = false;
 const availableUnits = <?= json_encode($units) ?>;
 
 function getUnitHierarchyJS(unitName) {

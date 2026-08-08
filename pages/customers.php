@@ -249,13 +249,12 @@ usort($customers, function($a, $b) { return strcasecmp($a['name'], $b['name']); 
 </div>
 
 <script>
-const allCustomers = <?= json_encode($customers) ?>;
-const debtMap = <?= json_encode($debt_map) ?>;
-const dueMap = <?= json_encode($due_map) ?>;
-const hasManagePermission = <?= json_encode(hasPermission('manage_customers')) ?>;
-
-let currentPage_Cust = 1;
-const pageSize_Cust = 200;
+var allCustomers = <?= json_encode($customers) ?>;
+var debtMap = <?= json_encode($debt_map) ?>;
+var dueMap = <?= json_encode($due_map) ?>;
+var hasManagePermission = <?= json_encode(hasPermission('manage_customers')) ?>;
+var currentPage_Cust = 1;
+var pageSize_Cust = 200;
 
 function formatCurrencyJS(amount) {
     return 'Rs. ' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);

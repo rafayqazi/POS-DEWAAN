@@ -25,7 +25,7 @@ pos-dewaan/
 │   ├── db.php              # THE DATA LAYER: CSV helpers, migrations
 │   ├── functions.php       # helpers: auth/RBAC, currency, units, notifications
 │   ├── session.php         # custom session mgmt (24h lifetime)
-│   ├── header.php          # sidebar/nav (menu is defined here), showAlert/showConfirm
+│   ├── header.php          # sidebar/nav (menu is defined here), showAlert/showConfirm, #appContent wrapper, spa.js loader
 │   └── footer.php
 ├── pages/                  # UI pages (GET/page + inline POST handling)
 │   ├── pos.php             # New sale / checkout (biggest file)
@@ -37,7 +37,7 @@ pos-dewaan/
 ├── actions/                # POST endpoints called from forms (redirect back after)
 │   └── process_return.php, restock_process.php, save_expense.php, ...
 ├── data/                   # ALL persistent data as CSV (see schema below)
-├── assets/                 # css/fonts/tailwind chart.js images
+├── assets/                 # css/fonts/tailwind/chart.js images + js/spa.js (SPA engine)
 └── scratch/, migrations/   # one-off scripts (repair/backfill) — not part of app
 ```
 
@@ -73,6 +73,21 @@ Conventions:
 - **Stock levels:** `stock_quantity` in base units. `formatStockHierarchy($qty, $product)` humanizes (e.g. `1 Ctn, 2 Box, 3 Piece`) — used everywhere.
 - **Roles (RBAC):** users have `role` ∈ Admin / Viewer / Customer / Dealer; enforcement via `hasPermission($action)` in functions.php; `filterDataByRole('table', rows)` restricts CSV data per role. If a request hits a page without permission it falls through to a generic "Unauthorized Access" die().
 - **Notifications:** `getGlobalNotifications()` in functions.php builds low-stock / expiry / debt alerts via session-dismissed ids (actions/dismiss_alert.php).
+
+## Instant Navigation (SPA) layer — READ BEFORE TOUCHING PAGES/HEADER
+
+`assets/js/spa.js` (loaded in `includes/header.php` before `<?php endif; ?>`) converts the app into an SPA-like experience:
+
+- **How it works:** intercepts internal link clicks (excluding `target="_blank"`, `download`, `data-no-spa`, and URLs matching `logout/login/print_*/actions/` or non-`.php`), `fetch()`es the page, swaps only the `#appContent` div, re-runs page inline scripts, `pushState` for URL/back-forward, prefetches all sidebar pages ~1.5s after load (5-min cache).
+- **Toggle:** sidebar "Instant Navigation" button or `window.spaOn()/spaOff()/spaToggle()`; state = `localStorage 'spa_enabled'` ('0' = classic reloads). Any fetch error falls back to a classic reload automatically.
+- **Page script rules (IMPORTANT):**
+  - `#appContent` (header.php) wraps the page content; `footer.php` closes it with a bare `</div>` — pages stay as-is and close `</main></div></body></html>` themselves.
+  - `document.addEventListener('DOMContentLoaded', ...)` page init still works — the SPA captures and re-fires handlers after each swap.
+  - `window.onload = ...` (used by check_inventory.php, edit_sale.php) also works — a synthetic `load` event is dispatched after each swap.
+  - **NEVER declare top-level `const`/`let`/`class` in a page's inline `<script>`** — re-visiting that page would throw "already declared". Use `var` or scope inside functions. (Top-level conversions were already applied repo-wide.)
+  - Document-level listeners (`document.addEventListener('click'...)`) registered by page scripts are auto-unbound on the next navigation; do NOT store on `window` expecting cleanup.
+  - To force classic navigation for a specific link, add `data-no-spa` to the `<a>`.
+- Print flows untouched: `pages/print_*.php` open via `window.open('', '_blank')` and are excluded from SPA.
 
 ## Page flow / conventions for pages
 

@@ -85,9 +85,9 @@ usort($categories, function($a, $b) {
 </div>
 
 <script>
-let allCategories = <?= json_encode($categories) ?>;
-let currentPage_Cat = 1;
-const pageSize_Cat = 200;
+var allCategories = <?= json_encode($categories) ?>;
+var currentPage_Cat = 1;
+var pageSize_Cat = 200;
 
 function renderCategories() {
     const term = document.getElementById('catSearch').value.toLowerCase();

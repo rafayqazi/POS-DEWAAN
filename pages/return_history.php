@@ -258,12 +258,12 @@ usort($js_dealer_returns, function($a, $b) {
 </div>
 
 <script>
-const custReturns = <?= json_encode($js_cust_returns) ?>;
-const dealerReturns = <?= json_encode($js_dealer_returns) ?>;
+var custReturns = <?= json_encode($js_cust_returns) ?>;
+var dealerReturns = <?= json_encode($js_dealer_returns) ?>;
 
-let activeTab = 'customer'; // 'customer' or 'dealer'
-let currentPage = 1;
-const pageSize = 50;
+var activeTab = 'customer'; // 'customer' or 'dealer'
+var currentPage = 1;
+var pageSize = 50;
 
 function switchTab(tab) {
     activeTab = tab;
