@@ -10,6 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
     $remarks = cleanInput($_POST['remarks'] ?? '');
     $total_refund = (float)$_POST['total_refund'];
 
+    // Return date: default to today, allow backdating via the form
+    $return_date = cleanInput($_POST['return_date'] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $return_date) || $return_date > date('Y-m-d')) {
+        $return_date = date('Y-m-d');
+    }
+
     if ($total_refund <= 0) {
         redirect("../pages/return_product.php?sale_id=$sale_id&error=" . urlencode("No items selected for return."));
     }
@@ -66,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
             'customer_id' => $customer_id,
             'total_refund' => $total_refund,
             'remarks' => $remarks,
-            'date' => date('Y-m-d'),
+            'date' => $return_date,
             'created_at' => date('Y-m-d H:i:s')
         ]);
 
@@ -100,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
                 'debit' => 0,
                 'credit' => $total_refund,
                 'description' => "Return from Sale #$sale_id - $remarks",
-                'date' => date('Y-m-d'),
+                'date' => $return_date,
                 'created_at' => date('Y-m-d H:i:s'),
                 'sale_id' => $sale_id,
                 'return_id' => $return_id

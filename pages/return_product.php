@@ -322,7 +322,10 @@ usort($customers, function($a, $b) {
                                   class="w-full p-3 text-sm border border-gray-200 rounded-xl focus:border-teal-500 outline-none resize-none"></textarea>
                     </div>
                     <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Return Date</label>
+                        <input type="date" name="return_date" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>"
+                               class="w-full p-3 text-sm border border-gray-200 rounded-xl focus:border-teal-500 outline-none bg-white font-bold text-gray-700">
+                        <div class="flex justify-between items-center mt-2">
                             <span class="text-xs font-bold text-gray-400 uppercase">Sub-Total Refund</span>
                             <span class="text-sm font-bold text-gray-600" id="totalRefundLabel">Rs. 0</span>
                         </div>
