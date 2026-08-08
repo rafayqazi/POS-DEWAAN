@@ -313,7 +313,12 @@ include '../includes/header.php';
                             <span id="stockSortIcon" class="text-gray-400 normal-case tracking-normal"><i class="fas fa-sort text-xs"></i></span>
                         </div>
                     </th>
-                    <th class="p-5 text-right">Stock Value</th>
+                    <th class="p-5 text-right cursor-pointer select-none hover:text-teal-700 transition" onclick="toggleStockValueSort()">
+                        <div class="flex items-center gap-1 justify-end">
+                            <span>Stock Value</span>
+                            <span id="stockValueSortIcon" class="text-gray-400 normal-case tracking-normal"><i class="fas fa-sort text-xs"></i></span>
+                        </div>
+                    </th>
                     <th class="p-5">Remarks</th>
                     <th class="p-5 text-right">Pricing</th>
                     <th class="p-5 text-center">Actions</th>
@@ -327,8 +332,12 @@ include '../includes/header.php';
                     $status = 'available';
                     if ($stock_qty <= 0) $status = 'nill';
                     elseif ($stock_qty < 10) $status = 'low';
+                    $stock_multiplier = getBaseMultiplier($p['unit'], $p) ?: 1;
+                    $stock_display_qty = (float)$p['stock_quantity'] / $stock_multiplier;
+                    $stock_buy_value = $stock_display_qty * (float)$p['buy_price'];
+                    $stock_sell_value = $stock_display_qty * (float)$p['sell_price'];
                 ?>
-                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>" data-stock-status="<?= $status ?>" data-stock-qty="<?= $p['stock_quantity'] ?>">
+                <tr class="hover:bg-gray-50/50 transition product-row" data-category="<?= strtolower($p['category']) ?>" data-unit="<?= strtolower($p['unit']) ?>" data-stock-status="<?= $status ?>" data-stock-qty="<?= $p['stock_quantity'] ?>" data-stock-value="<?= $stock_buy_value ?>">
                     <td class="p-5 text-center text-gray-500 font-medium font-mono text-xs"><?= $sn++ ?></td>
                     <td class="p-5">
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($p['name']) ?></div>
@@ -887,6 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     new Chart(document.getElementById('categoryChart').getContext('2d'), { type:'doughnut', data:{ labels:<?= json_encode($chart_labels) ?>, datasets:[{data:<?= json_encode($chart_data) ?>, backgroundColor:['#0d9488','#3b82f6','#f59e0b','#ef4444']}] }, options:{plugins:{legend:{display:false}}, cutout:'70%'} });
     let stockSortOrder = 'none'; // 'none', 'asc', 'desc'
+    let stockValueSortOrder = 'none'; // 'none', 'asc', 'desc'
 
     window.toggleStockSort = function() {
         const tableBody = document.getElementById('inventoryTableBody');
@@ -905,6 +915,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const qtyA = parseFloat(a.dataset.stockQty) || 0;
             const qtyB = parseFloat(b.dataset.stockQty) || 0;
             return stockSortOrder === 'asc' ? qtyA - qtyB : qtyB - qtyA;
+        });
+        
+        rows.forEach((row, index) => {
+            const srTd = row.querySelector('td:first-child');
+            if (srTd) {
+                srTd.textContent = index + 1;
+            }
+            tableBody.appendChild(row);
+        });
+    };
+
+    window.toggleStockValueSort = function() {
+        const tableBody = document.getElementById('inventoryTableBody');
+        const rows = Array.from(tableBody.querySelectorAll('.product-row'));
+        const iconSpan = document.getElementById('stockValueSortIcon');
+        
+        if (stockValueSortOrder === 'none' || stockValueSortOrder === 'asc') {
+            stockValueSortOrder = 'desc';
+            iconSpan.innerHTML = '<i class="fas fa-sort-down text-teal-600 text-xs"></i>';
+        } else {
+            stockValueSortOrder = 'asc';
+            iconSpan.innerHTML = '<i class="fas fa-sort-up text-teal-600 text-xs"></i>';
+        }
+        
+        rows.sort((a, b) => {
+            const valA = parseFloat(a.dataset.stockValue) || 0;
+            const valB = parseFloat(b.dataset.stockValue) || 0;
+            return stockValueSortOrder === 'asc' ? valA - valB : valB - valA;
         });
         
         rows.forEach((row, index) => {
@@ -958,6 +996,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set initial "All" active
     filterByStatus('all');
+
+    // Default: sort by stock value (highest first)
+    toggleStockValueSort();
 });
 
 function openCatalogPreview() { document.getElementById('catalogPreviewBody').innerHTML = document.getElementById('catalogPrintableArea').innerHTML; openModal('catalogPreviewModal'); }
