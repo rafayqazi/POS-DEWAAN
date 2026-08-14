@@ -25,8 +25,41 @@ usort($restocks, function($a, $b) {
 // --- Reconstruct Previous Stock for Each Restock ---
 $products = readCSV('products');
 $product_stock_map = [];
+$product_map = []; // Full product data for formatting
 foreach ($products as $p) {
     $product_stock_map[$p['id']] = (float)$p['stock_quantity'];
+    $product_map[$p['id']] = $p;
+}
+
+// Pre-format current stock for each product (plain text for JS)
+$restock_current_stock = []; // product_id => formatted string
+foreach ($product_map as $pid => $p) {
+    $qty = (float)$p['stock_quantity'];
+    $unit = $p['unit'] ?? 'Units';
+    $hierarchy = getUnitHierarchy($unit);
+    if (count($hierarchy) <= 1) {
+        $restock_current_stock[$pid] = ($qty == (int)$qty ? (int)$qty : round($qty,2)) . ' ' . $unit;
+    } else {
+        $remaining = $qty;
+        $parts = [];
+        foreach ($hierarchy as $u) {
+            $m = getBaseMultiplier($u['id'], $p);
+            $count = floor($remaining / $m);
+            if ($count > 0) {
+                $parts[] = $count . ' ' . $u['name'];
+                $remaining = fmod($remaining, $m);
+            }
+        }
+        if (empty($parts)) {
+            $restock_current_stock[$pid] = '0 ' . $unit;
+        } else {
+            if ($remaining > 0) {
+                $base_unit = end($hierarchy)['name'];
+                $parts[] = round($remaining, 2) . ' ' . $base_unit;
+            }
+            $restock_current_stock[$pid] = implode(', ', $parts);
+        }
+    }
 }
 
 $sales_rows = readCSV('sales');
@@ -84,37 +117,30 @@ foreach ($return_items as $ri) {
 }
 
 // Walk events backward from current stock to get each restock's previous/total qty.
-// If the reconstructed curve dips below zero (initial stock predates the log or data gaps),
-// re-anchor the whole curve so its lowest point = 0. This keeps prev/total always visible.
+// total = stock level immediately after a restock
+// prev  = stock level just before a restock (may be 0 if this was the "seed" stock)
+// We do NOT apply a global shift - that would corrupt all recent correct entries.
+// Per-entry: clamp prev to max(0, ...) only for display; total is always raw/accurate.
 $restock_prev_qty = [];
 $restock_total_qty = [];
 foreach ($events_by_product as $pid => $evts) {
     usort($evts, function($a, $b) { return strcmp($a['key'], $b['key']); });
     $stock = $product_stock_map[$pid] ?? 0;
-    $curve_min = $stock;
     $local_rows = [];
     for ($i = count($evts) - 1; $i >= 0; $i--) {
         $e = $evts[$i];
         if ($e['k'] === 'r') {
             $prev = $stock - $e['q'];
-            $local_rows[$e['rid']] = [$prev, $stock];
+            // total is accurate (= stock after restock), prev is clamped to 0 if it goes negative
+            $local_rows[$e['rid']] = [max(0, $prev), $stock];
             $stock = $prev;
         } else {
             $stock -= $e['q'];
         }
-        if ($stock < $curve_min) $curve_min = $stock;
     }
-    if ($curve_min < 0) {
-        $shift = -$curve_min;
-        foreach ($local_rows as $rid => $pair) {
-            $restock_prev_qty[$rid] = $pair[0] + $shift;
-            $restock_total_qty[$rid] = $pair[1] + $shift;
-        }
-    } else {
-        foreach ($local_rows as $rid => $pair) {
-            $restock_prev_qty[$rid] = $pair[0];
-            $restock_total_qty[$rid] = $pair[1];
-        }
+    foreach ($local_rows as $rid => $pair) {
+        $restock_prev_qty[$rid] = $pair[0];
+        $restock_total_qty[$rid] = $pair[1];
     }
 }
 ?>
@@ -223,6 +249,7 @@ foreach ($events_by_product as $pid => $evts) {
                     <th class="p-6">Product</th>
                     <th class="p-6">Expiry & Remarks</th>
                     <th class="p-6">Prev + Qty Added = Total</th>
+                    <th class="p-6">Current Stock</th>
                     <th class="p-6">Purchase Cost</th>
                     <th class="p-6">Selling Rate</th>
                     <th class="p-6">Dealer / Supplier</th>
@@ -376,6 +403,7 @@ echo '</main></div>';
     const allRestocks = <?= json_encode($restocks) ?>;
     const restockPrevQty = <?= json_encode($restock_prev_qty) ?>;
     const restockTotalQty = <?= json_encode($restock_total_qty) ?>;
+    const productCurrentStock = <?= json_encode($restock_current_stock) ?>; // product_id => formatted string
     let currentPage_Restock = 1;
     const pageSize_Restock = 200;
 
@@ -452,6 +480,8 @@ echo '</main></div>';
                     qtyCellHtml = `<span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${fmtQty(log.quantity)}</span>`;
                 }
 
+                const currStockStr = productCurrentStock[log.product_id] || '-';
+
                 html += `<tr class="hover:bg-teal-50/30 transition">
                     <td class="p-6 text-center text-xs font-mono text-gray-400 italic">${sn}</td>
                     <td class="p-6 text-sm font-medium text-gray-500 font-mono">${dateDisplay}<br><span class="text-[10px] opacity-50">${timeDisplay}</span></td>
@@ -461,6 +491,9 @@ echo '</main></div>';
                     </td>
                     <td class="p-6">${expiryHtml}${remarksHtml}</td>
                     <td class="p-6">${qtyCellHtml}</td>
+                    <td class="p-6">
+                        <span class="px-3 py-1 bg-teal-50 text-teal-700 font-bold text-xs rounded-full border border-teal-100">${currStockStr}</span>
+                    </td>
                     <td class="p-6">
                         <div class="text-gray-800 font-bold text-sm">${formatCurrency(parseFloat(log.new_buy_price || 0))}</div>
                         <div class="text-[10px] text-gray-400 line-through italic">Prev: ${formatCurrency(parseFloat(log.old_buy_price || 0))}</div>

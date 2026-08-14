@@ -49,16 +49,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['amount'])) {
         }
     }
 
+    $clean_notes = trim($notes);
+    if ($type == 'Payment') {
+        $desc = (strpos($clean_notes, 'Payment Received:') === 0) ? $clean_notes : "Payment Received: " . $clean_notes;
+    } else if ($type == 'Debt') {
+        $desc = (strpos($clean_notes, 'Previous Debt:') === 0) ? $clean_notes : "Previous Debt: " . $clean_notes;
+    } else {
+        $desc = $clean_notes;
+    }
+
     $data = [
         'customer_id' => $cid,
         'type' => $type,
         'debit' => ($type == 'Debt') ? $amount : 0,
         'credit' => ($type == 'Payment') ? $amount : 0,
         'discount' => isset($_POST['discount']) ? (float)$_POST['discount'] : 0,
-        'description' => ($type == 'Debt' ? "Previous Debt: " : "Payment Received: ") . $notes,
+        'description' => rtrim($desc, ': '),
         'date' => $date,
         'due_date' => $_POST['due_date'] ?? '',
-        'payment_type' => $payment_type,
+        'payment_type' => $payment_type ?: 'Cash',
         'payment_proof' => $payment_proof
     ];
 
@@ -614,7 +623,14 @@ if ($linked_dealer_id) {
                 const discountVal = parseFloat(t.discount || 0);
                 const saleRemarksP = (t.type === 'Sale' && t.sale_id && salesMap[t.sale_id] && salesMap[t.sale_id].remarks) ? salesMap[t.sale_id].remarks : '';
                 const baseRefText = t.description && t.description !== '-' ? t.description : (t.sale_id ? `Sale #${t.sale_id}` : (t.type === 'Payment' ? 'Payment Received' : '-'));
-                const refText = saleRemarksP ? `${baseRefText}<br><em style="color:#555;font-size:8px;">${saleRemarksP}</em>` : baseRefText;
+                const payTypeP = t.payment_type || (t.type === 'Payment' || parseFloat(t.credit || 0) > 0 ? 'Cash' : '');
+                let refText = baseRefText;
+                if (payTypeP && (t.type === 'Payment' || parseFloat(t.credit || 0) > 0)) {
+                    refText += ` <span style="font-weight:bold;color:#0d9488;">(by ${payTypeP})</span>`;
+                }
+                if (saleRemarksP) {
+                    refText += `<br><em style="color:#555;font-size:8px;">${saleRemarksP}</em>`;
+                }
                 const dueDateStr = t.due_date || '-';
                 const runningBalStr = formatCurrency(t.current_running_balance);
                 html += `<tr style="vertical-align:top;border-bottom:1px solid #eee;">`;
@@ -633,6 +649,15 @@ if ($linked_dealer_id) {
                 const rowBg = t.debit > 0 ? 'hover:bg-red-50/20' : 'hover:bg-emerald-50/20';
                 const typeIcon = t.debit > 0 ? '<i class="fas fa-shopping-cart text-red-300"></i>' : '<i class="fas fa-hand-holding-usd text-emerald-300"></i>';
                 
+                const payType = t.payment_type || (t.type === 'Payment' || parseFloat(t.credit || 0) > 0 ? 'Cash' : '');
+                const payTypeIcon = payType === 'Cheque' ? 'fas fa-money-check-alt' : (payType === 'Online' ? 'fas fa-globe' : 'fas fa-money-bill-wave');
+                const payTypeBadge = (payType && (t.type === 'Payment' || parseFloat(t.credit || 0) > 0)) 
+                    ? `<span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 w-fit flex items-center gap-1 shadow-sm mt-0.5"><i class="${payTypeIcon} text-emerald-500"></i> By ${payType}</span>` 
+                    : '';
+                const proofBadge = t.payment_proof 
+                    ? `<a href="../uploads/payments/${t.payment_proof}" target="_blank" class="text-[9px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 w-fit flex items-center gap-1 mt-0.5"><i class="fas fa-paperclip text-blue-500"></i> View Proof</a>` 
+                    : '';
+
                 html += `<tr class="${rowBg} transition-all border-b border-gray-100 last:border-0 border-l-4 ${rowBorder} group">
                             <td class="p-4 text-center align-top">
                                 <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-[10px] font-black group-hover:bg-gray-300 group-hover:text-black transition-colors shadow-inner">${sn}</span>
@@ -661,6 +686,8 @@ if ($linked_dealer_id) {
                                         <span class="opacity-60 group-hover:opacity-100 transition-opacity">${typeIcon}</span>
                                         <span class="text-[10px] font-bold text-gray-500">${t.description}</span>
                                     </div>
+                                    ${payTypeBadge}
+                                    ${proofBadge}
                                     ${(t.type === 'Sale' && t.sale_id && salesMap[t.sale_id] && salesMap[t.sale_id].remarks) ? `<span class="text-[10px] font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 max-w-[180px] truncate" title="${salesMap[t.sale_id].remarks}">${salesMap[t.sale_id].remarks}</span>` : ''}
                                 </div>
                             </td>
