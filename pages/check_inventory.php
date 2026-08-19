@@ -495,25 +495,41 @@ window.onload = renderInventory;
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="printRestockLog()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">
+                <!-- Summary Badges -->
+                <div class="hidden md:flex gap-3" id="restockSummaryBadges">
+                    <div class="px-4 py-2 bg-blue-50 border border-blue-100 rounded-2xl text-center">
+                        <div class="text-[9px] font-black text-blue-400 uppercase tracking-widest">Total In</div>
+                        <div class="text-lg font-black text-blue-600" id="restockTotalQty">0</div>
+                    </div>
+                    <div class="px-4 py-2 bg-teal-50 border border-teal-100 rounded-2xl text-center">
+                        <div class="text-[9px] font-black text-teal-400 uppercase tracking-widest">Total Entries</div>
+                        <div class="text-lg font-black text-teal-600" id="restockTotalCount">0</div>
+                    </div>
+                    <div class="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl text-center">
+                        <div class="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Total Cost</div>
+                        <div class="text-lg font-black text-emerald-600" id="restockTotalCost">Rs. 0</div>
+                    </div>
+                </div>
+                <button onclick="printRestockLog()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-teal-50 text-teal-600 hover:bg-teal-600 hover:text-white transition-all shadow-sm border border-teal-100" title="Print Restock Log">
                     <i class="fas fa-print"></i>
                 </button>
-                <button onclick="closeRestockModal()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-gray-100">
+                <button onclick="closeRestockModal()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-gray-100" title="Close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         </div>
 
-        <div class="overflow-y-auto p-8" id="logModalBody">
+        <div class="overflow-y-auto p-8" id="logModalBody" style="max-height: calc(90vh - 120px);">
             <div id="logTableContainer" class="rounded-3xl border border-gray-100 overflow-hidden shadow-sm bg-white">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-gray-50 text-[10px] uppercase font-black tracking-widest text-gray-400 border-b border-gray-100">
-                            <th class="p-6">Date</th>
-                            <th class="p-6">Type</th>
-                            <th class="p-6 text-center">Quantity</th>
-                            <th class="p-6">Buy Price</th>
-                            <th class="p-6 text-right">Dealer / Supplier</th>
+                            <th class="p-5">#</th>
+                            <th class="p-5">Date</th>
+                            <th class="p-5">Type</th>
+                            <th class="p-5 text-center">Quantity</th>
+                            <th class="p-5 text-right">Buy Price</th>
+                            <th class="p-5 text-right">Dealer / Supplier</th>
                         </tr>
                     </thead>
                     <tbody id="logTableBody" class="divide-y divide-gray-50">
@@ -527,12 +543,6 @@ window.onload = renderInventory;
                     <i class="fas fa-folder-open text-3xl text-gray-200"></i>
                 </div>
                 <p class="text-gray-400 font-bold uppercase text-xs tracking-widest">No restock records found</p>
-            </div>
-
-            <div class="mt-8 flex justify-center" id="showAllContainer">
-                <button onclick="renderRestockModalTable(currentModalProductId, 9999)" id="showAllLogsBtn" class="px-8 py-3 bg-white border border-gray-200 text-gray-500 rounded-2xl text-xs font-black uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition shadow-sm active:scale-95">
-                    View Full History
-                </button>
             </div>
         </div>
     </div>
@@ -608,7 +618,7 @@ window.onload = renderInventory;
 </div>
 
 <script>
-    let currentModalProductId = null;
+    var currentModalProductId = null;
 
     function showRestockLogs(productId) {
         currentModalProductId = productId;
@@ -616,40 +626,50 @@ window.onload = renderInventory;
         if (!p) return;
 
         document.getElementById('logModalTitle').innerText = p.name;
-        document.getElementById('logModalSubtitle').innerText = 'Restock History for ID: #' + productId;
+        document.getElementById('logModalSubtitle').innerText = (p.category ? p.category + ' • ' : '') + (p.unit || 'Units') + ' (ID: #' + productId + ')';
         
-        renderRestockModalTable(productId, 10);
+        renderRestockModalTable(productId);
         
         document.getElementById('restockLogModal').classList.remove('hidden');
         document.getElementById('restockLogModal').classList.add('flex');
     }
 
-    function renderRestockModalTable(productId, limit) {
+    function renderRestockModalTable(productId) {
         const p = products.find(x => x.id == productId);
         if (!p) return;
 
         const productRestocks = restocks.filter(r => 
-            r.product_id == productId || (r.product_name && r.product_name === p.name)
+            r.product_id == productId || (r.product_name && r.product_name.trim().toLowerCase() === (p.name || '').trim().toLowerCase())
         ).sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
 
         const body = document.getElementById('logTableBody');
-        const showAllContainer = document.getElementById('showAllContainer');
         const emptyState = document.getElementById('logEmptyState');
         const tableContainer = document.getElementById('logTableContainer');
 
         if (productRestocks.length === 0) {
             tableContainer.classList.add('hidden');
             emptyState.classList.remove('hidden');
-            showAllContainer.classList.add('hidden');
+            document.getElementById('restockTotalQty').innerText = '0';
+            document.getElementById('restockTotalCount').innerText = '0 Entries';
+            document.getElementById('restockTotalCost').innerText = 'Rs. 0';
             return;
         }
 
         tableContainer.classList.remove('hidden');
         emptyState.classList.add('hidden');
 
-        const displayItems = productRestocks.slice(0, limit);
+        let totalQty = 0;
+        let totalCost = 0;
         let html = '';
-        displayItems.forEach(r => {
+        let rowNum = 1;
+
+        productRestocks.forEach(r => {
+            const qty = parseFloat(r.quantity) || 0;
+            const price = parseFloat(r.new_buy_price) || 0;
+            const rowTotal = qty * price;
+            totalQty += qty;
+            totalCost += rowTotal;
+
             const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
             const isInitial = (r.remarks || '').toLowerCase().includes('initial');
             const typeLabel = isInitial ? 
@@ -660,21 +680,27 @@ window.onload = renderInventory;
                 `<a href="dealer_ledger.php?id=${r.dealer_id}" class="text-blue-600 hover:text-blue-800 transition underline-offset-2 hover:underline">${r.dealer_name}</a>` : 
                 (r.dealer_name || 'Self Stock');
 
+            const rowBg = rowNum % 2 === 0 ? 'background:#f9fafb;' : '';
+
             html += `
-                <tr class="hover:bg-gray-50/50 transition">
-                    <td class="p-6 text-sm font-bold text-gray-500 font-mono">${dateStr}</td>
-                    <td class="p-6">${typeLabel}</td>
-                    <td class="p-6 text-center">
-                        <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-black text-xs shadow-sm">+${r.quantity}</span>
+                <tr class="hover:bg-teal-50/40 transition" style="${rowBg}">
+                    <td class="p-5 text-xs text-gray-400 font-mono">#${r.id || rowNum}</td>
+                    <td class="p-5 text-sm font-bold text-gray-500 font-mono">${dateStr}</td>
+                    <td class="p-5">${typeLabel}</td>
+                    <td class="p-5 text-center">
+                        <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-black text-xs shadow-sm border border-blue-100">+${qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(2)} ${p.unit || ''}</span>
                     </td>
-                    <td class="p-6 text-sm font-black text-gray-800">Rs. ${parseFloat(r.new_buy_price).toLocaleString()}</td>
-                    <td class="p-6 text-right font-bold text-gray-400 text-xs italic">${dealerHtml}</td>
+                    <td class="p-5 text-right text-sm font-black text-gray-800">Rs. ${price.toLocaleString()}</td>
+                    <td class="p-5 text-right font-bold text-gray-400 text-xs italic">${dealerHtml}</td>
                 </tr>
             `;
+            rowNum++;
         });
 
         body.innerHTML = html;
-        showAllContainer.classList.toggle('hidden', productRestocks.length <= limit);
+        document.getElementById('restockTotalQty').innerText = (totalQty % 1 === 0 ? totalQty.toLocaleString() : totalQty.toFixed(2)) + ' ' + (p.unit || 'Units');
+        document.getElementById('restockTotalCount').innerText = productRestocks.length + ' Entries';
+        document.getElementById('restockTotalCost').innerText = 'Rs. ' + Math.round(totalCost).toLocaleString();
     }
 
     function closeRestockModal() {
@@ -688,11 +714,11 @@ window.onload = renderInventory;
         if (!p) return;
 
         const productRestocks = restocks.filter(r => 
-            r.product_id == productId || (r.product_name && r.product_name === p.name)
+            r.product_id == productId || (r.product_name && r.product_name.trim().toLowerCase() === (p.name || '').trim().toLowerCase())
         ).sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
 
         const printBody = document.getElementById('printRestockBody');
-        document.getElementById('printProductName').innerText = p.name;
+        document.getElementById('printProductName').innerText = p.name + ' (' + (p.category || 'Product') + ' • ' + (p.unit || 'Units') + ')';
         
         let html = '';
         productRestocks.forEach(r => {
@@ -721,6 +747,10 @@ window.onload = renderInventory;
         printWindow.focus();
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
     }
+
+    document.getElementById('restockLogModal').addEventListener('click', function(e) {
+        if (e.target === this) closeRestockModal();
+    });
 </script>
 
 <!-- Issuing / Sales History Modal -->
