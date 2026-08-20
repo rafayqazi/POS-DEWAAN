@@ -22,16 +22,12 @@ usort($restocks, function($a, $b) {
     return (int)($b['id'] ?? 0) - (int)($a['id'] ?? 0);
 });
 
-// --- Reconstruct Previous Stock for Each Restock ---
+// Pre-format current stock for each product (plain text for JS)
 $products = readCSV('products');
-$product_stock_map = [];
-$product_map = []; // Full product data for formatting
+$product_map = [];
 foreach ($products as $p) {
-    $product_stock_map[$p['id']] = (float)$p['stock_quantity'];
     $product_map[$p['id']] = $p;
 }
-
-// Pre-format current stock for each product (plain text for JS)
 $restock_current_stock = []; // product_id => formatted string
 foreach ($product_map as $pid => $p) {
     $qty = (float)$p['stock_quantity'];
@@ -59,88 +55,6 @@ foreach ($product_map as $pid => $p) {
             }
             $restock_current_stock[$pid] = implode(', ', $parts);
         }
-    }
-}
-
-$sales_rows = readCSV('sales');
-$sales_date_map = [];
-foreach ($sales_rows as $s) {
-    if (isset($s['id'])) {
-        $sales_date_map[$s['id']] = isset($s['sale_date']) ? substr($s['sale_date'], 0, 10) : '';
-    }
-}
-
-$sale_items = readCSV('sale_items');
-
-$returns = readCSV('returns');
-$returns_date_map = [];
-foreach ($returns as $r) {
-    if (isset($r['id'])) {
-        $returns_date_map[$r['id']] = isset($r['date']) ? substr($r['date'], 0, 10) : '';
-    }
-}
-$return_items = readCSV('return_items');
-
-// Build one chronological event stream per product
-$events_by_product = [];
-foreach ($restocks as $r) {
-    $pid = $r['product_id'] ?? '';
-    if ($pid === '') continue;
-    $events_by_product[$pid][] = [
-        'k' => 'r',
-        'q' => (float)($r['quantity'] ?? 0),
-        'key' => substr($r['date'] ?? '', 0, 10) . '|r|' . str_pad((int)($r['id'] ?? 0), 10, '0', STR_PAD_LEFT),
-        'rid' => $r['id']
-    ];
-}
-foreach ($sale_items as $si) {
-    $pid = $si['product_id'] ?? '';
-    if ($pid === '') continue;
-    $d = $sales_date_map[$si['sale_id'] ?? ''] ?? '';
-    $events_by_product[$pid][] = [
-        'k' => 's',
-        'q' => -abs((float)($si['quantity'] ?? 0)),
-        'key' => $d . '|s|' . str_pad((int)($si['sale_id'] ?? 0), 10, '0', STR_PAD_LEFT),
-        'rid' => null
-    ];
-}
-foreach ($return_items as $ri) {
-    $pid = $ri['product_id'] ?? '';
-    if ($pid === '') continue;
-    $d = $returns_date_map[$ri['return_id'] ?? ''] ?? '';
-    $events_by_product[$pid][] = [
-        'k' => 't',
-        'q' => (float)($ri['quantity'] ?? 0),
-        'key' => $d . '|t|' . str_pad((int)($ri['return_id'] ?? 0), 10, '0', STR_PAD_LEFT),
-        'rid' => null
-    ];
-}
-
-// Walk events backward from current stock to get each restock's previous/total qty.
-// total = stock level immediately after a restock
-// prev  = stock level just before a restock (may be 0 if this was the "seed" stock)
-// We do NOT apply a global shift - that would corrupt all recent correct entries.
-// Per-entry: clamp prev to max(0, ...) only for display; total is always raw/accurate.
-$restock_prev_qty = [];
-$restock_total_qty = [];
-foreach ($events_by_product as $pid => $evts) {
-    usort($evts, function($a, $b) { return strcmp($a['key'], $b['key']); });
-    $stock = $product_stock_map[$pid] ?? 0;
-    $local_rows = [];
-    for ($i = count($evts) - 1; $i >= 0; $i--) {
-        $e = $evts[$i];
-        if ($e['k'] === 'r') {
-            $prev = $stock - $e['q'];
-            // total is accurate (= stock after restock), prev is clamped to 0 if it goes negative
-            $local_rows[$e['rid']] = [max(0, $prev), $stock];
-            $stock = $prev;
-        } else {
-            $stock -= $e['q'];
-        }
-    }
-    foreach ($local_rows as $rid => $pair) {
-        $restock_prev_qty[$rid] = $pair[0];
-        $restock_total_qty[$rid] = $pair[1];
     }
 }
 ?>
@@ -248,7 +162,7 @@ foreach ($events_by_product as $pid => $evts) {
                     <th class="p-6">Date</th>
                     <th class="p-6">Product</th>
                     <th class="p-6">Expiry & Remarks</th>
-                    <th class="p-6">Prev + Qty Added = Total</th>
+                    <th class="p-6">Qty Added</th>
                     <th class="p-6">Current Stock</th>
                     <th class="p-6">Purchase Cost</th>
                     <th class="p-6">Selling Rate</th>
@@ -293,7 +207,7 @@ foreach ($events_by_product as $pid => $evts) {
                 <tr style="background: #0f766e; color: #fff;">
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Date</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Product</th>
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Prev + Qty = Total</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Qty Added</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Purchase Cost</th>
                     <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-size: 11px;">Dealer</th>
                     <th style="padding: 10px; text-align: right; border: 1px solid #ddd; font-size: 11px;">Paid Amount</th>
@@ -401,8 +315,6 @@ echo '</main></div>';
 
 <script>
     const allRestocks = <?= json_encode($restocks) ?>;
-    const restockPrevQty = <?= json_encode($restock_prev_qty) ?>;
-    const restockTotalQty = <?= json_encode($restock_total_qty) ?>;
     const productCurrentStock = <?= json_encode($restock_current_stock) ?>; // product_id => formatted string
     let currentPage_Restock = 1;
     const pageSize_Restock = 200;
@@ -452,9 +364,6 @@ echo '</main></div>';
                 const sn = (currentPage_Restock - 1) * pageSize_Restock + index + 1;                const paid = parseFloat(log.amount_paid || 0);
                 totalPaid += paid;
 
-                const prevQty = (restockPrevQty[log.id] !== undefined) ? restockPrevQty[log.id] : 0;
-                const totalQty = (restockTotalQty[log.id] !== undefined) ? restockTotalQty[log.id] : (prevQty + parseFloat(log.quantity || 0));
-                
                 const dateDisplay = log.date ? new Date(log.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
                 const timeDisplay = log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
 
@@ -468,17 +377,7 @@ echo '</main></div>';
 
                 const totalBill = parseFloat(log.new_buy_price || 0) * parseFloat(log.quantity || 0);
 
-                let qtyCellHtml;
-                if (prevQty >= 0) {
-                    qtyCellHtml = `<div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                        <span class="text-xs font-bold text-gray-500">Prev: <b class="text-gray-700">${fmtQty(prevQty)}</b></span>
-                        <span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-black text-xs">+${fmtQty(log.quantity)}</span>
-                        <span class="text-gray-400 font-black text-xs">=</span>
-                        <span class="text-teal-700 font-black text-sm">${fmtQty(totalQty)}</span>
-                    </div>`;
-                } else {
-                    qtyCellHtml = `<span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${fmtQty(log.quantity)}</span>`;
-                }
+                const qtyCellHtml = `<span class="px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm shadow-sm">+${fmtQty(log.quantity)}</span>`;
 
                 const currStockStr = productCurrentStock[log.product_id] || '-';
 
@@ -523,7 +422,7 @@ echo '</main></div>';
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${dateDisplay}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; font-weight: 600;">${log.product_name}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; text-align: center;">
-                        ${prevQty >= 0 ? `<span style="color: #666;">${fmtQty(prevQty)}</span> + <span style="color: #16a34a; font-weight: bold;">+${fmtQty(log.quantity)}</span> = <span style="color: #0f766e; font-weight: bold;">${fmtQty(totalQty)}</span>` : `+${fmtQty(log.quantity)}`}
+                        +${fmtQty(log.quantity)}
                     </td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${formatCurrency(parseFloat(log.new_buy_price))}</td>
                     <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${log.dealer_name || 'Self'}</td>
