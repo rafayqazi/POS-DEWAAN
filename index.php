@@ -394,7 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     </a>
 
-    <!-- Today's Profit Card -->
+    <!-- Today's Profit Card (Hidden) -->
+    <!--
     <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
         <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500">
             <i class="fas fa-wallet text-6xl text-white"></i>
@@ -407,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         </div>
     </div>
+    -->
 
     <!-- Customer Debt Card -->
     <a href="pages/customers.php" class="bg-gradient-to-br from-orange-500 to-orange-700 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
