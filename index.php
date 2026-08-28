@@ -364,21 +364,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
     <?php if (hasPermission('view_sensitive_stats')): ?>
-    <!-- Today's Sales Card -->
-    <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
-        <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-500">
+    <!-- Today's Sales Card (Interactive Revenue Filter Modal) -->
+    <div id="revenueCard" class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group cursor-pointer select-none hover:shadow-2xl hover:shadow-teal-900/20 hover:-translate-y-0.5 transition-all duration-300" onclick="toggleRevenuePicker(event)" title="Click to filter by 7 Days, 30 Days, 90 Days, or Custom Range">
+        <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
             <i class="fas fa-chart-line text-6xl text-white"></i>
         </div>
         <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90 mb-2">Today's Revenue <br> <span class="text-[9px] lowercase opacity-80">(Aaj ki Kul Sale)</span></p>
-            <h3 class="text-3xl font-black text-white mb-1"><?= formatCurrency($today_sales) ?></h3>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-black uppercase tracking-[0.2em] text-white/90" id="revenueCardTitle">Today's Revenue <br> <span class="text-[9px] lowercase opacity-80">(Aaj ki Kul Sale)</span></p>
+                <span class="w-7 h-7 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white/90 text-xs group-hover:bg-white group-hover:text-teal-700 transition-all">
+                    <i class="fas fa-filter"></i>
+                </span>
+            </div>
+            <h3 class="text-3xl font-black text-white mb-1" id="revenueCardAmount"><?= formatCurrency($today_sales) ?></h3>
             <div class="flex items-center gap-2 mt-4">
-                <span class="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold text-white backdrop-blur-md">
-                    <i class="fas fa-calendar-day mr-1"></i> Today
+                <span id="revenueCardBadge" class="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold text-white backdrop-blur-md flex items-center gap-1.5 group-hover:bg-white/30 transition-all">
+                    <i class="fas fa-calendar-day text-[10px]"></i>
+                    <span id="revenueCardBadgeText">Today</span>
+                    <i class="fas fa-sliders-h ml-1 text-[9px] opacity-75"></i>
                 </span>
             </div>
         </div>
     </div>
+
+
 
     <!-- Monthly Sales Card -->
     <a href="pages/sales_history.php?f_type=30days" class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[2rem] shadow-xl p-6 border border-white/10 relative overflow-hidden group">
@@ -708,6 +717,292 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     </script>
 <?php endif; ?>
+
+<!-- ====================================================
+     Revenue Period Selector Modal (Centered, Responsive, 100% Structured)
+     ==================================================== -->
+<?php if (hasPermission('view_sensitive_stats')): ?>
+<div id="revenueModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] items-center justify-center p-4" onclick="if(event.target === this) closeRevenueModal()">
+    <div class="modal-content bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl transform transition-all duration-300 scale-95 opacity-0 overflow-hidden flex flex-col max-h-[92vh] border border-teal-50">
+        <!-- Modal Header -->
+        <div class="p-6 md:p-7 bg-gradient-to-r from-teal-700 via-teal-600 to-teal-800 text-white flex items-center justify-between relative overflow-hidden">
+            <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex items-center gap-4 relative z-10">
+                <div class="w-12 h-12 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white/20">
+                    <i class="fas fa-chart-line text-white"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg md:text-xl font-black tracking-tight text-white">Select Revenue Period</h3>
+                    <p class="text-[11px] font-bold text-teal-100 uppercase tracking-widest">Dynamic Sales Analytics</p>
+                </div>
+            </div>
+            <button onclick="closeRevenueModal()" class="w-10 h-10 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 rounded-2xl transition-all cursor-pointer relative z-10">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 md:p-7 overflow-y-auto space-y-6 bg-gray-50/50">
+            <!-- Quick Presets -->
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Quick Presets (Jaldi Chunein)</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="button" onclick="fetchRevenue('today')" class="revenue-preset-btn flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group bg-white border-gray-100 hover:border-teal-500 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer" data-mode="today">
+                        <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center text-sm font-bold group-hover:bg-teal-600 group-hover:text-white transition-all shrink-0">
+                            <i class="fas fa-sun"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-black text-gray-800 truncate">Today</p>
+                            <p class="text-[10px] text-gray-400 font-bold truncate">Aaj ki Sale</p>
+                        </div>
+                        <i class="fas fa-check-circle text-teal-600 text-lg hidden check-icon shrink-0"></i>
+                    </button>
+
+                    <button type="button" onclick="fetchRevenue('7days')" class="revenue-preset-btn flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group bg-white border-gray-100 hover:border-teal-500 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer" data-mode="7days">
+                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-sm font-bold group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0">
+                            <i class="fas fa-calendar-week"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-black text-gray-800 truncate">Last 7 Days</p>
+                            <p class="text-[10px] text-gray-400 font-bold truncate">Pichle 7 Din</p>
+                        </div>
+                        <i class="fas fa-check-circle text-teal-600 text-lg hidden check-icon shrink-0"></i>
+                    </button>
+
+                    <button type="button" onclick="fetchRevenue('30days')" class="revenue-preset-btn flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group bg-white border-gray-100 hover:border-teal-500 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer" data-mode="30days">
+                        <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-sm font-bold group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-black text-gray-800 truncate">Last 30 Days</p>
+                            <p class="text-[10px] text-gray-400 font-bold truncate">Pichla 1 Mahina</p>
+                        </div>
+                        <i class="fas fa-check-circle text-teal-600 text-lg hidden check-icon shrink-0"></i>
+                    </button>
+
+                    <button type="button" onclick="fetchRevenue('90days')" class="revenue-preset-btn flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group bg-white border-gray-100 hover:border-teal-500 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer" data-mode="90days">
+                        <div class="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-sm font-bold group-hover:bg-purple-600 group-hover:text-white transition-all shrink-0">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-black text-gray-800 truncate">Last 90 Days</p>
+                            <p class="text-[10px] text-gray-400 font-bold truncate">Pichle 3 Mahine</p>
+                        </div>
+                        <i class="fas fa-check-circle text-teal-600 text-lg hidden check-icon shrink-0"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Date Range Card -->
+            <div class="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xs font-bold">
+                            <i class="fas fa-sliders-h"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-black text-gray-800">Custom Date Range</h4>
+                            <p class="text-[10px] text-gray-400 font-bold">Apni marzi ki taareekh chunein</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Start Date (From)</label>
+                        <input type="date" id="revenueFrom" class="w-full text-sm font-bold border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-800 bg-gray-50/50">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">End Date (To)</label>
+                        <input type="date" id="revenueTo" class="w-full text-sm font-bold border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-800 bg-gray-50/50">
+                    </div>
+                </div>
+
+                <button type="button" onclick="fetchRevenue('custom')" class="w-full py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:from-teal-700 hover:to-teal-800 transition-all shadow-md shadow-teal-900/10 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fas fa-filter"></i> Apply Custom Range
+                </button>
+            </div>
+
+            <!-- Real-time Selected Stats Preview -->
+            <div id="revenueModalPreview" class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
+                <div class="absolute right-0 top-0 p-4 opacity-10">
+                    <i class="fas fa-wallet text-6xl text-white"></i>
+                </div>
+                <div class="relative z-10">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-black text-teal-400 uppercase tracking-[0.2em]" id="revenuePreviewLabel">Today's Summary</span>
+                        <span class="px-2.5 py-0.5 bg-white/10 rounded-full text-[10px] font-bold text-white/80" id="revenuePreviewRange"><?= date('d M Y') ?></span>
+                    </div>
+                    <h2 class="text-3xl font-black text-white mb-3" id="revenuePreviewAmount"><?= formatCurrency($today_sales) ?></h2>
+                    <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                        <div>
+                            <p class="text-[9px] font-black text-white/60 uppercase tracking-widest">Total Orders</p>
+                            <p class="text-base font-black text-white" id="revenuePreviewOrders">-</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-black text-white/60 uppercase tracking-widest">Net Profit</p>
+                            <p class="text-base font-black text-green-400" id="revenuePreviewProfit">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 bg-white border-t border-gray-100 flex items-center justify-end gap-3">
+            <button type="button" onclick="closeRevenueModal()" class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+// ============================================================
+// Revenue Card — Interactive Centered Modal & Period Picker
+// ============================================================
+var revenueCurrentMode = 'today';
+
+function toggleRevenuePicker(e) {
+    if (e) e.stopPropagation();
+    openRevenueModal();
+}
+
+function openRevenueModal() {
+    var modal = document.getElementById('revenueModal');
+    if (!modal) return;
+
+    // Set default dates if empty
+    var today = new Date().toISOString().split('T')[0];
+    var fromEl = document.getElementById('revenueFrom');
+    var toEl   = document.getElementById('revenueTo');
+    if (fromEl && !fromEl.value) fromEl.value = today;
+    if (toEl && !toEl.value)     toEl.value   = today;
+
+    // Mark current active preset button
+    updateRevenueModalUI(revenueCurrentMode);
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(function() {
+        var content = modal.querySelector('.modal-content');
+        if (content) {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }
+    }, 10);
+}
+
+function closeRevenueModal() {
+    var modal = document.getElementById('revenueModal');
+    if (!modal) return;
+    var content = modal.querySelector('.modal-content');
+    if (content) {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+    }
+    setTimeout(function() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+}
+
+function updateRevenueModalUI(mode) {
+    document.querySelectorAll('.revenue-preset-btn').forEach(function(btn) {
+        var btnMode = btn.getAttribute('data-mode');
+        var checkIcon = btn.querySelector('.check-icon');
+        if (btnMode === mode) {
+            btn.classList.add('border-teal-600', 'bg-teal-50/50', 'shadow-md');
+            btn.classList.remove('border-gray-100', 'bg-white');
+            if (checkIcon) checkIcon.classList.remove('hidden');
+        } else {
+            btn.classList.remove('border-teal-600', 'bg-teal-50/50', 'shadow-md');
+            btn.classList.add('border-gray-100', 'bg-white');
+            if (checkIcon) checkIcon.classList.add('hidden');
+        }
+    });
+}
+
+function fetchRevenue(mode) {
+    var cardAmount   = document.getElementById('revenueCardAmount');
+    var cardBadge    = document.getElementById('revenueCardBadgeText');
+    var prevAmount   = document.getElementById('revenuePreviewAmount');
+    var prevLabel    = document.getElementById('revenuePreviewLabel');
+    var prevRange    = document.getElementById('revenuePreviewRange');
+    var prevOrders   = document.getElementById('revenuePreviewOrders');
+    var prevProfit   = document.getElementById('revenuePreviewProfit');
+
+    var body = new URLSearchParams({ mode: mode });
+
+    if (mode === 'custom') {
+        var from = document.getElementById('revenueFrom').value;
+        var to   = document.getElementById('revenueTo').value;
+        if (!from || !to) {
+            if (typeof showAlert === 'function') {
+                showAlert('Please select both Start Date and End Date.', 'warning');
+            } else {
+                alert('Please select both Start Date and End Date.');
+            }
+            return;
+        }
+        body.append('from', from);
+        body.append('to', to);
+    }
+
+    // Loading states
+    if (cardAmount) cardAmount.innerHTML = '<i class="fas fa-spinner fa-spin text-2xl opacity-70"></i>';
+    if (prevAmount) prevAmount.innerHTML = '<i class="fas fa-spinner fa-spin text-2xl opacity-70"></i>';
+    if (cardBadge)  cardBadge.textContent = 'Updating...';
+
+    fetch('actions/revenue_stats.php', { method: 'POST', body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                if (cardAmount) cardAmount.textContent = 'Error';
+                return;
+            }
+
+            revenueCurrentMode = data.mode;
+            updateRevenueModalUI(data.mode);
+
+            // Update Dashboard Card
+            if (cardAmount) cardAmount.textContent = data.formatted;
+            if (cardBadge)  cardBadge.textContent  = data.label;
+
+            var titleEl = document.getElementById('revenueCardTitle');
+            if (titleEl) {
+                if (data.mode === 'today') {
+                    titleEl.innerHTML = 'Today\'s Revenue <br><span class="text-[9px] lowercase opacity-80">(Aaj ki Kul Sale)</span>';
+                } else {
+                    titleEl.innerHTML = data.label + ' Revenue <br><span class="text-[9px] lowercase opacity-80">(Kul Sale)</span>';
+                }
+            }
+
+            // Update Modal Live Preview
+            if (prevAmount) prevAmount.textContent = data.formatted;
+            if (prevLabel)  prevLabel.textContent  = data.label + ' Summary';
+            if (prevRange)  prevRange.textContent  = data.start + ' to ' + data.end;
+            if (prevOrders) prevOrders.textContent = data.count + ' Orders';
+
+            if (prevProfit) {
+                var profitNum = parseFloat(data.profit) || 0;
+                prevProfit.textContent = 'Rs. ' + Math.round(profitNum).toLocaleString();
+                prevProfit.className   = 'text-base font-black ' + (profitNum >= 0 ? 'text-green-400' : 'text-red-400');
+            }
+
+            // If a quick preset was chosen, close modal with brief delay for smooth UX
+            if (mode !== 'custom') {
+                setTimeout(closeRevenueModal, 450);
+            }
+        })
+        .catch(function(err) {
+            console.error('Failed to fetch revenue stats:', err);
+            if (cardAmount) cardAmount.textContent = '—';
+            if (prevAmount) prevAmount.textContent = '—';
+        });
+}
+</script>
 
 <script>
 async function startSeamlessUpdate() {
