@@ -171,16 +171,62 @@ var sales = <?= json_encode($sales_date_map) ?>;
 <?php
 $_customers_list = readCSV('customers');
 $_cmap = [];
-foreach($_customers_list as $_c) $_cmap[$_c['id']] = $_c['name'];
+$_cFullMap = [];
+foreach($_customers_list as $_c) {
+    $_cmap[$_c['id']] = $_c['name'];
+    $_cFullMap[$_c['id']] = $_c;
+}
 $_rawSales = readCSV('sales');
 $_salesFull = [];
 foreach($_rawSales as $_s) {
-    $_s['customer_name'] = !empty($_s['customer_id']) ? ($_cmap[$_s['customer_id']] ?? 'Walk-In') : 'Walk-In';
+    $_cid = $_s['customer_id'] ?? '';
+    $_s['customer_name'] = !empty($_cid) ? ($_cmap[$_cid] ?? 'Walk-In') : 'Walk-In';
+    $_s['customer_phone'] = !empty($_cid) ? ($_cFullMap[$_cid]['phone'] ?? '') : '';
+    $_s['customer_address'] = !empty($_cid) ? ($_cFullMap[$_cid]['address'] ?? '') : '';
     $_salesFull[$_s['id']] = $_s;
+}
+
+$_returns_list = readCSV('returns');
+$_return_items_list = readCSV('return_items');
+$_returns_map = [];
+foreach ($_returns_list as $_r) {
+    $_returns_map[$_r['id']] = $_r;
+}
+$_returns_by_sale_product = [];
+foreach ($_return_items_list as $_ri) {
+    $_rid = $_ri['return_id'] ?? '';
+    $_r = $_returns_map[$_rid] ?? null;
+    if ($_r) {
+        $_cid = $_r['customer_id'] ?? '';
+        $_cinfo = $_cFullMap[$_cid] ?? null;
+        $_cname = $_cinfo['name'] ?? ($_cmap[$_cid] ?? 'Walk-In Customer');
+        $_cphone = $_cinfo['phone'] ?? '';
+        $_caddress = $_cinfo['address'] ?? '';
+
+        $_itemReturn = [
+            'return_id' => $_r['id'],
+            'sale_id' => $_r['sale_id'] ?? '',
+            'product_id' => $_ri['product_id'] ?? '',
+            'quantity' => (float)($_ri['quantity'] ?? 0),
+            'price_per_unit' => (float)($_ri['price_per_unit'] ?? 0),
+            'total_price' => (float)($_ri['total_price'] ?? 0),
+            'date' => $_r['date'] ?? '',
+            'created_at' => $_r['created_at'] ?? '',
+            'remarks' => $_r['remarks'] ?? '',
+            'customer_id' => $_cid,
+            'customer_name' => $_cname,
+            'customer_phone' => $_cphone,
+            'customer_address' => $_caddress
+        ];
+
+        $_key = ($_r['sale_id'] ?? '') . '_' . ($_ri['product_id'] ?? '');
+        $_returns_by_sale_product[$_key][] = $_itemReturn;
+    }
 }
 ?>
 var salesFull = <?= json_encode($_salesFull) ?>;
 var saleItems = <?= json_encode($sale_items) ?>;
+var returnsLookup = <?= json_encode($_returns_by_sale_product) ?>;
 var availableUnits = <?= json_encode($units) ?>;
 
 function getUnitHierarchyJS(unitName) {
@@ -323,7 +369,7 @@ function renderInventory() {
             }
         });
 
-        // Step 3: Calculate Sales
+        // Step 3: Calculate Sales (Net of Returns)
         let stockOutPeriod = 0;
         let salesAfterEnd = 0;
         saleItems.forEach(si => {
@@ -331,12 +377,14 @@ function renderInventory() {
             const sDate = sales[si.sale_id];
             if (!sDate) return;
             const qty = parseFloat(si.quantity) || 0;
+            const retQty = parseFloat(si.returned_qty) || 0;
+            const netQty = Math.max(0, qty - retQty);
 
             if (from && to && sDate >= from && sDate <= to) {
-                stockOutPeriod += qty;
+                stockOutPeriod += netQty;
             }
             if (to && sDate > to) {
-                salesAfterEnd += qty;
+                salesAfterEnd += netQty;
             }
         });
 
@@ -767,14 +815,22 @@ window.onload = renderInventory;
             </div>
             <div class="flex items-center gap-3">
                 <!-- Summary Badges -->
-                <div class="hidden md:flex gap-3" id="issuingSummaryBadges">
-                    <div class="px-4 py-2 bg-orange-50 border border-orange-100 rounded-2xl text-center">
-                        <div class="text-[9px] font-black text-orange-400 uppercase tracking-widest">Total Sold</div>
-                        <div class="text-lg font-black text-orange-600" id="issuingTotalQty">0</div>
+                <div class="hidden md:flex gap-2" id="issuingSummaryBadges">
+                    <div class="px-3 py-2 bg-orange-50 border border-orange-100 rounded-2xl text-center">
+                        <div class="text-[8px] font-black text-orange-400 uppercase tracking-widest">Total Sold</div>
+                        <div class="text-sm font-black text-orange-600" id="issuingTotalQty">0</div>
                     </div>
-                    <div class="px-4 py-2 bg-teal-50 border border-teal-100 rounded-2xl text-center">
-                        <div class="text-[9px] font-black text-teal-400 uppercase tracking-widest">Total Revenue</div>
-                        <div class="text-lg font-black text-teal-600" id="issuingTotalRev">Rs. 0</div>
+                    <div class="px-3 py-2 bg-red-50 border border-red-100 rounded-2xl text-center" id="issuingReturnedBadgeBox">
+                        <div class="text-[8px] font-black text-red-400 uppercase tracking-widest">Returned</div>
+                        <div class="text-sm font-black text-red-600" id="issuingTotalReturned">0</div>
+                    </div>
+                    <div class="px-3 py-2 bg-purple-50 border border-purple-100 rounded-2xl text-center">
+                        <div class="text-[8px] font-black text-purple-400 uppercase tracking-widest">Net Out</div>
+                        <div class="text-sm font-black text-purple-600" id="issuingNetQty">0</div>
+                    </div>
+                    <div class="px-3 py-2 bg-teal-50 border border-teal-100 rounded-2xl text-center">
+                        <div class="text-[8px] font-black text-teal-400 uppercase tracking-widest">Net Revenue</div>
+                        <div class="text-sm font-black text-teal-600" id="issuingTotalRev">Rs. 0</div>
                     </div>
                 </div>
                 <button onclick="printIssuingHistory()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm border border-orange-100">
@@ -831,6 +887,8 @@ window.onload = renderInventory;
             tableContainer.classList.add('hidden');
             emptyState.classList.remove('hidden');
             document.getElementById('issuingTotalQty').innerText = '0';
+            document.getElementById('issuingTotalReturned').innerText = '0';
+            document.getElementById('issuingNetQty').innerText = '0';
             document.getElementById('issuingTotalRev').innerText = 'Rs. 0';
         } else {
             tableContainer.classList.remove('hidden');
@@ -840,6 +898,7 @@ window.onload = renderInventory;
             items.sort((a, b) => (parseInt(b.sale_id) || 0) - (parseInt(a.sale_id) || 0));
 
             let totalQty = 0;
+            let totalReturned = 0;
             let totalRev = 0;
             let rowNum = 1;
             let html = '';
@@ -847,16 +906,36 @@ window.onload = renderInventory;
             items.forEach(si => {
                 const sale = salesFull[si.sale_id];
                 const qty = parseFloat(si.quantity) || 0;
+                const retQty = parseFloat(si.returned_qty) || 0;
+                const netQty = Math.max(0, qty - retQty);
                 const price = parseFloat(si.price_per_unit || 0);
                 const total = qty * price;
+                const netTotal = netQty * price;
                 const customer = sale ? (sale.customer_name || sale.customer || 'Walk-In') : 'Walk-In';
                 const dateStr = sale && sale.sale_date ? new Date(sale.sale_date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
                 const saleId = si.sale_id;
 
                 totalQty += qty;
-                totalRev += total;
+                totalReturned += retQty;
+                totalRev += netTotal;
 
                 const rowBg = rowNum % 2 === 0 ? 'background:#f9fafb;' : '';
+
+                let qtyDisplay = `<span class="px-3 py-1 bg-orange-50 text-orange-600 rounded-full font-black text-xs shadow-sm border border-orange-100">${qty % 1 === 0 ? qty : qty.toFixed(2)} ${p.unit}</span>`;
+                if (retQty > 0) {
+                    qtyDisplay += `
+                        <div class="mt-1 flex items-center justify-center gap-1">
+                            <button type="button" onclick="showReturnDetailsModal('${saleId}', '${si.product_id}'); event.stopPropagation();" 
+                                class="px-2 py-0.5 bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200 hover:border-red-500 rounded text-[9px] font-black uppercase tracking-tight transition-all active:scale-95 flex items-center gap-1 shadow-sm cursor-pointer group" 
+                                title="Click to view Customer Return Details">
+                                <i class="fas fa-undo-alt text-[8px]"></i> -${retQty % 1 === 0 ? retQty : retQty.toFixed(2)} Returned
+                                <i class="fas fa-external-link-alt text-[7px] opacity-70 group-hover:opacity-100"></i>
+                            </button>
+                            <span class="text-[10px] text-gray-500 font-bold">(Net: ${netQty % 1 === 0 ? netQty : netQty.toFixed(2)})</span>
+                        </div>
+                    `;
+                }
+
                 html += `
                     <tr class="hover:bg-orange-50/40 transition" style="${rowBg}">
                         <td class="p-5 text-xs text-gray-400 font-mono">#${saleId}</td>
@@ -866,17 +945,23 @@ window.onload = renderInventory;
                             ${sale && sale.customer_phone ? `<div class="text-[10px] text-gray-400">${sale.customer_phone}</div>` : ''}
                         </td>
                         <td class="p-5 text-center">
-                            <span class="px-3 py-1 bg-orange-50 text-orange-600 rounded-full font-black text-xs shadow-sm border border-orange-100">${qty % 1 === 0 ? qty : qty.toFixed(2)} ${p.unit}</span>
+                            ${qtyDisplay}
                         </td>
                         <td class="p-5 text-right font-bold text-gray-700 text-sm">Rs. ${price.toLocaleString()}</td>
-                        <td class="p-5 text-right font-black text-teal-700">Rs. ${total.toLocaleString()}</td>
+                        <td class="p-5 text-right">
+                            <div class="font-black ${retQty > 0 ? 'text-gray-400 line-through text-xs' : 'text-teal-700'}">Rs. ${total.toLocaleString()}</div>
+                            ${retQty > 0 ? `<div class="font-black text-teal-700 text-sm">Rs. ${Math.round(netTotal).toLocaleString()}</div>` : ''}
+                        </td>
                     </tr>
                 `;
                 rowNum++;
             });
 
+            const netQtyTotal = totalQty - totalReturned;
             tableBody.innerHTML = html;
             document.getElementById('issuingTotalQty').innerText = (totalQty % 1 === 0 ? totalQty : totalQty.toFixed(2)) + ' ' + p.unit;
+            document.getElementById('issuingTotalReturned').innerText = (totalReturned % 1 === 0 ? totalReturned : totalReturned.toFixed(2)) + ' ' + p.unit;
+            document.getElementById('issuingNetQty').innerText = (netQtyTotal % 1 === 0 ? netQtyTotal : netQtyTotal.toFixed(2)) + ' ' + p.unit;
             document.getElementById('issuingTotalRev').innerText = 'Rs. ' + Math.round(totalRev).toLocaleString();
         }
 
@@ -910,6 +995,206 @@ window.onload = renderInventory;
 
     document.getElementById('issuingHistoryModal').addEventListener('click', function(e) {
         if (e.target === this) closeIssuingModal();
+    });
+
+    function showReturnDetailsModal(saleId, productId) {
+        const p = products.find(x => x.id == productId);
+        const sale = salesFull[saleId];
+        const key = saleId + '_' + productId;
+        let records = (returnsLookup && returnsLookup[key]) ? [...returnsLookup[key]] : [];
+
+        // Fallback search across all returns
+        if (records.length === 0 && returnsLookup) {
+            Object.values(returnsLookup).forEach(list => {
+                list.forEach(r => {
+                    if (r.sale_id == saleId && r.product_id == productId) {
+                        records.push(r);
+                    }
+                });
+            });
+        }
+
+        const modal = document.getElementById('returnDetailsModal');
+        const modalBody = document.getElementById('returnDetailsModalBody');
+        const modalFooter = document.getElementById('returnDetailsModalFooter');
+        const productTitle = document.getElementById('retModalProductTitle');
+
+        productTitle.innerText = (p ? p.name : 'Product') + ' • Sale #' + saleId;
+
+        let custId = sale ? (sale.customer_id || '') : '';
+        let custName = sale ? (sale.customer_name || 'Walk-In Customer') : 'Walk-In Customer';
+        let custPhone = sale ? (sale.customer_phone || '') : '';
+        let custAddress = sale ? (sale.customer_address || '') : '';
+
+        let html = '';
+        let primaryCustomerId = custId;
+
+        if (records.length > 0) {
+            records.forEach(r => {
+                if (r.customer_id) primaryCustomerId = r.customer_id;
+                const cName = r.customer_name || custName;
+                const cPhone = r.customer_phone || custPhone;
+                const cAddress = r.customer_address || custAddress;
+                const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : (r.created_at ? r.created_at.substring(0, 10) : 'Recorded');
+
+                html += `
+                    <div class="p-5 rounded-3xl bg-gray-50/70 border border-red-100 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-gray-200/60 pb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-1 bg-red-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                    <i class="fas fa-undo-alt mr-1"></i> Return #${r.return_id}
+                                </span>
+                                <span class="text-xs font-mono font-bold text-gray-500">Invoice: #${r.sale_id}</span>
+                            </div>
+                            <div class="text-xs font-bold text-gray-500 font-mono flex items-center gap-1">
+                                <i class="far fa-calendar-alt text-teal-600"></i> ${dateStr}
+                            </div>
+                        </div>
+
+                        <!-- Customer Card -->
+                        <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Customer Details</div>
+                                <div class="text-sm font-black text-gray-800 flex items-center gap-1.5 mt-0.5">
+                                    <i class="fas fa-user-circle text-teal-600 text-base"></i> ${cName}
+                                </div>
+                                ${cPhone ? `<div class="text-[11px] text-gray-500 font-mono mt-1"><i class="fas fa-phone-alt text-[9px] text-teal-500 mr-1"></i>${cPhone}</div>` : ''}
+                                ${cAddress ? `<div class="text-[10px] text-gray-400 italic mt-0.5"><i class="fas fa-map-marker-alt text-[9px] text-orange-400 mr-1"></i>${cAddress}</div>` : ''}
+                            </div>
+                            ${r.customer_id ? `
+                                <a href="customer_ledger.php?id=${r.customer_id}" class="px-3.5 py-2 bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border border-teal-200 whitespace-nowrap self-start sm:self-auto">
+                                    <i class="fas fa-file-invoice-dollar"></i> View Ledger <i class="fas fa-arrow-right text-[9px]"></i>
+                                </a>
+                            ` : ''}
+                        </div>
+
+                        <!-- Quantities & Refund -->
+                        <div class="grid grid-cols-2 gap-3 text-center">
+                            <div class="p-3 bg-red-100/50 rounded-2xl border border-red-200">
+                                <div class="text-[9px] font-bold uppercase text-red-500 tracking-wider">Quantity Returned</div>
+                                <div class="text-lg font-black text-red-600 mt-0.5">${r.quantity} ${p ? p.unit : 'Units'}</div>
+                            </div>
+                            <div class="p-3 bg-teal-100/50 rounded-2xl border border-teal-200">
+                                <div class="text-[9px] font-bold uppercase text-teal-600 tracking-wider">Total Refunded</div>
+                                <div class="text-lg font-black text-teal-700 mt-0.5">Rs. ${Math.round(r.total_price).toLocaleString()}</div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">@ Rs. ${r.price_per_unit.toLocaleString()} / unit</div>
+                            </div>
+                        </div>
+
+                        ${r.remarks ? `
+                            <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900">
+                                <span class="font-bold"><i class="fas fa-comment-dots text-amber-500 mr-1"></i>Remarks:</span> ${r.remarks}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        } else {
+            // Fallback if return was logged via sale_item returned_qty
+            const si = saleItems.find(x => x.sale_id == saleId && x.product_id == productId);
+            const retQty = si ? (parseFloat(si.returned_qty) || 0) : 0;
+            const unitPrice = si ? (parseFloat(si.price_per_unit) || 0) : 0;
+            const refundAmt = retQty * unitPrice;
+            const saleDate = sale && sale.sale_date ? new Date(sale.sale_date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : 'Recorded';
+
+            html = `
+                <div class="p-5 rounded-3xl bg-gray-50/70 border border-red-100 shadow-sm space-y-4">
+                    <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <div class="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Customer Details</div>
+                            <div class="text-sm font-black text-gray-800 flex items-center gap-1.5 mt-0.5">
+                                <i class="fas fa-user-circle text-teal-600 text-base"></i> ${custName}
+                            </div>
+                            ${custPhone ? `<div class="text-[11px] text-gray-500 font-mono mt-1"><i class="fas fa-phone-alt text-[9px] text-teal-500 mr-1"></i>${custPhone}</div>` : ''}
+                        </div>
+                        ${primaryCustomerId ? `
+                            <a href="customer_ledger.php?id=${primaryCustomerId}" class="px-3.5 py-2 bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border border-teal-200 whitespace-nowrap self-start sm:self-auto">
+                                <i class="fas fa-file-invoice-dollar"></i> View Ledger <i class="fas fa-arrow-right text-[9px]"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="p-3 bg-red-100/50 rounded-2xl border border-red-200">
+                            <div class="text-[9px] font-bold uppercase text-red-500 tracking-wider">Quantity Returned</div>
+                            <div class="text-lg font-black text-red-600 mt-0.5">${retQty} ${p ? p.unit : 'Units'}</div>
+                        </div>
+                        <div class="p-3 bg-teal-100/50 rounded-2xl border border-teal-200">
+                            <div class="text-[9px] font-bold uppercase text-teal-600 tracking-wider">Refund Amount</div>
+                            <div class="text-lg font-black text-teal-700 mt-0.5">Rs. ${Math.round(refundAmt).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        modalBody.innerHTML = html;
+
+        let footerHtml = `
+            <button onclick="closeReturnDetailsModal()" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition">
+                Close
+            </button>
+        `;
+        if (primaryCustomerId) {
+            footerHtml = `
+                <a href="customer_ledger.php?id=${primaryCustomerId}" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fas fa-user"></i> Open Customer Ledger
+                </a>
+            ` + footerHtml;
+        }
+        footerHtml = `
+            <a href="return_history.php" class="px-5 py-2.5 bg-orange-50 hover:bg-orange-500 text-orange-600 hover:text-white border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i class="fas fa-history"></i> Return History
+            </a>
+        ` + footerHtml;
+
+        modalFooter.innerHTML = footerHtml;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeReturnDetailsModal() {
+        const modal = document.getElementById('returnDetailsModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+</script>
+
+<!-- Return Details Modal -->
+<div id="returnDetailsModal" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-[110] items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200 border border-gray-100">
+        <!-- Header -->
+        <div class="p-6 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-red-500 text-white flex items-center justify-center shadow-md shadow-red-200">
+                    <i class="fas fa-undo-alt text-base"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-black text-gray-800 tracking-tight">Return Transaction Details</h3>
+                    <p class="text-[10px] text-red-600 font-bold uppercase tracking-wider" id="retModalProductTitle">Product Return</p>
+                </div>
+            </div>
+            <button onclick="closeReturnDetailsModal()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/80 text-gray-400 hover:text-red-600 hover:bg-white transition shadow-sm" title="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto" id="returnDetailsModalBody">
+            <!-- Dynamic Content -->
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2" id="returnDetailsModalFooter">
+            <!-- Dynamic Buttons -->
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('returnDetailsModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReturnDetailsModal();
     });
 </script>
 

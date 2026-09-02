@@ -73,8 +73,11 @@ foreach ($products as $p) {
     foreach ($sale_items as $si) {
         if ($si['product_id'] != $p['id']) continue;
         $sd = $sales_date_map[$si['sale_id']] ?? '';
-        if ($sd >= $from && $sd <= $to) $outPeriod += (float)$si['quantity'];
-        if ($sd > $to) $outAfter += (float)$si['quantity'];
+        $qty = (float)$si['quantity'];
+        $retQty = (float)($si['returned_qty'] ?? 0);
+        $netQty = max(0, $qty - $retQty);
+        if ($sd >= $from && $sd <= $to) $outPeriod += $netQty;
+        if ($sd > $to) $outAfter += $netQty;
     }
 
     $finalAt = $current - $inAfter + $outAfter;
