@@ -60,6 +60,7 @@ $default_to = date('Y-m-d');
                 <option value="month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="year">This Year</option>
+                <option value="lifetime">Lifetime</option>
             </select>
         </div>
         <div class="flex flex-col">
@@ -149,10 +150,9 @@ $default_to = date('Y-m-d');
                     <th class="p-6">Product Details</th>
                     <th class="p-6 text-center">Date</th>
                     <th class="p-6 text-center">Buy Price</th>
-                    <th class="p-6 text-center">Start Stock</th>
                     <th class="p-6 text-center text-blue-600">IN (+)</th>
                     <th class="p-6 text-center text-orange-600">OUT (-)</th>
-                    <th class="p-6 text-center font-black text-teal-600">Final Stock</th>
+                    <th class="p-6 text-center font-black text-teal-600">Final Stock <span class="block font-bold text-[8px] tracking-widest text-teal-400/80 normal-case mt-1">As of Date To (all logs)</span></th>
                     <th class="p-6 text-center">Expiry</th>
                     <th class="p-6 text-center">Actions</th>
                 </tr>
@@ -265,13 +265,26 @@ function getBaseMultiplierForProductJS(unitName, p) {
     return 1;
 }
 
+function formatPlainQty(qty) {
+    qty = parseFloat(qty) || 0;
+    if (Math.abs(qty - Math.round(qty)) < 0.0001) return String(Math.round(qty));
+    return String(Math.round(qty * 100) / 100);
+}
+
+function qtyToBase(qty, unitName, p) {
+    const unit = (unitName && String(unitName).trim() !== '') ? unitName : (p.unit || '');
+    return (parseFloat(qty) || 0) * getBaseMultiplierForProductJS(unit, p);
+}
+
 function formatStockHierarchyJS(qty, p) {
-    qty = parseFloat(qty);
+    qty = parseFloat(qty) || 0;
     const unitName = p.unit || 'Units';
-    if (qty <= 0) return `0 ${unitName}`;
+    if (qty === 0) return `0 ${unitName}`;
+    const sign = qty < 0 ? '-' : '';
+    qty = Math.abs(qty);
 
     const chain = getUnitHierarchyJS(unitName);
-    if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
+    if (chain.length <= 1) return `${sign}<b>${formatPlainQty(qty)}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
 
     let remaining = qty;
     let parts = [];
@@ -302,7 +315,8 @@ function formatStockHierarchyJS(qty, p) {
     
     // Absolute total in base unit
     const baseUnit = chain[chain.length - 1].name;
-    display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+    display += ` <span class="text-[9px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${sign}${formatPlainQty(qty)} ${baseUnit}]</span>`;
+    display = sign + display;
     
     // Factor descriptions
     if (factors.length > 0) {
@@ -310,6 +324,45 @@ function formatStockHierarchyJS(qty, p) {
     }
     
     return display;
+}
+
+function restockDateYMD(r) {
+    const d = (r.date || '').toString().substring(0, 10);
+    if (d) return d;
+    return (r.created_at || '').toString().substring(0, 10);
+}
+
+function restockMatchesProduct(r, p) {
+    if (!r || !p) return false;
+    const rid = (r.product_id !== undefined && r.product_id !== null) ? String(r.product_id).trim() : '';
+    if (rid !== '') return rid == String(p.id);
+    const rn = (r.product_name || '').trim().toLowerCase();
+    const pn = (p.name || '').trim().toLowerCase();
+    return rn !== '' && pn !== '' && rn === pn;
+}
+
+function getProductRestocks(p) {
+    return restocks.filter(r => restockMatchesProduct(r, p));
+}
+
+function restockQtyBase(r, p) {
+    return qtyToBase(r.quantity, r.unit, p);
+}
+
+function sortRestocksAsc(list) {
+    return list.slice().sort((a, b) => {
+        const da = restockDateYMD(a);
+        const db = restockDateYMD(b);
+        if (da !== db) return da.localeCompare(db);
+        return (parseInt(a.id) || 0) - (parseInt(b.id) || 0);
+    });
+}
+
+function isOpeningRestock(r, p, sortedAsc) {
+    const remarks = (r.remarks || '').toLowerCase();
+    if (remarks.includes('initial') || remarks.includes('opening')) return true;
+    if (!sortedAsc || !sortedAsc.length) return false;
+    return String(sortedAsc[0].id) === String(r.id);
 }
 
 function renderInventory() {
@@ -349,50 +402,36 @@ function renderInventory() {
         if (expiryFilter === 'expired' && !isExpired) return;
         if (isExpired || isNearExpiry) totalExpiryAlerts++;
 
-        // Stock Calculation
-        // Step 1: Get current stock as baseline
+        // Current on-hand stock (products.csv) — used only for value / in-hand cards, not Final.
         const currentStock = parseFloat(p.stock_quantity) || 0;
 
-        // Step 2: Calculate Restocks
+        // IN / OUT columns = movements inside the selected date range (base units).
+        // Final = all restock IN up to Date To minus all net sales up to Date To.
+        // Period IN−OUT goes negative whenever you sell stock that arrived before `from`
+        // (opening qty / older restocks). Do not use products.stock_quantity for Final.
         let stockInPeriod = 0;
-        let restocksAfterEnd = 0;
-        restocks.forEach(r => {
-            if (r.product_id != p.id) return;
-            const rDate = r.date.substring(0, 10);
-            const qty = parseFloat(r.quantity) || 0;
-
-            if (from && to && rDate >= from && rDate <= to) {
-                stockInPeriod += qty;
-            }
-            if (to && rDate > to) {
-                restocksAfterEnd += qty;
-            }
+        let stockInToDate = 0;
+        getProductRestocks(p).forEach(r => {
+            const rDate = restockDateYMD(r);
+            const q = restockQtyBase(r, p);
+            if (!to || (rDate && rDate <= to)) stockInToDate += q;
+            if ((!from || (rDate && rDate >= from)) && (!to || (rDate && rDate <= to))) stockInPeriod += q;
         });
 
-        // Step 3: Calculate Sales (Net of Returns)
         let stockOutPeriod = 0;
-        let salesAfterEnd = 0;
+        let stockOutToDate = 0;
         saleItems.forEach(si => {
             if (si.product_id != p.id) return;
             const sDate = sales[si.sale_id];
             if (!sDate) return;
-            const qty = parseFloat(si.quantity) || 0;
-            const retQty = parseFloat(si.returned_qty) || 0;
+            const qty = qtyToBase(si.quantity, si.unit, p);
+            const retQty = qtyToBase(si.returned_qty, si.unit, p);
             const netQty = Math.max(0, qty - retQty);
-
-            if (from && to && sDate >= from && sDate <= to) {
-                stockOutPeriod += netQty;
-            }
-            if (to && sDate > to) {
-                salesAfterEnd += netQty;
-            }
+            if (!to || sDate <= to) stockOutToDate += netQty;
+            if ((!from || sDate >= from) && (!to || sDate <= to)) stockOutPeriod += netQty;
         });
 
-        // Step 4: Backtrack Stock
-        // Final Stock at the end of period: Current - (Restocks after period) + (Sales after period)
-        const finalStockAtPeriod = currentStock - restocksAfterEnd + salesAfterEnd;
-        // Start Stock at begin of period: Final - (Restocks within period) + (Sales within period)
-        const startStockAtPeriod = finalStockAtPeriod - stockInPeriod + stockOutPeriod;
+        const finalStockAtPeriod = stockInToDate - stockOutToDate;
 
         totalInUnits += stockInPeriod;
         totalOutUnits += stockOutPeriod;
@@ -410,11 +449,10 @@ function renderInventory() {
         let latestPrice = parseFloat(p.buy_price) || 0;
         
         // Find latest restock for this product
-        const productRestocks = restocks.filter(r => r.product_id == p.id);
+        const productRestocks = getProductRestocks(p);
         if (productRestocks.length > 0) {
-            // Sort by ID or date to get the latest. ID is more reliable for "last entered".
-            const latestRestock = productRestocks.sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0))[0];
-            latestDate = latestRestock.date.substring(0, 10);
+            const latestRestock = productRestocks.slice().sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0))[0];
+            latestDate = restockDateYMD(latestRestock) || latestDate;
             latestPrice = parseFloat(latestRestock.new_buy_price) || latestPrice;
         }
 
@@ -426,10 +464,9 @@ function renderInventory() {
                 </td>
                 <td class="p-6 text-center font-mono text-[11px] text-gray-500">${latestDate}</td>
                 <td class="p-6 text-center font-bold text-gray-700">Rs. ${latestPrice.toLocaleString()}</td>
-                <td class="p-6 text-center font-semibold text-gray-500">${formatStockHierarchyJS(startStockAtPeriod, p)}</td>
                 <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + formatStockHierarchyJS(stockInPeriod, p) : '-'}</td>
                 <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + formatStockHierarchyJS(stockOutPeriod, p) : '-'}</td>
-                <td class="p-6 text-center font-black text-teal-700 bg-teal-50/30">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
+                <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Logged restocks up to Date To minus net sales up to Date To. Period IN/OUT can differ when older stock is sold.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
                 <td class="p-6 text-center">
                     <div class="flex flex-col items-center gap-1">
                         ${expiryBadge}
@@ -486,13 +523,25 @@ function setQuickRange() {
     } else if (range === 'year') {
         fromDate.setMonth(0);
         fromDate.setDate(1);
+    } else if (range === 'lifetime') {
+        fromEl.value = '';
+        toEl.value = '';
+        renderInventory();
+        return;
     } else {
         return; // Custom logic handled by renderInventory
     }
     
-    fromEl.value = fromDate.toISOString().split('T')[0];
-    toEl.value = toDate.toISOString().split('T')[0];
+    fromEl.value = toLocalYMD(fromDate);
+    toEl.value = toLocalYMD(toDate);
     renderInventory();
+}
+
+function toLocalYMD(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
 }
 
 function resetFilters() {
@@ -576,6 +625,7 @@ window.onload = renderInventory;
                             <th class="p-5">Date</th>
                             <th class="p-5">Type</th>
                             <th class="p-5 text-center">Quantity</th>
+                            <th class="p-5 text-center">Balance After</th>
                             <th class="p-5 text-right">Buy Price</th>
                             <th class="p-5 text-right">Dealer / Supplier</th>
                         </tr>
@@ -591,6 +641,7 @@ window.onload = renderInventory;
                     <i class="fas fa-folder-open text-3xl text-gray-200"></i>
                 </div>
                 <p class="text-gray-400 font-bold uppercase text-xs tracking-widest">No restock records found</p>
+                <p class="text-gray-400 text-[11px] mt-2 max-w-sm mx-auto">Opening quantity typed at product create is stored as the first restock on that day. If this product was added without a restock log, only later restocks will appear here.</p>
             </div>
         </div>
     </div>
@@ -616,6 +667,7 @@ window.onload = renderInventory;
                     <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">Date</th>
                     <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">Type</th>
                     <th style="padding: 15px; text-align: center; font-size: 11px; text-transform: uppercase; font-weight: 900;">Qty Added</th>
+                    <th style="padding: 15px; text-align: center; font-size: 11px; text-transform: uppercase; font-weight: 900;">Balance After</th>
                     <th style="padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 900;">Purchase Price</th>
                     <th style="padding: 15px; text-align: right; font-size: 11px; text-transform: uppercase; font-weight: 900;">Dealer</th>
                 </tr>
@@ -686,9 +738,7 @@ window.onload = renderInventory;
         const p = products.find(x => x.id == productId);
         if (!p) return;
 
-        const productRestocks = restocks.filter(r => 
-            r.product_id == productId || (r.product_name && r.product_name.trim().toLowerCase() === (p.name || '').trim().toLowerCase())
-        ).sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
+        const productRestocks = sortRestocksAsc(getProductRestocks(p));
 
         const body = document.getElementById('logTableBody');
         const emptyState = document.getElementById('logEmptyState');
@@ -708,36 +758,42 @@ window.onload = renderInventory;
 
         let totalQty = 0;
         let totalCost = 0;
+        let runningBase = 0;
         let html = '';
         let rowNum = 1;
 
         productRestocks.forEach(r => {
             const qty = parseFloat(r.quantity) || 0;
+            const qtyBase = restockQtyBase(r, p);
             const price = parseFloat(r.new_buy_price) || 0;
             const rowTotal = qty * price;
-            totalQty += qty;
+            totalQty += qtyBase;
             totalCost += rowTotal;
+            runningBase += qtyBase;
 
-            const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
-            const isInitial = (r.remarks || '').toLowerCase().includes('initial');
+            const ymd = restockDateYMD(r);
+            const dateStr = ymd ? new Date(ymd).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '-';
+            const isInitial = isOpeningRestock(r, p, productRestocks);
             const typeLabel = isInitial ? 
-                '<span class="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase tracking-tighter border border-amber-100">Initial</span>' : 
+                '<span class="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase tracking-tighter border border-amber-100">Opening</span>' : 
                 '<span class="px-2 py-0.5 bg-teal-50 text-teal-600 rounded text-[9px] font-black uppercase tracking-tighter border border-teal-100">Restock</span>';
 
             const dealerHtml = r.dealer_id && r.dealer_id !== 'OPEN_MARKET' ? 
                 `<a href="dealer_ledger.php?id=${r.dealer_id}" class="text-blue-600 hover:text-blue-800 transition underline-offset-2 hover:underline">${r.dealer_name}</a>` : 
                 (r.dealer_name || 'Self Stock');
 
-            const rowBg = rowNum % 2 === 0 ? 'background:#f9fafb;' : '';
+            const rowBg = isInitial ? 'background:#fffbeb;' : (rowNum % 2 === 0 ? 'background:#f9fafb;' : '');
+            const unitLabel = (r.unit && String(r.unit).trim() !== '') ? r.unit : (p.unit || '');
 
             html += `
                 <tr class="hover:bg-teal-50/40 transition" style="${rowBg}">
                     <td class="p-5 text-xs text-gray-400 font-mono">#${r.id || rowNum}</td>
                     <td class="p-5 text-sm font-bold text-gray-500 font-mono">${dateStr}</td>
-                    <td class="p-5">${typeLabel}</td>
+                    <td class="p-5">${typeLabel}${isInitial ? '<div class="text-[8px] text-amber-500 font-bold uppercase mt-1">Qty at product create</div>' : ''}</td>
                     <td class="p-5 text-center">
-                        <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-black text-xs shadow-sm border border-blue-100">+${qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(2)} ${p.unit || ''}</span>
+                        <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-black text-xs shadow-sm border border-blue-100">+${qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(2)} ${unitLabel}</span>
                     </td>
+                    <td class="p-5 text-center text-xs font-black text-teal-700">${formatStockHierarchyJS(runningBase, p)}</td>
                     <td class="p-5 text-right text-sm font-black text-gray-800">Rs. ${price.toLocaleString()}</td>
                     <td class="p-5 text-right font-bold text-gray-400 text-xs italic">${dealerHtml}</td>
                 </tr>
@@ -746,7 +802,7 @@ window.onload = renderInventory;
         });
 
         body.innerHTML = html;
-        document.getElementById('restockTotalQty').innerText = (totalQty % 1 === 0 ? totalQty.toLocaleString() : totalQty.toFixed(2)) + ' ' + (p.unit || 'Units');
+        document.getElementById('restockTotalQty').innerText = formatStockHierarchyJS(totalQty, p).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         document.getElementById('restockTotalCount').innerText = productRestocks.length + ' Entries';
         document.getElementById('restockTotalCost').innerText = 'Rs. ' + Math.round(totalCost).toLocaleString();
     }
@@ -761,24 +817,27 @@ window.onload = renderInventory;
         const p = products.find(x => x.id == productId);
         if (!p) return;
 
-        const productRestocks = restocks.filter(r => 
-            r.product_id == productId || (r.product_name && r.product_name.trim().toLowerCase() === (p.name || '').trim().toLowerCase())
-        ).sort((a, b) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
+        const productRestocks = sortRestocksAsc(getProductRestocks(p));
 
         const printBody = document.getElementById('printRestockBody');
         document.getElementById('printProductName').innerText = p.name + ' (' + (p.category || 'Product') + ' • ' + (p.unit || 'Units') + ')';
         
         let html = '';
+        let runningBase = 0;
         productRestocks.forEach(r => {
-            const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-GB') : '-';
-            const isInitial = (r.remarks || '').toLowerCase().includes('initial');
-            const typeText = isInitial ? 'INITIAL' : 'RESTOCK';
+            const ymd = restockDateYMD(r);
+            const dateStr = ymd ? new Date(ymd).toLocaleDateString('en-GB') : '-';
+            const isInitial = isOpeningRestock(r, p, productRestocks);
+            const typeText = isInitial ? 'OPENING (CREATE)' : 'RESTOCK';
+            runningBase += restockQtyBase(r, p);
+            const balText = formatStockHierarchyJS(runningBase, p).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
             html += `
-                <tr style="border-bottom: 1px solid #eee;">
+                <tr style="border-bottom: 1px solid #eee; ${isInitial ? 'background:#fffbeb;' : ''}">
                     <td style="padding: 12px 15px; font-size: 11px; font-family: monospace;">${dateStr}</td>
                     <td style="padding: 12px 15px; font-size: 9px; font-weight: 900; color: ${isInitial ? '#92400e' : '#0f766e'};">${typeText}</td>
                     <td style="padding: 12px 15px; font-size: 11px; text-align: center; font-weight: bold; color: #0f766e;">+${r.quantity}</td>
+                    <td style="padding: 12px 15px; font-size: 11px; text-align: center; font-weight: bold;">${balText}</td>
                     <td style="padding: 12px 15px; font-size: 11px; font-weight: bold;">Rs. ${parseFloat(r.new_buy_price).toLocaleString()}</td>
                     <td style="padding: 12px 15px; font-size: 10px; text-align: right; color: #666; font-style: italic;">${r.dealer_name || 'Self'}</td>
                 </tr>

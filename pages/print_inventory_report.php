@@ -5,13 +5,21 @@ require_once '../includes/functions.php';
 requireLogin();
 
 // Filters from URL
-$from = $_GET['from'] ?? date('Y-m-01');
-$to = $_GET['to'] ?? date('Y-m-d');
+$from = !empty($_GET['from']) ? $_GET['from'] : '';
+$to = !empty($_GET['to']) ? $_GET['to'] : '';
 $cat = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
 $expiryFilter = $_GET['expiry'] ?? 'all';
 
-$display_range = date('d M Y', strtotime($from)) . " to " . date('d M Y', strtotime($to));
+if (empty($from) && empty($to)) {
+    $display_range = "Lifetime (All Movements)";
+} elseif (empty($from)) {
+    $display_range = "Lifetime to " . date('d M Y', strtotime($to));
+} elseif (empty($to)) {
+    $display_range = "From " . date('d M Y', strtotime($from)) . " Onwards";
+} else {
+    $display_range = date('d M Y', strtotime($from)) . " to " . date('d M Y', strtotime($to));
+}
 
 // Load Data
 $products = readCSV('products');
@@ -41,6 +49,12 @@ $alerts = 0;
 
 $report_data = [];
 
+function formatInvQty($n) {
+    $n = (float)$n;
+    if (abs($n - round($n)) < 0.0001) return number_format(round($n));
+    return number_format($n, 2);
+}
+
 foreach ($products as $p) {
     if ($cat && $p['category'] !== $cat) continue;
     if ($search && stripos($p['name'], $search) === false) continue;
@@ -56,32 +70,33 @@ foreach ($products as $p) {
     if ($expiryFilter === 'near' && !$isNear) continue;
     if ($expiryFilter === 'expired' && !$isExp) continue;
 
-    // Movement Calculation
     $current = (float)$p['stock_quantity'];
-    if ($current <= 0) continue; // Skip NIL / zero-stock items
     $inPeriod = 0;
-    $inAfter = 0;
     foreach ($restocks as $r) {
         if ($r['product_id'] != $p['id']) continue;
-        $rd = substr($r['date'], 0, 10);
-        if ($rd >= $from && $rd <= $to) $inPeriod += (float)$r['quantity'];
-        if ($rd > $to) $inAfter += (float)$r['quantity'];
+        $rd = substr($r['date'] ?? '', 0, 10);
+        $in_match = (empty($from) || $rd >= $from) && (empty($to) || $rd <= $to);
+        if ($in_match) {
+            $rUnit = !empty($r['unit']) ? $r['unit'] : ($p['unit'] ?? '');
+            $inPeriod += (float)$r['quantity'] * getBaseMultiplier($rUnit, $p);
+        }
     }
 
     $outPeriod = 0;
-    $outAfter = 0;
     foreach ($sale_items as $si) {
         if ($si['product_id'] != $p['id']) continue;
         $sd = $sales_date_map[$si['sale_id']] ?? '';
-        $qty = (float)$si['quantity'];
-        $retQty = (float)($si['returned_qty'] ?? 0);
+        $sUnit = !empty($si['unit']) ? $si['unit'] : ($p['unit'] ?? '');
+        $mult = getBaseMultiplier($sUnit, $p);
+        $qty = (float)$si['quantity'] * $mult;
+        $retQty = (float)($si['returned_qty'] ?? 0) * $mult;
         $netQty = max(0, $qty - $retQty);
-        if ($sd >= $from && $sd <= $to) $outPeriod += $netQty;
-        if ($sd > $to) $outAfter += $netQty;
+        $out_match = (empty($from) || $sd >= $from) && (empty($to) || $sd <= $to);
+        if ($out_match) $outPeriod += $netQty;
     }
 
-    $finalAt = $current - $inAfter + $outAfter;
-    $startAt = $finalAt - $inPeriod + $outPeriod;
+    $finalAt = $inPeriod - $outPeriod;
+    if ($inPeriod <= 0 && $outPeriod <= 0 && $current <= 0) continue;
 
     $total_in += $inPeriod;
     $total_out += $outPeriod;
@@ -92,7 +107,6 @@ foreach ($products as $p) {
         'name' => $p['name'],
         'category' => $p['category'],
         'unit' => $p['unit'],
-        'start' => $startAt,
         'in' => $inPeriod,
         'out' => $outPeriod,
         'final' => $finalAt,
@@ -191,7 +205,6 @@ foreach ($products as $p) {
         <thead>
             <tr>
                 <th>Product Name</th>
-                <th class="text-center">Start</th>
                 <th class="text-center" style="color:#2563eb">IN (+)</th>
                 <th class="text-center" style="color:#d97706">OUT (-)</th>
                 <th class="text-center">Final Stock</th>
@@ -205,10 +218,9 @@ foreach ($products as $p) {
                     <div class="font-bold text-gray-800"><?= htmlspecialchars($row['name']) ?></div>
                     <div style="font-size: 9px; color: #94a3b8;"><?= htmlspecialchars($row['category']) ?> • <?= $row['unit'] ?></div>
                 </td>
-                <td class="text-center font-bold" style="color:#64748b"><?= number_format($row['start']) ?></td>
-                <td class="text-center font-bold" style="color:#2563eb"><?= $row['in'] > 0 ? '+' . number_format($row['in']) : '-' ?></td>
-                <td class="text-center font-bold" style="color:#d97706"><?= $row['out'] > 0 ? '-' . number_format($row['out']) : '-' ?></td>
-                <td class="text-center font-black" style="color:#0f172a; background: #f8fafc;"><?= number_format($row['final']) ?></td>
+                <td class="text-center font-bold" style="color:#2563eb"><?= $row['in'] > 0 ? '+' . formatInvQty($row['in']) : '-' ?></td>
+                <td class="text-center font-bold" style="color:#d97706"><?= $row['out'] > 0 ? '-' . formatInvQty($row['out']) : '-' ?></td>
+                <td class="text-center font-black" style="color:#0f172a; background: #f8fafc;"><?= formatInvQty($row['final']) ?></td>
                 <td class="text-center">
                     <?php if ($row['isExp']): ?>
                         <span class="badge badge-red">Expired</span>
