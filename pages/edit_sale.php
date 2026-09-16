@@ -366,7 +366,8 @@ var cart = currentItemsRaw.map(item => {
         buy_price: parseFloat(item.buy_price || 0),
         f2: p ? p.factor_level2 : 1,
         f3: p ? p.factor_level3 : 1,
-        max_stock_base: (p ? parseFloat(p.stock_quantity) : 0) + (parseFloat(item.quantity) * getBaseMultiplierForProductJS(unitName, p || { unit: unitName, f2: 1, f3: 1 }))
+        returned_qty: parseFloat(item.returned_qty || 0),
+        max_stock_base: (p ? parseFloat(p.stock_quantity) : 0) + (Math.max(0, parseFloat(item.quantity) - parseFloat(item.returned_qty || 0)) * getBaseMultiplierForProductJS(unitName, p || { unit: unitName, f2: 1, f3: 1 }))
     };
 });
 var isBelowCostConfirmed = false;
@@ -485,7 +486,12 @@ function updateQty(id, delta) {
     const item = cart.find(i => i.id == id);
     if (item) {
         let newQty = item.qty + delta;
-        if (newQty < 1) newQty = 1;
+        const retQty = parseFloat(item.returned_qty || 0);
+        if (newQty < retQty) {
+            showAlert(`Cannot reduce quantity below already returned amount (${retQty}).`, 'Return Protection');
+            return;
+        }
+        if (newQty < 1 && retQty === 0) newQty = 1;
 
         const mult = getBaseMultiplierForProductJS(item.unit, item);
         if (newQty * mult > item.max_stock_base) {
@@ -557,6 +563,11 @@ function validateItemPrice(item) {
 }
 
 function removeFromCart(id) {
+    const item = cart.find(i => i.id == id);
+    if (item && (parseFloat(item.returned_qty) || 0) > 0) {
+        showAlert(`Cannot remove item because ${item.returned_qty} unit(s) have already been returned by the customer.`, 'Return Protection');
+        return;
+    }
     cart = cart.filter(i => i.id != id);
     renderCart();
 }

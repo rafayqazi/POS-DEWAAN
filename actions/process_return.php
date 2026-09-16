@@ -49,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['process_return'])) {
                     // Increment Product Stock
                     if (isset($p_map[$pid])) {
                         $idx = $p_map[$pid];
-                        $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + $qty;
+                        $multiplier = getBaseMultiplier($si['unit'] ?? $all_products[$idx]['unit'], $all_products[$idx]);
+                        $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + ($qty * $multiplier);
                     }
                     
                     // Prepare updated sale item (we'll save this after transaction)

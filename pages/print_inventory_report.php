@@ -72,17 +72,19 @@ foreach ($products as $p) {
 
     $current = (float)$p['stock_quantity'];
     $inPeriod = 0;
+    $inAfter = 0;
     foreach ($restocks as $r) {
         if ($r['product_id'] != $p['id']) continue;
         $rd = substr($r['date'] ?? '', 0, 10);
+        $rUnit = !empty($r['unit']) ? $r['unit'] : ($p['unit'] ?? '');
+        $q = (float)$r['quantity'] * getBaseMultiplier($rUnit, $p);
         $in_match = (empty($from) || $rd >= $from) && (empty($to) || $rd <= $to);
-        if ($in_match) {
-            $rUnit = !empty($r['unit']) ? $r['unit'] : ($p['unit'] ?? '');
-            $inPeriod += (float)$r['quantity'] * getBaseMultiplier($rUnit, $p);
-        }
+        if ($in_match) $inPeriod += $q;
+        if (!empty($to) && $rd > $to) $inAfter += $q;
     }
 
     $outPeriod = 0;
+    $outAfter = 0;
     foreach ($sale_items as $si) {
         if ($si['product_id'] != $p['id']) continue;
         $sd = $sales_date_map[$si['sale_id']] ?? '';
@@ -93,9 +95,10 @@ foreach ($products as $p) {
         $netQty = max(0, $qty - $retQty);
         $out_match = (empty($from) || $sd >= $from) && (empty($to) || $sd <= $to);
         if ($out_match) $outPeriod += $netQty;
+        if (!empty($to) && $sd > $to) $outAfter += $netQty;
     }
 
-    $finalAt = $inPeriod - $outPeriod;
+    $finalAt = $current - $inAfter + $outAfter;
     if ($inPeriod <= 0 && $outPeriod <= 0 && $current <= 0) continue;
 
     $total_in += $inPeriod;

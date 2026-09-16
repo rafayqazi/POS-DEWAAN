@@ -153,9 +153,10 @@ $units = readCSV('units');
         <div class="flex-1 overflow-y-auto p-2 bg-gray-50/50" id="productList">
             <div class="flex flex-col gap-1 pr-2">
             <?php foreach ($products as $p): 
-                if ($p['stock_quantity'] <= 0) continue; 
+                $stockVal = (float)($p['stock_quantity'] ?? 0);
+                $isOutOfStock = ($stockVal <= 0);
             ?>
-                <div class="product-card bg-white border border-gray-100 p-2.5 rounded-lg hover:border-teal-400 hover:bg-teal-50/50 cursor-pointer transition-all flex items-center gap-4 group"
+                <div class="product-card bg-white border border-gray-100 p-2.5 rounded-lg <?= $isOutOfStock ? 'opacity-60 bg-gray-50/70 border-dashed hover:border-red-300' : 'hover:border-teal-400 hover:bg-teal-50/50' ?> cursor-pointer transition-all flex items-center gap-4 group"
                      onclick='handleProductClick(this)'
                      data-product="<?= htmlspecialchars(json_encode($p)) ?>"
                      data-name="<?= strtolower(htmlspecialchars($p['name'])) ?>"
@@ -166,6 +167,9 @@ $units = readCSV('units');
                         <div class="flex items-center gap-2 mt-0.5">
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider"><?= $p['category'] ?></span>
                             <span class="text-[10px] text-gray-400 font-medium italic">Unit: <?= $p['unit'] ?></span>
+                            <?php if ($isOutOfStock): ?>
+                                <span class="text-[9px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-black uppercase tracking-wider">Out of Stock</span>
+                            <?php endif; ?>
                         </div>
                     </div>
 
@@ -174,8 +178,8 @@ $units = readCSV('units');
                             <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Availability</span>
                             <span id="stock-label-<?= $p['id'] ?>" data-id="<?= $p['id'] ?>" data-stock="<?= $p['stock_quantity'] ?>"
                                   data-unit="<?= $p['unit'] ?>" data-f2="<?= (float)($p['factor_level2'] ?? 1) ?>" data-f3="<?= (float)($p['factor_level3'] ?? 1) ?>"
-                                  class="text-xs font-black <?= $p['stock_quantity'] < 10 ? 'text-red-500' : 'text-teal-600' ?>">
-                                <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
+                                  class="text-xs font-black <?= $stockVal <= 0 ? 'text-red-500' : ($stockVal < 10 ? 'text-orange-500' : 'text-teal-600') ?>">
+                                <?= $isOutOfStock ? '<span class="text-red-500 font-bold">Out of Stock</span>' : formatStockHierarchy($p['stock_quantity'], $p) ?>
                             </span>
                         </div>
                         <div class="flex flex-col gap-1 items-end shrink-0">
@@ -462,6 +466,10 @@ function formatStockHierarchyJS(qty, p) {
 
 function handleProductClick(card) {
     const p = JSON.parse(card.dataset.product);
+    if ((parseFloat(p.stock_quantity) || 0) <= 0) {
+        showAlert(`"${p.name}" is Out of Stock (0 available) and cannot be added to cart.`, 'Out of Stock');
+        return;
+    }
     addToCart(p.id, p.name, p.sell_price, p.unit, p.stock_quantity, p.buy_price, p.factor_level2, p.factor_level3);
 }
 
@@ -732,8 +740,8 @@ function updateStockLabels() {
             '<span class="text-red-500 font-bold">Out of Stock</span>' : 
             formatStockHierarchyJS(remainingBase, { primaryUnit: label.dataset.unit, factor_level2: label.dataset.f2, factor_level3: label.dataset.f3 });
         
-        if (remainingBase <= 0) card.classList.add('opacity-50', 'pointer-events-none');
-        else card.classList.remove('opacity-50', 'pointer-events-none');
+        if (remainingBase <= 0) card.classList.add('opacity-60');
+        else card.classList.remove('opacity-60');
     });
 }
 

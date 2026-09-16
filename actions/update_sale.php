@@ -20,20 +20,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
         return $si['sale_id'] == $sale_id;
     });
 
-    // 2. Consolidated Stock Transaction (Restore Old then Deduct New)
+    // 2. Map old items for returned quantities and validations
+    $old_returned_map = [];
+    foreach ($old_items as $oi) {
+        $old_returned_map[$oi['product_id']] = (float)($oi['returned_qty'] ?? 0);
+    }
+
+    // Validate that new item quantities are not less than already returned amounts
+    foreach ($cart as $item) {
+        $ret_qty = $old_returned_map[$item['id']] ?? 0;
+        if ($ret_qty > 0 && (float)$item['qty'] < $ret_qty) {
+            $p_name = $item['name'] ?? ('Product #' . $item['id']);
+            redirect("../pages/edit_sale.php?id=$sale_id&error=" . urlencode("Cannot reduce $p_name quantity below already returned amount ($ret_qty)"));
+            exit;
+        }
+    }
+
+    // Consolidated Stock Transaction (Restore Old then Deduct New)
     $error_items = [];
     $final_product_list = [];
     $transaction_success = processCSVTransaction('products', function($all_products) use ($old_items, $cart, &$error_items, &$final_product_list) {
         $p_map = [];
         foreach($all_products as $idx => $p) $p_map[$p['id']] = $idx;
 
-        // Part A: Restore Old Stock
+        // Part A: Restore Old Stock (Only unreturned portion, as returned units are already in stock)
         foreach($old_items as $oi) {
             if (isset($p_map[$oi['product_id']])) {
                 $idx = $p_map[$oi['product_id']];
                 $product = $all_products[$idx];
                 $multiplier = getBaseMultiplier($oi['unit'] ?? $product['unit'], $product);
-                $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + ((float)$oi['quantity'] * $multiplier);
+                $unreturned_qty = max(0, (float)$oi['quantity'] - (float)($oi['returned_qty'] ?? 0));
+                $all_products[$idx]['stock_quantity'] = (float)$all_products[$idx]['stock_quantity'] + ($unreturned_qty * $multiplier);
             }
         }
 
@@ -98,6 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
                 break;
             }
         }
+        $ret_qty = $old_returned_map[$item['id']] ?? 0;
         insertCSV('sale_items', [
             'sale_id' => $sale_id,
             'product_id' => $item['id'],
@@ -106,7 +124,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_sale'])) {
             'price_per_unit' => $item['price'],
             'buy_price' => $buy_price,
             'avg_buy_price' => $avg_buy_price,
-            'total_price' => $item['total']
+            'total_price' => $item['total'],
+            'returned_qty' => $ret_qty > 0 ? (string)$ret_qty : ''
         ]);
     }
 

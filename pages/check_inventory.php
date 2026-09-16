@@ -42,9 +42,9 @@ $total_stock_value = 0;
 $today = date('Y-m-d');
 $next_30_days = date('Y-m-d', strtotime('+30 days'));
 
-// Current date for default filters
-$default_from = date('Y-m-d', strtotime('-30 days'));
-$default_to = date('Y-m-d');
+// Current date for default filters (Lifetime = no date restriction)
+$default_from = '';
+$default_to = '';
 ?>
 
 <div class="mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-end gap-4 glass no-print">
@@ -56,11 +56,11 @@ $default_to = date('Y-m-d');
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
                 <option value="week">Last 7 Days</option>
-                <option value="30_days" selected>Last 30 Days</option>
+                <option value="30_days">Last 30 Days</option>
                 <option value="month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="year">This Year</option>
-                <option value="lifetime">Lifetime</option>
+                <option value="lifetime" selected>Lifetime</option>
             </select>
         </div>
         <div class="flex flex-col">
@@ -152,7 +152,7 @@ $default_to = date('Y-m-d');
                     <th class="p-6 text-center">Buy Price</th>
                     <th class="p-6 text-center text-blue-600">IN (+)</th>
                     <th class="p-6 text-center text-orange-600">OUT (-)</th>
-                    <th class="p-6 text-center font-black text-teal-600">Final Stock <span class="block font-bold text-[8px] tracking-widest text-teal-400/80 normal-case mt-1">As of Date To (all logs)</span></th>
+                    <th class="p-6 text-center font-black text-teal-600">Final Stock <span class="block font-bold text-[8px] tracking-widest text-teal-400/80 normal-case mt-1">On-hand as of Date To (same as POS)</span></th>
                     <th class="p-6 text-center">Expiry</th>
                     <th class="p-6 text-center">Actions</th>
                 </tr>
@@ -402,24 +402,24 @@ function renderInventory() {
         if (expiryFilter === 'expired' && !isExpired) return;
         if (isExpired || isNearExpiry) totalExpiryAlerts++;
 
-        // Current on-hand stock (products.csv) — used only for value / in-hand cards, not Final.
+        // Live on-hand stock — same field POS availability uses (products.stock_quantity).
         const currentStock = parseFloat(p.stock_quantity) || 0;
 
-        // IN / OUT columns = movements inside the selected date range (base units).
-        // Final = all restock IN up to Date To minus all net sales up to Date To.
-        // Period IN−OUT goes negative whenever you sell stock that arrived before `from`
-        // (opening qty / older restocks). Do not use products.stock_quantity for Final.
+        // IN / OUT columns = restocks / net sales inside the selected date range (base units).
+        // Final = live stock rolled back past Date To, so Lifetime / Date To=today matches POS.
+        // (IN − OUT from logs can drift because inventory edits, dealer returns, etc. change
+        // stock_quantity without a matching restock/sale row.)
         let stockInPeriod = 0;
-        let stockInToDate = 0;
+        let stockInAfterTo = 0;
         getProductRestocks(p).forEach(r => {
             const rDate = restockDateYMD(r);
             const q = restockQtyBase(r, p);
-            if (!to || (rDate && rDate <= to)) stockInToDate += q;
+            if (to && rDate && rDate > to) stockInAfterTo += q;
             if ((!from || (rDate && rDate >= from)) && (!to || (rDate && rDate <= to))) stockInPeriod += q;
         });
 
         let stockOutPeriod = 0;
-        let stockOutToDate = 0;
+        let stockOutAfterTo = 0;
         saleItems.forEach(si => {
             if (si.product_id != p.id) return;
             const sDate = sales[si.sale_id];
@@ -427,11 +427,11 @@ function renderInventory() {
             const qty = qtyToBase(si.quantity, si.unit, p);
             const retQty = qtyToBase(si.returned_qty, si.unit, p);
             const netQty = Math.max(0, qty - retQty);
-            if (!to || sDate <= to) stockOutToDate += netQty;
+            if (to && sDate > to) stockOutAfterTo += netQty;
             if ((!from || sDate >= from) && (!to || sDate <= to)) stockOutPeriod += netQty;
         });
 
-        const finalStockAtPeriod = stockInToDate - stockOutToDate;
+        const finalStockAtPeriod = currentStock - stockInAfterTo + stockOutAfterTo;
 
         totalInUnits += stockInPeriod;
         totalOutUnits += stockOutPeriod;
@@ -466,7 +466,7 @@ function renderInventory() {
                 <td class="p-6 text-center font-bold text-gray-700">Rs. ${latestPrice.toLocaleString()}</td>
                 <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + formatStockHierarchyJS(stockInPeriod, p) : '-'}</td>
                 <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + formatStockHierarchyJS(stockOutPeriod, p) : '-'}</td>
-                <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Logged restocks up to Date To minus net sales up to Date To. Period IN/OUT can differ when older stock is sold.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
+                <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Same on-hand qty as POS. Date To in the past rolls live stock back by later restocks/sales. Period IN/OUT are log movements only.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
                 <td class="p-6 text-center">
                     <div class="flex flex-col items-center gap-1">
                         ${expiryBadge}
@@ -545,9 +545,9 @@ function toLocalYMD(d) {
 }
 
 function resetFilters() {
-    document.getElementById('invQuickRange').value = '30_days';
-    document.getElementById('invDateFrom').value = "<?= date('Y-m-d', strtotime('-30 days')) ?>";
-    document.getElementById('invDateTo').value = "<?= date('Y-m-d') ?>";
+    document.getElementById('invQuickRange').value = 'lifetime';
+    document.getElementById('invDateFrom').value = '';
+    document.getElementById('invDateTo').value = '';
     document.getElementById('invCategory').value = '';
     document.getElementById('invSearch').value = '';
     document.getElementById('invExpiry').value = 'all';
@@ -565,7 +565,188 @@ function printInventoryReport() {
     window.open(url, '_blank');
 }
 
-window.onload = renderInventory;
+var reconcileData = [];
+
+function openReconcileModal() {
+    var modal = document.getElementById('reconcileModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    loadReconcilePreview();
+}
+
+function closeReconcileModal() {
+    var modal = document.getElementById('reconcileModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function loadReconcilePreview() {
+    var loading = document.getElementById('recLoading');
+    var empty = document.getElementById('recEmpty');
+    var container = document.getElementById('recTableContainer');
+    var btnSyncAll = document.getElementById('btnSyncAll');
+    
+    if (loading) loading.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    if (container) container.classList.add('hidden');
+    if (btnSyncAll) btnSyncAll.classList.add('hidden');
+
+    fetch('../actions/reconcile_stock.php?action=preview')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (loading) loading.classList.add('hidden');
+            if (data.status === 'success') {
+                reconcileData = data.discrepancies || [];
+                var elChecked = document.getElementById('recTotalChecked');
+                var elMismatched = document.getElementById('recTotalMismatched');
+                if (elChecked) elChecked.innerText = data.total_products || 0;
+                if (elMismatched) elMismatched.innerText = reconcileData.length;
+
+                if (reconcileData.length > 0) {
+                    if (btnSyncAll) btnSyncAll.classList.remove('hidden');
+                    if (container) container.classList.remove('hidden');
+                    renderReconcileTable(reconcileData);
+                } else {
+                    if (empty) empty.classList.remove('hidden');
+                }
+            } else {
+                if (typeof showAlert === 'function') showAlert(data.message || 'Failed to load reconciliation data.', 'Error');
+            }
+        })
+        .catch(function(err) {
+            if (loading) loading.classList.add('hidden');
+            if (typeof showAlert === 'function') showAlert('Network error while auditing inventory.', 'Error');
+        });
+}
+
+function renderReconcileTable(items) {
+    var tbody = document.getElementById('recTableBody');
+    if (!tbody) return;
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400 italic">No matching products.</td></tr>';
+        return;
+    }
+
+    var html = '';
+    items.forEach(function(item) {
+        var diffText = item.diff > 0 ? ('+' + item.diff + ' surplus') : (item.diff + ' deficit');
+        var diffClass = item.diff > 0 ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-red-600 bg-red-50 border-red-100';
+        html += '<tr class="hover:bg-gray-50/60 transition border-b border-gray-50 last:border-0">' +
+            '<td class="p-4">' +
+                '<div class="font-bold text-gray-800">' + item.name + '</div>' +
+                '<div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">' + (item.unit || '') + ' • ID: ' + item.id + '</div>' +
+            '</td>' +
+            '<td class="p-4 text-center font-bold text-blue-600">+' + item.total_in + '</td>' +
+            '<td class="p-4 text-center font-bold text-orange-600">-' + item.total_out + '</td>' +
+            '<td class="p-4 text-center font-black text-teal-700 bg-teal-50/40">' + item.expected + '</td>' +
+            '<td class="p-4 text-center font-black text-gray-800">' + item.current + '</td>' +
+            '<td class="p-4 text-center font-bold">' +
+                '<span class="px-2.5 py-1 rounded-full text-[10px] font-black border ' + diffClass + '">' + diffText + '</span>' +
+            '</td>' +
+            '<td class="p-4 text-center">' +
+                '<button onclick="syncSingleProduct(' + item.id + ', ' + item.expected + ', this)" class="px-3 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 transition shadow-sm active:scale-95 whitespace-nowrap">' +
+                    'Sync (' + item.expected + ')' +
+                '</button>' +
+            '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function filterReconcileList() {
+    var input = document.getElementById('recSearchInput');
+    var q = (input ? input.value : '').toLowerCase().trim();
+    if (!q) {
+        renderReconcileTable(reconcileData);
+    } else {
+        var filtered = reconcileData.filter(function(i) {
+            return (i.name || '').toLowerCase().indexOf(q) !== -1 || String(i.id).indexOf(q) !== -1;
+        });
+        renderReconcileTable(filtered);
+    }
+}
+
+function syncSingleProduct(productId, expected, btn) {
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
+    var formData = new FormData();
+    formData.append('action', 'sync');
+    formData.append('product_id', productId);
+
+    fetch('../actions/reconcile_stock.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.status === 'success') {
+            if (typeof showAlert === 'function') showAlert(data.message, 'Success');
+            var prod = products.find(function(p) { return p.id == productId; });
+            if (prod) prod.stock_quantity = expected;
+            renderInventory();
+            loadReconcilePreview();
+        } else {
+            if (typeof showAlert === 'function') showAlert(data.message || 'Sync failed.', 'Error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Sync (' + expected + ')';
+            }
+        }
+    })
+    .catch(function(err) {
+        if (typeof showAlert === 'function') showAlert('Network error during sync.', 'Error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Sync (' + expected + ')';
+        }
+    });
+}
+
+function syncAllDiscrepancies() {
+    if (!confirm('Are you sure you want to synchronize all ' + reconcileData.length + ' mismatched products to match their transaction logs? This will update live stock to match calculated balance.')) return;
+
+    var btn = document.getElementById('btnSyncAll');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Syncing All...';
+    }
+
+    var formData = new FormData();
+    formData.append('action', 'sync');
+    formData.append('product_id', 'all');
+
+    fetch('../actions/reconcile_stock.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic mr-2"></i> Sync All Mismatched Items';
+        }
+        if (data.status === 'success') {
+            if (typeof showAlert === 'function') showAlert(data.message, 'Success');
+            setTimeout(function() { location.reload(); }, 1000);
+        } else {
+            if (typeof showAlert === 'function') showAlert(data.message || 'Sync failed.', 'Error');
+        }
+    })
+    .catch(function(err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic mr-2"></i> Sync All Mismatched Items';
+        }
+        if (typeof showAlert === 'function') showAlert('Network error during sync.', 'Error');
+    });
+}
+
+window.onload = function() { setQuickRange(); };
 </script>
 
 <style>
@@ -1251,10 +1432,94 @@ window.onload = renderInventory;
     </div>
 </div>
 
+<!-- Reconcile Modal -->
+<div id="reconcileModal" class="fixed inset-0 bg-black/60 backdrop-blur-md hidden z-[100] items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300 flex flex-col">
+        <!-- Sticky Header -->
+        <div class="p-6 md:p-8 border-b border-gray-100 flex items-center justify-between bg-white z-10">
+            <div>
+                <h3 class="text-2xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center text-lg shadow-sm border border-teal-100">
+                        <i class="fas fa-sync-alt"></i>
+                    </span>
+                    Stock Reconciliation & Audit
+                </h3>
+                <p class="text-xs text-gray-400 font-medium mt-1">Compares lifetime movement logs (Restocks, Sales, Returns) against live POS inventory stock.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="syncAllDiscrepancies()" id="btnSyncAll" class="hidden px-5 py-2.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 transition shadow-md flex items-center gap-2 active:scale-95">
+                    <i class="fas fa-magic"></i> Sync All Mismatched Items
+                </button>
+                <button onclick="closeReconcileModal()" class="w-11 h-11 flex items-center justify-center rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition shadow-sm border border-gray-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Search & Stats Bar -->
+        <div class="px-8 py-4 bg-gray-50/70 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-white rounded-xl border border-gray-200/80 shadow-xs flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase text-gray-400">Total Checked:</span>
+                    <span id="recTotalChecked" class="text-xs font-black text-gray-700">0</span>
+                </div>
+                <div class="px-4 py-2 bg-white rounded-xl border border-gray-200/80 shadow-xs flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase text-gray-400">Mismatched:</span>
+                    <span id="recTotalMismatched" class="text-xs font-black text-orange-600">0</span>
+                </div>
+            </div>
+            <div class="w-72 relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fas fa-search text-xs"></i>
+                </span>
+                <input type="text" id="recSearchInput" oninput="filterReconcileList()" placeholder="Search mismatched product..." class="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none">
+            </div>
+        </div>
+
+        <!-- Modal Body / Table -->
+        <div class="overflow-y-auto p-6 md:p-8 flex-1" id="reconcileModalBody">
+            <div id="recLoading" class="py-16 text-center">
+                <i class="fas fa-circle-notch fa-spin text-3xl text-teal-600"></i>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-4">Auditing all products & logs...</p>
+            </div>
+            
+            <div id="recEmpty" class="hidden py-16 text-center">
+                <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                </div>
+                <h4 class="text-base font-black text-gray-800">100% In Sync!</h4>
+                <p class="text-xs text-gray-400 mt-1">All products perfectly match their transaction logs. No discrepancies found.</p>
+            </div>
+
+            <div id="recTableContainer" class="hidden rounded-2xl border border-gray-100 overflow-hidden shadow-sm bg-white">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-[10px] uppercase font-black tracking-widest text-gray-400 border-b border-gray-100">
+                            <th class="p-4">Product Details</th>
+                            <th class="p-4 text-center text-blue-600">Total IN</th>
+                            <th class="p-4 text-center text-orange-600">Total OUT</th>
+                            <th class="p-4 text-center text-teal-700 font-black">Logged Balance</th>
+                            <th class="p-4 text-center text-gray-700 font-black">POS Live Stock</th>
+                            <th class="p-4 text-center text-red-600">Drift / Diff</th>
+                            <th class="p-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recTableBody" class="divide-y divide-gray-50 text-xs font-medium">
+                        <!-- JS Rendered -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    document.getElementById('returnDetailsModal').addEventListener('click', function(e) {
-        if (e.target === this) closeReturnDetailsModal();
-    });
+    var recModalEl = document.getElementById('reconcileModal');
+    if (recModalEl) {
+        recModalEl.addEventListener('click', function(e) {
+            if (e.target === this) closeReconcileModal();
+        });
+    }
 </script>
 
 <?php include '../includes/footer.php'; ?>
