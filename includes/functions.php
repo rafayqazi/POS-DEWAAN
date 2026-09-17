@@ -706,14 +706,21 @@ function formatStockHierarchy($qty, $product) {
     
     $qty = (float)$qty;
     $unit_name = $product['unit'] ?? 'Units';
-    if ($qty <= 0) return "0 " . $unit_name;
+
+    // Handle zero
+    if ($qty === 0.0) return "0 " . $unit_name;
+
+    // Handle negative: show sign + abs value
+    $sign = $qty < 0 ? '-' : '';
+    $absQty = abs($qty);
 
     $full_hierarchy = getUnitHierarchy($unit_name);
     if (count($full_hierarchy) <= 1) {
-         return "<b>" . $qty . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
+         $rounded = (round($absQty, 2) == round($absQty, 0)) ? (int)$absQty : round($absQty, 2);
+         return $sign . "<b>" . $rounded . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
     }
 
-    $remaining = $qty;
+    $remaining = $absQty;
     $parts = [];
     $factors = [];
     
@@ -739,15 +746,20 @@ function formatStockHierarchy($qty, $product) {
         }
     }
     
-    if (empty($parts) && $remaining >= 0) {
-        $display = "<b>" . round($remaining, 2) . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
+    if (empty($parts)) {
+        $rounded = (round($remaining, 2) == round($remaining, 0)) ? (int)$remaining : round($remaining, 2);
+        $display = "<b>" . $rounded . "</b> <span class='text-[10px] uppercase opacity-70'>$unit_name</span>";
     } else {
-        $display = empty($parts) ? "0 $unit_name" : implode(", ", $parts);
+        $display = implode(", ", $parts);
     }
 
-    // Always show the absolute base total (requested by user)
+    // Prepend sign for negative values
+    $display = $sign . $display;
+
+    // Always show the absolute base total
     $base_unit = end($full_hierarchy)['name'];
-    $display .= " <span class='text-[10px] text-teal-600 font-bold ml-1 italic'>[Total: " . (round($qty, 2) == round($qty, 0) ? (int)$qty : round($qty, 2)) . " $base_unit]</span>";
+    $absRounded = (round($absQty, 2) == round($absQty, 0)) ? (int)$absQty : round($absQty, 2);
+    $display .= " <span class='text-[10px] text-teal-600 font-bold ml-1 italic'>[Total: {$sign}{$absRounded} $base_unit]</span>";
 
     // Show conversion factors for clarity
     if (!empty($factors)) {

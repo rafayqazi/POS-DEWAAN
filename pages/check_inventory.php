@@ -106,6 +106,9 @@ $default_to = '';
     </div>
     
     <div class="flex gap-2">
+        <button onclick="syncAllStockToDB()" id="syncStockBtn" class="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 shadow-lg font-bold text-xs h-[46px] flex items-center transition active:scale-95" title="DB stock ko transaction logs se sync karo (negative bhi)">
+            <i class="fas fa-database mr-2"></i> Sync Stock to DB
+        </button>
         <button onclick="printInventoryReport()" class="bg-gray-800 text-white px-6 py-3 rounded-xl hover:bg-black shadow-lg font-bold text-xs h-[46px] flex items-center transition active:scale-95">
             <i class="fas fa-print mr-2"></i> Print / Save PDF
         </button>
@@ -152,7 +155,7 @@ $default_to = '';
                     <th class="p-6 text-center">Buy Price</th>
                     <th class="p-6 text-center text-blue-600">IN (+)</th>
                     <th class="p-6 text-center text-orange-600">OUT (-)</th>
-                    <th class="p-6 text-center font-black text-teal-600">Final Stock <span class="block font-bold text-[8px] tracking-widest text-teal-400/80 normal-case mt-1">On-hand as of Date To (same as POS)</span></th>
+                    <th class="p-6 text-center font-black text-teal-600">Final Stock <span class="block font-bold text-[8px] tracking-widest text-teal-400/80 normal-case mt-1">Period IN − OUT (Log-Based)</span></th>
                     <th class="p-6 text-center">Expiry</th>
                     <th class="p-6 text-center">Actions</th>
                 </tr>
@@ -431,12 +434,15 @@ function renderInventory() {
             if ((!from || sDate >= from) && (!to || sDate <= to)) stockOutPeriod += netQty;
         });
 
-        const finalStockAtPeriod = currentStock - stockInAfterTo + stockOutAfterTo;
+        // Log-based final stock: IN minus OUT within the selected period.
+        // If no date filter (Lifetime), this = total restocks ever minus total sales ever.
+        // Negative means more was sold than restocked (oversold / DB was manually adjusted).
+        const finalStockAtPeriod = stockInPeriod - stockOutPeriod;
 
         totalInUnits += stockInPeriod;
         totalOutUnits += stockOutPeriod;
-        totalStockValueAmount += currentStock * (parseFloat(p.buy_price) || 0);
-        totalCurrentStockTotal += currentStock;
+        totalStockValueAmount += finalStockAtPeriod * (parseFloat(p.buy_price) || 0);
+        totalCurrentStockTotal += finalStockAtPeriod;
 
         // Expiry Badge
         let expiryBadge = '<span class="text-gray-400 italic text-[10px]">No Expiry</span>';
@@ -466,7 +472,7 @@ function renderInventory() {
                 <td class="p-6 text-center font-bold text-gray-700">Rs. ${latestPrice.toLocaleString()}</td>
                 <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + formatStockHierarchyJS(stockInPeriod, p) : '-'}</td>
                 <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + formatStockHierarchyJS(stockOutPeriod, p) : '-'}</td>
-                <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Same on-hand qty as POS. Date To in the past rolls live stock back by later restocks/sales. Period IN/OUT are log movements only.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
+                <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Log-based: Total IN minus Total OUT for the selected period. Negative means oversold or DB was manually adjusted.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
                 <td class="p-6 text-center">
                     <div class="flex flex-col items-center gap-1">
                         ${expiryBadge}
@@ -743,6 +749,45 @@ function syncAllDiscrepancies() {
             btn.innerHTML = '<i class="fas fa-magic mr-2"></i> Sync All Mismatched Items';
         }
         if (typeof showAlert === 'function') showAlert('Network error during sync.', 'Error');
+    });
+}
+
+function syncAllStockToDB() {
+    if (!confirm('Yeh action SARE products ki DB stock ko transaction logs (IN \u2212 OUT) se overwrite karega.\n\nMinus wale products ka stock MINUS ho jaega DB mein.\n\nConfirm karo?')) return;
+
+    var btn = document.getElementById('syncStockBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Syncing...';
+    }
+
+    var formData = new FormData();
+    formData.append('action', 'sync');
+    formData.append('product_id', 'all');
+
+    fetch('../actions/reconcile_stock.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-database mr-2"></i> Sync Stock to DB';
+        }
+        if (data.status === 'success') {
+            if (typeof showAlert === 'function') showAlert('✅ ' + data.message + '\n\nAb POS aur Inventory mein correct (minus) values nazar aayengi.', 'Sync Complete');
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            if (typeof showAlert === 'function') showAlert(data.message || 'Sync fail ho gaya.', 'Error');
+        }
+    })
+    .catch(function() {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-database mr-2"></i> Sync Stock to DB';
+        }
+        if (typeof showAlert === 'function') showAlert('Network error. XAMPP chal raha hai?', 'Error');
     });
 }
 

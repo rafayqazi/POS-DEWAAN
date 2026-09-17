@@ -15,6 +15,45 @@ usort($products, function($a, $b) {
     return strcasecmp($a['name'], $b['name']);
 });
 
+// ── Log-based stock map ───────────────────────────────────────────────────────
+// Calculate true stock (IN-OUT from logs) for every product so the grid and
+// modal match Check Inventory's Final Stock (not the possibly-stale DB value).
+$_all_restocks   = readCSV('restocks');
+$_all_sale_items = readCSV('sale_items');
+$_sales_map      = [];
+foreach (readCSV('sales') as $_s) { $_sales_map[$_s['id']] = true; }
+
+// Build per-product product map for multiplier lookups
+$_p_map = [];
+foreach ($products as $_p) { $_p_map[$_p['id']] = $_p; }
+
+$_log_in  = [];  // product_id => base units in
+$_log_out = [];  // product_id => base units out
+
+foreach ($_all_restocks as $_r) {
+    $pid = $_r['product_id'];
+    if (!isset($_p_map[$pid])) continue;
+    $ru = !empty($_r['unit']) ? $_r['unit'] : $_p_map[$pid]['unit'];
+    $_log_in[$pid] = ($_log_in[$pid] ?? 0) + (float)$_r['quantity'] * getBaseMultiplier($ru, $_p_map[$pid]);
+}
+foreach ($_all_sale_items as $_si) {
+    $pid = $_si['product_id'];
+    if (!isset($_p_map[$pid])) continue;
+    if (!isset($_sales_map[$_si['sale_id']])) continue;
+    $su  = !empty($_si['unit']) ? $_si['unit'] : $_p_map[$pid]['unit'];
+    $qty = (float)$_si['quantity'] * getBaseMultiplier($su, $_p_map[$pid]);
+    $ret = (float)($_si['returned_qty'] ?? 0) * getBaseMultiplier($su, $_p_map[$pid]);
+    $_log_out[$pid] = ($_log_out[$pid] ?? 0) + max(0, $qty - $ret);
+}
+
+// Attach log-based stock to each product
+foreach ($products as &$_p) {
+    $pid = $_p['id'];
+    $_p['_log_stock'] = ($_log_in[$pid] ?? 0) - ($_log_out[$pid] ?? 0);
+}
+unset($_p);
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Auto-open product from inventory.php redirect
 $auto_open_product = null;
 $auto_open_id = $_GET['open'] ?? '';
@@ -58,7 +97,8 @@ if (!empty($auto_open_id)) {
             <div class="product-card bg-white rounded-[2rem] p-6 shadow-md border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group relative overflow-hidden"
                  data-name="<?= strtolower(htmlspecialchars($p['name'])) ?>"
                  data-category="<?= strtolower(htmlspecialchars($p['category'])) ?>"
-                 onclick='openRestockModal(<?= htmlspecialchars(json_encode($p), ENT_QUOTES, "UTF-8") ?>)'>
+                 onclick='openRestockModal(<?= htmlspecialchars(json_encode($p), ENT_QUOTES, "UTF-8") ?>)'
+                 data-log-stock="<?= $p['_log_stock'] ?>">
                 
                 <div class="flex justify-between items-start mb-4">
                     <div class="p-4 bg-teal-50 text-teal-600 rounded-2xl group-hover:bg-teal-600 group-hover:text-white transition-colors">
@@ -66,8 +106,12 @@ if (!empty($auto_open_id)) {
                     </div>
                     <div class="text-right">
                         <span class="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Stock Level</span>
-                        <span class="px-3 py-1 rounded-full text-xs font-bold <?= $p['stock_quantity'] < 10 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' ?>">
-                            <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
+                        <?php
+                            $logStock = $p['_log_stock'];
+                            $badgeClass = $logStock < 0 ? 'bg-red-50 text-red-600' : ($logStock < 10 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600');
+                        ?>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold <?= $badgeClass ?>">
+                            <?= formatStockHierarchy($logStock, $p) ?>
                         </span>
                     </div>
                 </div>
@@ -424,8 +468,15 @@ if (!empty($auto_open_id)) {
             document.getElementById('modal_product_category').innerText = product.category || 'General';
             document.getElementById('form_product_id').value = product.id;
             
-            // 3. Stats Dashboard
-            document.getElementById('current_stock_display').innerHTML = formatStockHierarchyJS(product.stock_quantity, product);
+            // 3. Stats Dashboard — use log-based stock (matching Check Inventory) not raw DB
+            // Use log-based stock (_log_stock injected by PHP) — same value the card badge shows.
+            // Falls back to DB stock_quantity if _log_stock is missing for any reason.
+            var logStock = (product._log_stock !== undefined && product._log_stock !== null)
+                ? parseFloat(product._log_stock)
+                : parseFloat(product.stock_quantity || 0);
+            var stockProduct = Object.assign({}, product, { primaryUnit: product.unit });
+            document.getElementById('current_stock_display').innerHTML = formatStockHierarchyJS(logStock, stockProduct) + (logStock < 0 ? ' <span class="text-[9px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded ml-1">DEFICIT</span>' : '');
+            document.getElementById('current_stock_display').className = 'text-base font-black leading-snug ' + (logStock < 0 ? 'text-red-600' : 'text-slate-800');
             document.getElementById('current_buy_display').innerText = 'Rs. ' + (parseFloat(product.buy_price) || 0).toLocaleString();
             document.getElementById('current_sell_display').innerText = 'Rs. ' + (parseFloat(product.sell_price) || 0).toLocaleString();
             
@@ -874,13 +925,17 @@ if (!empty($auto_open_id)) {
      */
     function formatStockHierarchyJS(qty, p) {
         qty = parseFloat(qty);
-        const unitName = p.unit || 'Units';
-        if (qty <= 0) return `0 ${unitName}`;
+        if (isNaN(qty)) qty = 0;
+        const unitName = p.unit || p.primaryUnit || 'Units';
+        if (qty === 0) return `0 ${unitName}`;
+
+        const sign = qty < 0 ? '-' : '';
+        const absQty = Math.abs(qty);
 
         const chain = getUnitHierarchyJS(unitName);
-        if (chain.length <= 1) return `<b>${qty.toLocaleString(undefined, {maximumFractionDigits:2})}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
+        if (chain.length <= 1) return `${sign}<b>${absQty.toLocaleString(undefined, {maximumFractionDigits:2})}</b> <span class="text-[9px] uppercase opacity-70">${unitName}</span>`;
 
-        let remaining = qty;
+        let remaining = absQty;
         let parts = [];
         
         // Multipliers
@@ -905,8 +960,10 @@ if (!empty($auto_open_id)) {
 
         const baseUnit = chain[chain.length - 1].name;
         let display = parts.length === 0 ? `0 ${unitName}` : parts.join(', ');
-        display += ` <span class="text-[9px] text-teal-600 font-black ml-1 tracking-tight italic">[Total: ${qty.toLocaleString(undefined, {maximumFractionDigits:2})} ${baseUnit}]</span>`;
+        display = sign + display;
+        display += ` <span class="text-[9px] text-teal-600 font-black ml-1 tracking-tight italic">[Total: ${sign}${absQty.toLocaleString(undefined, {maximumFractionDigits:2})} ${baseUnit}]</span>`;
         return display;
+
     }
 
     // Modal Events
@@ -943,4 +1000,5 @@ if (!empty($auto_open_id)) {
         openRestockModal(<?= json_encode($auto_open_product) ?>);
     });
 <?php endif; ?>
+
 </script>

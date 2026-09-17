@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 1. Transactional Update of Product (AVCO & Stock)
     $restock_log_data = []; // To capture data for the log
     
-    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $add_quantity, $new_buy_price, $new_sell_price, $expiry_date, $remarks, &$restock_log_data) {
+    $transaction_success = processCSVTransaction('products', function($all_products) use ($product_id, $add_quantity, $new_buy_price, $new_sell_price, $expiry_date, $remarks, $selected_unit, &$restock_log_data) {
         $found_index = -1;
         foreach ($all_products as $i => $p) {
             if ($p['id'] == $product_id) {
@@ -41,28 +41,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $add_quantity_base = $add_quantity * $multiplier;
         $price_per_base = $new_buy_price / $multiplier;
 
-        $old_stock = (float)$product['stock_quantity']; // Always in base
-        $old_buy_price = (float)$product['buy_price']; // Normalized? No, UI shows product unit price
+        $old_buy_price = (float)$product['buy_price'];
         $old_sell_price = (float)$product['sell_price'];
         
-        // Calculate AVCO in Base Units
-        $current_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : ($old_buy_price / $multiplier);
-        
-        $total_old_value = $old_stock * $current_avco;
+        // ── Log-based stock recalculation ──────────────────────────────────────
+        // Read all restocks + sales for this product to compute true stock.
+        // This keeps DB in sync with Check Inventory's log-based Final Stock,
+        // even when stock_quantity was manually edited in the past.
+        $all_restocks = readCSV('restocks');
+        $all_sale_items = readCSV('sale_items');
+        $all_sales_map = [];
+        foreach (readCSV('sales') as $s) { $all_sales_map[$s['id']] = true; }
+
+        $total_in_base = 0;
+        foreach ($all_restocks as $r) {
+            if ($r['product_id'] != $product_id) continue;
+            $ru = !empty($r['unit']) ? $r['unit'] : $product['unit'];
+            $total_in_base += (float)$r['quantity'] * getBaseMultiplier($ru, $product);
+        }
+        // Add the NEW restock being processed (not yet in CSV)
+        $total_in_base += $add_quantity_base;
+
+        $total_out_base = 0;
+        foreach ($all_sale_items as $si) {
+            if ($si['product_id'] != $product_id) continue;
+            if (!isset($all_sales_map[$si['sale_id']])) continue;
+            $su = !empty($si['unit']) ? $si['unit'] : $product['unit'];
+            $qty = (float)$si['quantity'] * getBaseMultiplier($su, $product);
+            $ret = (float)($si['returned_qty'] ?? 0) * getBaseMultiplier($su, $product);
+            $total_out_base += max(0, $qty - $ret);
+        }
+
+        $log_based_stock = $total_in_base - $total_out_base;
+        // ───────────────────────────────────────────────────────────────────────
+
+        // AVCO calculation (uses log-based total quantity as denominator)
+        $old_avco = isset($product['avg_buy_price']) ? (float)$product['avg_buy_price'] : ($old_buy_price / $multiplier);
+        $old_stock_for_avco = $log_based_stock - $add_quantity_base; // stock before this restock (log-based)
+        $total_old_value = max(0, $old_stock_for_avco) * $old_avco;
         $total_new_value = $add_quantity_base * $price_per_base;
-        $total_quantity = $old_stock + $add_quantity_base;
-        
-        $avg_buy_price_base = ($total_quantity > 0) ? ($total_old_value + $total_new_value) / $total_quantity : $price_per_base;
+        $avco_denom = max($add_quantity_base, $log_based_stock); // avoid divide-by-zero on negatives
+        $avg_buy_price_base = ($avco_denom > 0) ? ($total_old_value + $total_new_value) / $avco_denom : $price_per_base;
         $avg_buy_price_product = $avg_buy_price_base * $multiplier;
         
-        // Update Product
-        $all_products[$found_index]['stock_quantity'] = $total_quantity;
+        // Update Product with log-based stock (can be negative)
+        $all_products[$found_index]['stock_quantity'] = $log_based_stock;
         $all_products[$found_index]['buy_price'] = $new_buy_price;
         $all_products[$found_index]['avg_buy_price'] = number_format($avg_buy_price_product, 2, '.', '');
         $all_products[$found_index]['sell_price'] = $new_sell_price;
-        // Update expiry and remarks to the latest one
-        if(!empty($expiry_date)) $all_products[$found_index]['expiry_date'] = $expiry_date;
-        if(!empty($remarks)) $all_products[$found_index]['remarks'] = $remarks;
+        if (!empty($expiry_date)) $all_products[$found_index]['expiry_date'] = $expiry_date;
+        if (!empty($remarks)) $all_products[$found_index]['remarks'] = $remarks;
         
         // Export data for logging
         $restock_log_data = [

@@ -169,6 +169,9 @@ $units = readCSV('units');
                             <span class="text-[10px] text-gray-400 font-medium italic">Unit: <?= $p['unit'] ?></span>
                             <?php if ($isOutOfStock): ?>
                                 <span class="text-[9px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-black uppercase tracking-wider">Out of Stock</span>
+                                <?php if ($stockVal < 0): ?>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 font-bold"><?= number_format($stockVal, 0) ?> <?= htmlspecialchars($p['unit']) ?></span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -179,7 +182,11 @@ $units = readCSV('units');
                             <span id="stock-label-<?= $p['id'] ?>" data-id="<?= $p['id'] ?>" data-stock="<?= $p['stock_quantity'] ?>"
                                   data-unit="<?= $p['unit'] ?>" data-f2="<?= (float)($p['factor_level2'] ?? 1) ?>" data-f3="<?= (float)($p['factor_level3'] ?? 1) ?>"
                                   class="text-xs font-black <?= $stockVal <= 0 ? 'text-red-500' : ($stockVal < 10 ? 'text-orange-500' : 'text-teal-600') ?>">
-                                <?= $isOutOfStock ? '<span class="text-red-500 font-bold">Out of Stock</span>' : formatStockHierarchy($p['stock_quantity'], $p) ?>
+                              <?php if ($isOutOfStock): ?>
+                                <span class="text-red-500 font-bold">Out of Stock</span><?php if ($stockVal < 0): ?><br><span class="text-[10px] font-bold text-red-400"><?= number_format($stockVal, 0) ?> <?= htmlspecialchars($p['unit']) ?></span><?php endif; ?>
+                              <?php else: ?>
+                                <?= formatStockHierarchy($p['stock_quantity'], $p) ?>
+                              <?php endif; ?>
                             </span>
                         </div>
                         <div class="flex flex-col gap-1 items-end shrink-0">
@@ -419,13 +426,17 @@ function getBaseMultiplierForProductJS(unitName, p) {
 
 function formatStockHierarchyJS(qty, p) {
     qty = parseFloat(qty);
+    if (isNaN(qty)) qty = 0;
     const unitName = p.primaryUnit || p.unit || 'Units';
-    if (qty <= 0) return `0 ${unitName}`;
+    if (qty === 0) return `0 ${unitName}`;
+
+    const sign = qty < 0 ? '-' : '';
+    const absQty = Math.abs(qty);
 
     const chain = getUnitHierarchyJS(unitName);
-    if (chain.length <= 1) return `<b>${qty.toFixed(0)}</b> <span class="text-[8px] opacity-60 uppercase">${unitName}</span>`;
+    if (chain.length <= 1) return `${sign}<b>${absQty.toFixed(0)}</b> <span class="text-[8px] opacity-60 uppercase">${unitName}</span>`;
 
-    let remaining = qty;
+    let remaining = absQty;
     let parts = [];
     let factors = [];
     
@@ -454,7 +465,8 @@ function formatStockHierarchyJS(qty, p) {
     
     // Absolute total in base unit
     const baseUnit = chain[chain.length - 1].name;
-    display += ` <span class="text-[8px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${baseUnit}]</span>`;
+    display += ` <span class="text-[8px] text-teal-600 font-bold ml-1 tracking-tight italic">[Total: ${sign}${absQty % 1 === 0 ? absQty : absQty.toFixed(2)} ${baseUnit}]</span>`;
+    display = sign + display;
     
     // Factor descriptions
     if (factors.length > 0) {
@@ -736,12 +748,14 @@ function updateStockLabels() {
         const usedBase = cartUsage[id] || 0;
         const remainingBase = totalBase - usedBase;
         
-        label.innerHTML = remainingBase <= 0 ? 
-            '<span class="text-red-500 font-bold">Out of Stock</span>' : 
-            formatStockHierarchyJS(remainingBase, { primaryUnit: label.dataset.unit, factor_level2: label.dataset.f2, factor_level3: label.dataset.f3 });
-        
-        if (remainingBase <= 0) card.classList.add('opacity-60');
-        else card.classList.remove('opacity-60');
+        if (remainingBase <= 0) {
+            const negDisplay = remainingBase < 0 ? `<br><span class="text-[10px] font-bold">${Math.round(remainingBase)} ${label.dataset.unit}</span>` : '';
+            label.innerHTML = `<span class="text-red-500 font-bold">Out of Stock</span>${negDisplay}`;
+            card.classList.add('opacity-60');
+        } else {
+            label.innerHTML = formatStockHierarchyJS(remainingBase, { primaryUnit: label.dataset.unit, factor_level2: label.dataset.f2, factor_level3: label.dataset.f3 });
+            card.classList.remove('opacity-60');
+        }
     });
 }
 
