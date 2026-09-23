@@ -18,9 +18,10 @@ usort($products, function($a, $b) {
 // ── Log-based stock map ───────────────────────────────────────────────────────
 // Calculate true stock (IN-OUT from logs) for every product so the grid and
 // modal match Check Inventory's Final Stock (not the possibly-stale DB value).
-$_all_restocks   = readCSV('restocks');
-$_all_sale_items = readCSV('sale_items');
-$_sales_map      = [];
+$_all_restocks       = readCSV('restocks');
+$_all_sale_items     = readCSV('sale_items');
+$_all_dealer_returns = readCSV('dealer_returns');
+$_sales_map          = [];
 foreach (readCSV('sales') as $_s) { $_sales_map[$_s['id']] = true; }
 
 // Build per-product product map for multiplier lookups
@@ -44,6 +45,12 @@ foreach ($_all_sale_items as $_si) {
     $qty = (float)$_si['quantity'] * getBaseMultiplier($su, $_p_map[$pid]);
     $ret = (float)($_si['returned_qty'] ?? 0) * getBaseMultiplier($su, $_p_map[$pid]);
     $_log_out[$pid] = ($_log_out[$pid] ?? 0) + max(0, $qty - $ret);
+}
+foreach ($_all_dealer_returns as $_dr) {
+    $pid = $_dr['product_id'];
+    if (!isset($_p_map[$pid])) continue;
+    $dru = !empty($_dr['unit']) ? $_dr['unit'] : $_p_map[$pid]['unit'];
+    $_log_out[$pid] = ($_log_out[$pid] ?? 0) + (float)$_dr['quantity'] * getBaseMultiplier($dru, $_p_map[$pid]);
 }
 
 // Attach log-based stock to each product

@@ -17,6 +17,7 @@ usort($categories, function($a, $b) { return strcasecmp($a['name'], $b['name']);
 $restocks = readCSV('restocks');
 $sales = readCSV('sales');
 $sale_items = readCSV('sale_items');
+$dealer_returns = readCSV('dealer_returns');
 $units = readCSV('units');
 
 // Map sales to dates for easier lookup
@@ -229,6 +230,7 @@ foreach ($_return_items_list as $_ri) {
 ?>
 var salesFull = <?= json_encode($_salesFull) ?>;
 var saleItems = <?= json_encode($sale_items) ?>;
+var dealerReturns = <?= json_encode($dealer_returns) ?>;
 var returnsLookup = <?= json_encode($_returns_by_sale_product) ?>;
 var availableUnits = <?= json_encode($units) ?>;
 
@@ -434,13 +436,27 @@ function renderInventory() {
             if ((!from || sDate >= from) && (!to || sDate <= to)) stockOutPeriod += netQty;
         });
 
-        // Log-based final stock: IN minus OUT within the selected period.
-        // If no date filter (Lifetime), this = total restocks ever minus total sales ever.
+        // Dealer Returns OUT (Stock returned back to dealer / supplier)
+        let dealerReturnPeriod = 0;
+        let dealerReturnAfterTo = 0;
+        dealerReturns.forEach(dr => {
+            if (dr.product_id != p.id) return;
+            const drDate = (dr.date || dr.created_at || '').toString().substring(0, 10);
+            const dru = (dr.unit && String(dr.unit).trim() !== '') ? dr.unit : (p.unit || '');
+            const q = qtyToBase(dr.quantity, dru, p);
+            if (to && drDate && drDate > to) dealerReturnAfterTo += q;
+            if ((!from || (drDate && drDate >= from)) && (!to || (drDate && drDate <= to))) dealerReturnPeriod += q;
+        });
+
+        const totalOutPeriod = stockOutPeriod + dealerReturnPeriod;
+
+        // Log-based final stock: IN minus Total OUT (Sales + Dealer Returns) within the selected period.
+        // If no date filter (Lifetime), this = total restocks ever minus total sales & dealer returns ever.
         // Negative means more was sold than restocked (oversold / DB was manually adjusted).
-        const finalStockAtPeriod = stockInPeriod - stockOutPeriod;
+        const finalStockAtPeriod = stockInPeriod - totalOutPeriod;
 
         totalInUnits += stockInPeriod;
-        totalOutUnits += stockOutPeriod;
+        totalOutUnits += totalOutPeriod;
         totalStockValueAmount += finalStockAtPeriod * (parseFloat(p.buy_price) || 0);
         totalCurrentStockTotal += finalStockAtPeriod;
 
@@ -471,7 +487,7 @@ function renderInventory() {
                 <td class="p-6 text-center font-mono text-[11px] text-gray-500">${latestDate}</td>
                 <td class="p-6 text-center font-bold text-gray-700">Rs. ${latestPrice.toLocaleString()}</td>
                 <td class="p-6 text-center font-bold text-blue-600">${stockInPeriod > 0 ? '+' + formatStockHierarchyJS(stockInPeriod, p) : '-'}</td>
-                <td class="p-6 text-center font-bold text-orange-600">${stockOutPeriod > 0 ? '-' + formatStockHierarchyJS(stockOutPeriod, p) : '-'}</td>
+                <td class="p-6 text-center font-bold text-orange-600" title="${dealerReturnPeriod > 0 ? 'Sales: ' + formatStockHierarchyJS(stockOutPeriod, p).replace(/<[^>]+>/g, '') + ' | Returned to Dealer: ' + formatStockHierarchyJS(dealerReturnPeriod, p).replace(/<[^>]+>/g, '') : 'Total Units Sold'}">${totalOutPeriod > 0 ? '-' + formatStockHierarchyJS(totalOutPeriod, p) : '-'}</td>
                 <td class="p-6 text-center font-black ${finalStockAtPeriod < 0 ? 'text-red-600 bg-red-50/40' : 'text-teal-700 bg-teal-50/30'}" title="Log-based: Total IN minus Total OUT for the selected period. Negative means oversold or DB was manually adjusted.">${formatStockHierarchyJS(finalStockAtPeriod, p)}</td>
                 <td class="p-6 text-center">
                     <div class="flex flex-col items-center gap-1">
@@ -1011,6 +1027,9 @@ window.onload = function() { setQuickRange(); };
             const rowBg = isInitial ? 'background:#fffbeb;' : (rowNum % 2 === 0 ? 'background:#f9fafb;' : '');
             const unitLabel = (r.unit && String(r.unit).trim() !== '') ? r.unit : (p.unit || '');
 
+            const retQty = parseFloat(r.returned_qty) || 0;
+            const retInfo = retQty > 0 ? `<div class="text-[8px] text-red-500 font-bold uppercase mt-1 flex items-center justify-center gap-1"><i class="fas fa-undo-alt text-[7px]"></i> -${retQty % 1 === 0 ? retQty : retQty.toFixed(2)} Ret to Dealer</div>` : '';
+
             html += `
                 <tr class="hover:bg-teal-50/40 transition" style="${rowBg}">
                     <td class="p-5 text-xs text-gray-400 font-mono">#${r.id || rowNum}</td>
@@ -1018,6 +1037,7 @@ window.onload = function() { setQuickRange(); };
                     <td class="p-5">${typeLabel}${isInitial ? '<div class="text-[8px] text-amber-500 font-bold uppercase mt-1">Qty at product create</div>' : ''}</td>
                     <td class="p-5 text-center">
                         <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-black text-xs shadow-sm border border-blue-100">+${qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(2)} ${unitLabel}</span>
+                        ${retInfo}
                     </td>
                     <td class="p-5 text-center text-xs font-black text-teal-700">${formatStockHierarchyJS(runningBase, p)}</td>
                     <td class="p-5 text-right text-sm font-black text-gray-800">Rs. ${price.toLocaleString()}</td>

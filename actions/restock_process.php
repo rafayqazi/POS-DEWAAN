@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // even when stock_quantity was manually edited in the past.
         $all_restocks = readCSV('restocks');
         $all_sale_items = readCSV('sale_items');
+        $all_dealer_returns = readCSV('dealer_returns');
         $all_sales_map = [];
         foreach (readCSV('sales') as $s) { $all_sales_map[$s['id']] = true; }
 
@@ -70,6 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $qty = (float)$si['quantity'] * getBaseMultiplier($su, $product);
             $ret = (float)($si['returned_qty'] ?? 0) * getBaseMultiplier($su, $product);
             $total_out_base += max(0, $qty - $ret);
+        }
+        foreach ($all_dealer_returns as $dr) {
+            if ($dr['product_id'] != $product_id) continue;
+            $dru = !empty($dr['unit']) ? $dr['unit'] : $product['unit'];
+            $total_out_base += (float)$dr['quantity'] * getBaseMultiplier($dru, $product);
         }
 
         $log_based_stock = $total_in_base - $total_out_base;

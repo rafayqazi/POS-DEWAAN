@@ -29,6 +29,7 @@ $categories = readCSV('categories');
 $restocks = readCSV('restocks');
 $sales = readCSV('sales');
 $sale_items = readCSV('sale_items');
+$dealer_returns = readCSV('dealer_returns');
 
 // Map sales to dates
 $sales_date_map = [];
@@ -75,7 +76,7 @@ foreach ($products as $p) {
     $inAfter = 0;
     foreach ($restocks as $r) {
         if ($r['product_id'] != $p['id']) continue;
-        $rd = substr($r['date'] ?? '', 0, 10);
+        $rd = substr($r['date'] ?? $r['created_at'] ?? '', 0, 10);
         $rUnit = !empty($r['unit']) ? $r['unit'] : ($p['unit'] ?? '');
         $q = (float)$r['quantity'] * getBaseMultiplier($rUnit, $p);
         $in_match = (empty($from) || $rd >= $from) && (empty($to) || $rd <= $to);
@@ -96,6 +97,16 @@ foreach ($products as $p) {
         $out_match = (empty($from) || $sd >= $from) && (empty($to) || $sd <= $to);
         if ($out_match) $outPeriod += $netQty;
         if (!empty($to) && $sd > $to) $outAfter += $netQty;
+    }
+
+    foreach ($dealer_returns as $dr) {
+        if ($dr['product_id'] != $p['id']) continue;
+        $drd = substr($dr['date'] ?? $dr['created_at'] ?? '', 0, 10);
+        $drUnit = !empty($dr['unit']) ? $dr['unit'] : ($p['unit'] ?? '');
+        $q = (float)$dr['quantity'] * getBaseMultiplier($drUnit, $p);
+        $dr_match = (empty($from) || $drd >= $from) && (empty($to) || $drd <= $to);
+        if ($dr_match) $outPeriod += $q;
+        if (!empty($to) && $drd > $to) $outAfter += $q;
     }
 
     $finalAt = $current - $inAfter + $outAfter;
